@@ -37,7 +37,7 @@ class CodeFontSizeTest {
     }
 
     @Test
-    fun `无柜号时取件码放大 15% - 不是留白是重排`() {
+    fun `无柜号时取件码放大 15％ - 不是留白是重排`() {
         assertEquals(54f, codeFontSizeSp("JD7739201", true, 800f, 1f), 0.01f)
         assertEquals(62f, codeFontSizeSp("JD7739201", false, 800f, 1f), 0.01f)
     }
