@@ -15,7 +15,6 @@ import dev.showcode.core.HealthReport
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
 import dev.showcode.core.PointAlias
-import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.resolvePointKey
 import dev.showcode.core.PointKind
 import dev.showcode.core.Source
@@ -271,17 +270,9 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
      * 合并两个取件点（story-6）。只登记一条别名，不动任何 parcel 行——
      * 所以 [undoMerge] 删掉登记就等于完整还原，AC3 不需要"回滚"这种危险动作。
      */
-    fun mergePoints(source: PickupPointGroup, target: PickupPointGroup, at: Long = System.currentTimeMillis()) {
+    fun mergePoints(record: PointAlias) {
         scope.launch {
-            db.putAlias(
-                PointAlias(
-                    aliasKey = source.key,
-                    aliasName = source.name,
-                    targetKey = target.key,
-                    targetName = target.name,
-                    createdAt = at,
-                )
-            )
+            db.putAlias(record)
             reload()
         }
     }

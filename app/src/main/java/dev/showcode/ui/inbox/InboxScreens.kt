@@ -339,7 +339,7 @@ fun ManualImportScreen(
 }
 
 @Composable
-private fun ScreenTopBar(title: String, onBack: () -> Unit) {
+internal fun ScreenTopBar(title: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

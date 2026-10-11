@@ -194,4 +194,27 @@
     <string name="ob_ready_cta">进首页</string>
     <string name="ob_ready_manual">等不及？手动导入一条试试</string>
     <string name="ob_ready_note">以上任何一项都能稍后在设置里改</string>
+    <string name="merge_suspect">「%1$s」和「%2$s」可能是同一个点？</string>
+    <string name="merge_suspect_yes">是同一个</string>
+    <string name="merge_suspect_no">不是</string>
+    <string name="merge_preview_title">合并这两个取件点</string>
+    <string name="merge_preview_body">将把 %1$s（%2$d 件）合并到 %3$s（%4$d 件），合并后显示 %5$d 件</string>
+    <string name="merge_preview_names">原始名称（最近几次写法）</string>
+    <string name="merge_preview_reassure">合并后，这两个名称下的取件码会显示在同一个卡片里。如果合错了，可以随时拆开。</string>
+    <string name="merge_preview_keep">保留哪个名字？</string>
+    <string name="merge_confirm">确认合并</string>
+    <string name="action_cancel">取消</string>
+    <string name="merge_done">已合并 · 保留「%1$s」</string>
+    <string name="merge_side_count">（%1$d 件）</string>
+    <string name="detail_gone">这个点已经没有待取的件了。</string>
+    <string name="detail_pending">待取件 %1$d 件</string>
+    <string name="detail_history">合并历史</string>
+    <string name="detail_history_empty">这个点没有并过别的名字。</string>
+    <string name="detail_history_row">「%1$s」并了进来</string>
+    <string name="detail_split">拆开</string>
+    <string name="detail_split_hint">合并后新到的旧写法仍会自动落进这个点；拆开后原来的名字和件数都会回来，不会丢。</string>
+    <string name="detail_others">其他取件点</string>
+    <string name="detail_others_hint">知道哪个点和它是同一个地方？把它并进来，App 不会自己合。</string>
+    <string name="detail_merge_into">并过来</string>
+    <string name="home_manage">管理这个取件点</string>
 </resources>

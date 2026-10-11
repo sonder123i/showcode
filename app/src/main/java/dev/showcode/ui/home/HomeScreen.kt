@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
@@ -48,12 +49,15 @@ import dev.showcode.core.HealthIssue
 import dev.showcode.core.HealthReport
 import dev.showcode.core.Parcel
 import dev.showcode.core.PickupPointGroup
+import dev.showcode.core.SuspectPair
 import dev.showcode.core.Urgency
 import dev.showcode.core.urgencyOf
 import dev.showcode.ui.closingLabel
 import dev.showcode.ui.pointKindLabel
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.points.MergeUndoBar
+import dev.showcode.ui.points.SuspectHintCard
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.OnsiteInk
 import dev.showcode.ui.theme.OnsiteSurface
@@ -86,6 +90,8 @@ data class HomeUiState(
     val showWidgetHint: Boolean,
     val smsPermissionGranted: Boolean,
     val notificationAccessGranted: Boolean,
+    /** 疑似重复的一对（story-6 AC4）：只问一句，绝不自动合并。 */
+    val suspect: SuspectPair? = null,
 )
 
 /** 数据超过这个时长没同步过就算陈旧。陈旧的码比没有码更危险。 */
@@ -119,6 +125,11 @@ fun HomeScreen(
     onRequestSmsPermission: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onRefresh: () -> Unit,
+    onManagePoint: (PickupPointGroup) -> Unit,
+    onSuspectYes: () -> Unit,
+    onSuspectNo: () -> Unit,
+    mergeUndoName: String?,
+    onUndoMerge: () -> Unit,
 ) {
     val isStale = state.smsPermissionGranted &&
         (state.lastSyncAt == null || now - state.lastSyncAt > STALE_THRESHOLD_MS)
@@ -163,6 +174,10 @@ fun HomeScreen(
                 StaleBar(lastSyncAt = state.lastSyncAt, now = now, onRefresh = onRefresh)
             }
 
+            /* 合并后的 5 秒撤销（AC2 的「立刻有一个明显的撤销入口」）。
+               和权限条一样住在 LazyColumn 外面：一个能被滚走的反悔入口等于没有反悔。 */
+            mergeUndoName?.let { MergeUndoBar(keptName = it, onUndo = onUndoMerge) }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = REFRESH_PILL_CLEARANCE),
@@ -189,7 +204,27 @@ fun HomeScreen(
                     }
                 } else {
                     items(state.groups, key = { it.key }) { group ->
-                        PointCard(group = group, now = now, onClick = { onOpenPoint(group.key) })
+                        val hint = state.suspect
+                        /* 提示插在两张卡里更紧急那张的上方：它讲的是「这两张是同一件事」，
+                           放在其中任何一张上面都比放在列表尾巴上读得懂。 */
+                        if (hint != null && hint.first.key == group.key) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                SuspectHintCard(pair = hint, onYes = onSuspectYes, onNo = onSuspectNo)
+                                PointCard(
+                                    group = group,
+                                    now = now,
+                                    onClick = { onOpenPoint(group.key) },
+                                    onManage = { onManagePoint(group) },
+                                )
+                            }
+                        } else {
+                            PointCard(
+                                group = group,
+                                now = now,
+                                onClick = { onOpenPoint(group.key) },
+                                onManage = { onManagePoint(group) },
+                            )
+                        }
                     }
                     if (state.empty == HomeEmpty.ALL_DONE) {
                         item { AllDoneCard(monthlyPicked = state.monthlyPicked) }
@@ -357,6 +392,8 @@ private fun PointCard(
     group: PickupPointGroup,
     now: Long,
     onClick: () -> Unit,
+    /* 示例卡不带管理入口：演示数据不落库，合并一个假取件点会造出一条真登记。 */
+    onManage: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val kindText = pointKindLabel(group.kind)
@@ -405,6 +442,20 @@ private fun PointCard(
                     fontSize = 12.sp,
                     color = OnsiteInk.copy(alpha = 0.5f),
                 )
+                /* 管理入口必须另给一个角：点卡片直进现场模式那个 1 步承诺
+                   不能被「合并取件点」这种操作污染。 */
+                onManage?.let { manage ->
+                    IconButton(
+                        onClick = manage,
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.home_manage),
+                            tint = OnsiteInk.copy(alpha = 0.45f),
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(2.dp))

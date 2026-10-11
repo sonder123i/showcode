@@ -25,7 +25,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.showcode.app
 import dev.showcode.core.DAY_MS
 import dev.showcode.core.HealthIssue
+import dev.showcode.core.PointAlias
+import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.groupByPoint
+import dev.showcode.core.mergePreview
+import dev.showcode.core.suspectDuplicates
+import dev.showcode.ui.points.MergePreviewScreen
+import dev.showcode.ui.points.PointDetailScreen
+import kotlinx.coroutines.delay
 import dev.showcode.data.DemoData
 import dev.showcode.ui.home.HomeEmpty
 import dev.showcode.ui.home.HomeScreen
@@ -40,7 +47,10 @@ import dev.showcode.ui.settings.SettingsScreen
 import dev.showcode.widget.PickupWidgetProvider
 import dev.showcode.widget.WidgetNav
 
-private enum class Route { HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING }
+private enum class Route { HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL, MERGE_PREVIEW }
+
+/* 合并后撤销条的驻留时长。story-6 的 user_side 写的是「五秒内屏幕下方有个已合并 · 撤销」。 */
+private const val MERGE_UNDO_MS = 5_000L
 
 /** 首页「最近已取」最多列几条。它是误触后的补救出口，不是主路径，不该占满一屏。 */
 private const val RECENTLY_PICKED_LIMIT = 5
@@ -69,6 +79,13 @@ fun ShowCodeRoot() {
     var manualSourceId by rememberSaveable { mutableStateOf<Long?>(null) }
     var manualReturn by rememberSaveable { mutableStateOf(Route.HOME) }
     var onboardStep by rememberSaveable { mutableStateOf(OnboardStep.WELCOME) }
+    var detailKey by rememberSaveable { mutableStateOf("") }
+    /* 合并预览与「刚合过一次」的撤销态。预览内容里有 List，存不进 Saveable，
+       而进程在弹层开着时被杀掉是无关紧要的丢失——重开一次预览就行。 */
+    var pendingMerge by remember { mutableStateOf<dev.showcode.core.MergePreview?>(null) }
+    var mergeReturn by rememberSaveable { mutableStateOf(Route.HOME) }
+    var keepTarget by rememberSaveable { mutableStateOf(true) }
+    var lastMerge by remember { mutableStateOf<PointAlias?>(null) }
     var smsAttempted by rememberSaveable { mutableStateOf(false) }
     var widgetAdded by remember { mutableStateOf(false) }
 
@@ -88,6 +105,54 @@ fun ShowCodeRoot() {
         groupByPoint(demoParcels.filterNot { demoPicked.contains(it.id) }, now, thresholds)
     }
     val activeGroups = if (demo) demoGroups else realGroups
+
+    /* 轻提示只报字面重叠的一对，且用户说过「不是」之后就永久闭嘴。
+       AC4 的红线是绝不自动合并，所以这里只产生一个候选、不产生任何数据变化。 */
+    val suspect = remember(realGroups, appData.dismissals) {
+        suspectDuplicates(realGroups, appData.dismissals).firstOrNull()
+    }
+
+    LaunchedEffect(lastMerge) {
+        if (lastMerge != null) {
+            delay(MERGE_UNDO_MS)
+            lastMerge = null
+        }
+    }
+
+    fun openMergePreview(a: PickupPointGroup, b: PickupPointGroup, preferTarget: PickupPointGroup? = null) {
+        /* 从详情页点「并过来」时方向已经由用户定死了——并到他正在看的那个点，
+           这里不能再拿件数去翻他的决定。只有轻提示那条路径两边没有主客，
+           才用件数默认保留谁的名字（件多是「这个点一直在用」的证据）。 */
+        val (source, target) = when {
+            preferTarget != null -> (if (preferTarget.key == a.key) b else a) to preferTarget
+            b.items.size > a.items.size -> a to b
+            else -> b to a
+        }
+        pendingMerge = mergePreview(source, target)
+        keepTarget = true
+        mergeReturn = route
+        route = Route.MERGE_PREVIEW
+    }
+
+    fun confirmMerge() {
+        val preview = pendingMerge ?: return
+        val source = if (keepTarget) preview.source else preview.target
+        val target = if (keepTarget) preview.target else preview.source
+        val record = PointAlias(
+            aliasKey = source.key,
+            aliasName = source.name,
+            targetKey = target.key,
+            targetName = target.name,
+            createdAt = System.currentTimeMillis(),
+        )
+        repository.mergePoints(record)
+        lastMerge = record
+        pendingMerge = null
+        route = mergeReturn
+        /* 详情页刚刚看着 A 的视角，合并完要跟着活下来的那个点，
+           否则回去会看见一个已经不存在的分组。 */
+        if (mergeReturn == Route.POINT_DETAIL) detailKey = target.key
+    }
 
     var smsGranted by remember { mutableStateOf(repository.hasSmsPermission()) }
     var notificationGranted by remember { mutableStateOf(repository.hasNotificationAccess()) }
@@ -227,6 +292,7 @@ fun ShowCodeRoot() {
         showWidgetHint = !repository.prefs.widgetHintDismissed && realGroups.isNotEmpty(),
         smsPermissionGranted = smsGranted,
         notificationAccessGranted = notificationGranted,
+        suspect = suspect,
     )
 
     when (route) {
@@ -258,6 +324,17 @@ fun ShowCodeRoot() {
             onRequestSmsPermission = { requestSmsPermission() },
             onOpenNotificationSettings = { openNotificationSettings() },
             onRefresh = { repository.refreshNow() },
+            onManagePoint = { group ->
+                detailKey = group.key
+                route = Route.POINT_DETAIL
+            },
+            onSuspectYes = { suspect?.let { openMergePreview(it.first, it.second) } },
+            onSuspectNo = { suspect?.let { repository.dismissSuspect(it.dismissKey) } },
+            mergeUndoName = lastMerge?.targetName,
+            onUndoMerge = {
+                lastMerge?.let { repository.undoMerge(it.aliasKey) }
+                lastMerge = null
+            },
         )
 
         Route.ONSITE -> {
@@ -350,6 +427,34 @@ fun ShowCodeRoot() {
             },
         )
 
+        Route.POINT_DETAIL -> {
+            val group = realGroups.firstOrNull { it.key == detailKey }
+            val history = remember(detailKey, appData.aliases) { repository.mergeHistoryFor(detailKey) }
+            PointDetailScreen(
+                group = group,
+                history = history,
+                otherGroups = realGroups,
+                aliases = appData.aliases,
+                now = now,
+                onBack = { route = Route.HOME },
+                onOpenPoint = { g -> openPoint(g.key, g.name) },
+                onSplit = { alias -> repository.undoMerge(alias.aliasKey) },
+                onMergeOtherIntoThis = { other ->
+                    group?.let { openMergePreview(other, it, preferTarget = it) }
+                },
+            )
+        }
+
+        Route.MERGE_PREVIEW -> pendingMerge?.let { preview ->
+            MergePreviewScreen(
+                preview = preview,
+                keepTarget = keepTarget,
+                onKeepTarget = { keepTarget = it },
+                onConfirm = { confirmMerge() },
+                onCancel = { pendingMerge = null; route = mergeReturn },
+            )
+        }
+
         Route.ONBOARDING -> OnboardingScreen(
             step = onboardStep,
             report = healthReport,
@@ -375,4 +480,5 @@ fun ShowCodeRoot() {
             },
         )
     }
+
 }
