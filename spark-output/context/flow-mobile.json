@@ -1,0 +1,165 @@
+{
+  "skill": "flow-mobile",
+  "generated_at": "2026-10-11T00:00:00+08:00",
+  "project_name": "亮码 ShowCode（工作名，用户已选定 showcode 作为目录与仓库名）",
+  "scenario": "Productivity（主参照 Flow 3 日视图任务管理）+ Consumer Finance（反向参照 Balance Concealment）",
+  "scenario_declaration": {
+    "type": "Other flow",
+    "nearest_canonical_flow": "Productivity · Flow 3 日视图任务管理",
+    "key_differences": [
+      "使用环境相反：Flow3 室内双手从容 / 本流程户外强光单手戴手套屏幕有水身后有人 → 反转信息密度决策（高密度时间轴 vs 极低密度单码）",
+      "核心容器维度不同：Flow3 竖向时间轴（时间）/ 本流程按取件点分节（空间），时间轴降级为历史页",
+      "完成操作后果不同：Flow3 原地划线留在视图 / 本流程该件消失并自动滑到下一件（目标是清空这个点然后走人）",
+      "入口不在 App 内：桌面组件某一分节，点击即携带「我在哪个点」的上下文，故不需定位权限",
+      "完全没有添加操作：数据全部被动解析，FAB/Sheet/键盘避让体系整体不适用"
+    ],
+    "inverse_reference": "Consumer Finance 的 Balance Concealment 要求公共场所遮蔽余额；本流程反向——取件码要最大可见，因为用户就是要给柜机和店员看。已显式记录，防止有人套用金融直觉设计错。"
+  },
+  "tech_stack": "H5 (React 19 + antd-mobile v5.43 + react-router-dom v6)",
+  "tech_stack_note": "⚠️ 产物是设计验证 mockup，不是实现。真实 App 是 Kotlin + Compose 安卓原生。用户解除「不碰实现」约束的目的：用可运行屏验证户外强光/单手/手套/水屏下的字号、对比度、触控区。",
+  "flows": [
+    {
+      "name": "On-site Present",
+      "file_path": "src/flows/flow-1/flow1-onsite-present.tsx",
+      "screen_count": 6,
+      "navigation_mode": "Stack，无 TabBar（刻意）：单任务深链流程，任何 Tab 都会抢注意力",
+      "screens": [
+        { "n": 1, "name": "Desktop Widget（形态 B）", "route": "/", "density": "中", "states": ["form-A", "form-B", "form-C", "form-D", "unrecognized-badge", "stale-freshness"] },
+        { "n": 2, "name": "On-site Main", "route": "/onsite/:pointId", "density": "极低", "states": ["default", "no-locker", "stale-code", "family-group", "empty", "all-picked", "demo"] },
+        { "n": 3, "name": "On-site Variants（评审画廊）", "route": "/variants", "density": "—", "states": ["4 个缩略变体"] },
+        { "n": 4, "name": "Tile Overview", "route": "/onsite/:pointId/tiles", "density": "中", "states": ["8 件网格"] },
+        { "n": 5, "name": "Picked Feedback（瞬态冻结）", "route": "/picked", "density": "—", "states": ["淡出 + 3 秒撤销"] },
+        { "n": 6, "name": "Home Updated", "route": "/home", "density": "中-高", "states": ["default", "empty-collection", "permission-health-bar"] }
+      ],
+      "exit_states": {
+        "success": "该点全部标记已取 → 现场模式显示「这个点已经取完了」→ 返回首页，卡片件数归零且为绿色成功态（不是灰色空态）",
+        "error": "码可能已失效 → NoticeBar 提示但**不阻断出示**；该点无件 → 非空白屏，显示最近一次取件时间 + 返回",
+        "abandon": "swipe ↓ / 左上返回退出 → 已标记的「已取」**保留**（记录的是物理事实）；3 秒撤销窗口过后的误触出口在首页/历史「改回待取」（本次流程新补的设计）"
+      },
+      "gesture_spec": {
+        "tap": "组件分节 → 现场模式 · 「已取」· 平铺/轮播切换 · 分组 pill",
+        "swipe-horizontal": "现场模式内换件，阈值 48px，**不跨代取组**",
+        "swipe-down": "退出现场模式（与系统返回同义）",
+        "long-press": "取件码 → 复制（user-select: all）",
+        "not-used": "pinch · pull-to-refresh（现场模式刻意 N/A：它不是数据浏览屏）"
+      },
+      "measurable_success": "解锁 → 看清当前取件点该出示的码 ≤ 1 次点击",
+      "environment_constraints": "户外强光 · 单手 · 可能戴手套 · 屏幕可能有水 · 身后有人排队 · 注意力在柜机不在手机"
+    },
+    {
+      "name": "Onboarding & Permission Setup",
+      "file_path": "src/flows/flow-2/flow2-onboarding.tsx",
+      "screen_count": 6,
+      "navigation_mode": "Stack 线性 + 步骤进度条（无 TabBar，引导完即退出）",
+      "canonical_reference": "Health & Fitness · Flow 1 Onboarding with Permission Setup（GO Club flow 6349 / Miles flow 6704 的行业范式）",
+      "inherited_principle": "先理解价值，再请求权限——行业共识，显著提升授权率。对应 frame.json「权限按价值顺序请求，不按技术顺序」",
+      "differences_from_reference": [
+        "无登录：明确不做跨设备同步 → 没有账号体系，第一屏直接是价值主张",
+        "「先理解价值」不用问卷，用现场模式演示——价值在一屏超大取件码里，不在问答里",
+        "权限只有 2 类，但短信权限的心理抗拒远高于健康数据，说明页要更厚",
+        "多一步范式里没有的「桌面组件引导」——组件是「≤1 次点击」标准的载体，不教等于白做",
+        "onboarding 结束时什么都没有（还没收到快递）；健康类一结束就有生成的计划。这是最本质的差异，靠演示态 + 空态兜住"
+      ],
+      "screens": [
+        { "n": 1, "name": "Welcome / 价值主张", "route": "/onboarding", "primary_action": "先看看取件时什么样（先看价值，不要权限）", "states": ["default"] },
+        { "n": 2, "name": "On-site Demo", "route": "/onboarding/demo", "primary_action": "退出演示，开始设置", "states": ["demo（水印 / 已取不记录 / 不残留）"], "reuse": "复用 flow1 导出的 OnsiteCodeBody，避免两处渲染逻辑走形" },
+        { "n": 3, "name": "SMS Permission", "route": "/onboarding/sms-permission", "primary_action": "允许并继续", "states": ["default", "denied（不锁死，走手动导入）"] },
+        { "n": 4, "name": "Notification Permission", "route": "/onboarding/notification-permission", "primary_action": "去系统设置里开启", "states": ["default（列出 4 个会漏掉的来源）", "skipped"] },
+        { "n": 5, "name": "Widget Setup", "route": "/onboarding/widget", "primary_action": "我已添加到桌面", "states": ["default", "done", "skipped（不阻断）"], "decision": "刻意可跳过——部分 ROM 添加小组件仍需额外权限，强制引导会把用户卡在第 5 步，比跳过更糟" },
+        { "n": 6, "name": "Ready（已就绪但空）", "route": "/onboarding/ready", "primary_action": "进首页", "states": ["default", "partial（部分授权，列出漏了什么）", "miui（通知类短信专项）"] }
+      ],
+      "exit_states": {
+        "success": "全授权 + 已加组件 → 首页空态「已就绪，在等第一条取件短信」+ 组件形态 A",
+        "error": "部分授权 → 首页可用，顶部横条明确列出漏掉哪些来源（不写「权限不足」）",
+        "abandon": "任一权限拒绝或跳过 → 功能不锁死，手动导入路径始终可用，隐私承诺仍然成立"
+      },
+      "visual_review": {
+        "defects_found_and_fixed": [
+          "评审用「屏」按钮上一轮改成 bottom:92 只是针对现场模式的局部修法，在引导屏上又压住了主 CTA。改为通用解法：贴右边缘 + 垂直居中 + 半透明，避开顶部信息条与底部 CTA 两个危险区",
+          "部分授权提示用 antd NoticeBar，实测被单行跑马灯裁掉「你会漏掉微信和各家 App 的推送通知」这半句、只剩「还有 2 项」——而本项目明确要求「不说权限不足、要列出漏掉的来源」，被裁掉的正是来源。改用自建 AlertBlock 支持多行。注：5.43 版 NoticeBar 无 wrapable prop（该 prop 会触发类型错）"
+        ],
+        "second_defect_note": "第二个缺陷值得记住：**布局把设计原则吃掉了**。AC 写对了、文案写对了，但组件的单行约束让原则失效。这类问题只有截图目视能抓到，代码审查看不出来。"
+      }
+    }
+  ],
+  "output_files": [
+    "src/flows/shared/types.ts",
+    "src/flows/shared/mock-data.ts",
+    "src/flows/flow-1/flow1-onsite-present.tsx",
+    "src/flows/flow-2/flow2-onboarding.tsx",
+    "src/flows/showcode/showcode.tsx",
+    "src/App.tsx",
+    "src/index.css"
+  ],
+  "visual_review": {
+    "method": "dev server + 浏览器截图目视验收（4 轮：v1→v5），截图存于 spark-output/shots/",
+    "rounds": [
+      { "round": 1, "found": ["P1 取件码块不垂直居中（antd Swiper 内部 slide 高度不受控）", "P1 「已取」饱和蓝在强光下发灰且与码竞争注意力", "P2 评审按钮压住「已取」右角", "P2 「长按可复制」0.4 透明度 ≈ 2.8:1 对比度"], "fixed": ["改用 flex 传递高度（先试 Swiper flex:1 仍失败，最终手写手势轮播）", "按钮改黑底白字（var(--onsite-ink)）", "评审按钮 bottom 12→92", "透明度 0.4→0.55"] },
+      { "round": 2, "found": ["P2 柜号标签按归属人判断（京东自提点显示「格口」）", "P2 safe 态件显示假倒计时「剩 4小时12分」", "P3 等宽字体中文回退成衬线"], "fixed": ["lockerLabel 改按取件点类型传入", "ticking 仅在 urgency=due-soon 且有 deadlineLabel 时传入", "字体栈在 monospace 前插入 PingFang SC / Microsoft YaHei"] }
+    ],
+    "root_cause_note": "垂直居中的真因是外层容器用 minHeight:100vh——min-height 不会让高度对子元素百分比解析确定，内层 height:100% 退化为 auto。最终解法是整条链路用 flex 传高度、不用百分比，并顺手把手写手势轮播替换了 antd Swiper。",
+    "open_visual_items": [
+      "P3 176px 组件下两节文字到可读边缘；glance 目前靠 4px 彩色边条，色弱/弱光下脆弱。好在「过期风险」文字是非颜色冗余线索，不算缺陷，但需真机再判",
+      "P3 代取分组黑 pill 视觉重量偏大，与取件码竞争；可考虑描边式",
+      "P3 现场模式 >1 件时没有 swipe 视觉提示（仅「第 2/5 件」暗示）；可加左右淡箭头"
+    ]
+  },
+  "anti_pattern_check": {
+    "productivity": [
+      { "pattern": "添加任务需要超过 2 次点击才能开始输入", "verdict": "N/A", "note": "本流程无添加操作，数据全部被动解析" },
+      { "pattern": "任务操作跳转到独立页面", "verdict": "✅ 未违反", "note": "「已取」原地淡出并滑到下一件，不导航离开" },
+      { "pattern": "重复任务配置跳转多个子页", "verdict": "N/A" },
+      { "pattern": "日视图只显示列表没有时间维度", "verdict": "✅ 未违反（刻意反转）", "note": "我们的维度是空间不是时间；时间以倒计时数字形式出现在决策表面，而非时间轴" },
+      { "pattern": "习惯打卡用普通小 Checkbox 无仪式感", "verdict": "✅ 未违反", "note": "「已取」是 64px 黑底大按钮 + 淡出动效 + 撤销 Toast，不是小 Checkbox" },
+      { "pattern": "删除重复任务只有全部删除一个选项", "verdict": "N/A" },
+      { "pattern": "没有 Undo 机制", "verdict": "✅ 未违反", "note": "3 秒撤销 Toast，与场景文件给出的行业共识逐字一致" }
+    ],
+    "consumer_finance": [
+      { "pattern": "余额无隐私遮蔽功能", "verdict": "🔄 反向决策", "note": "取件码要最大可见，用户就是要给柜机和店员看。已显式记录防止误套金融直觉" },
+      { "pattern": "不使用生物识别仅靠单击完成大额操作", "verdict": "✅ 风险匹配", "note": "「已取」stakes 低（一个包裹），3 秒撤销是与之匹配的防误触手段，生物识别是过度设计" }
+    ]
+  },
+  "ds_coverage": {
+    "antd_mobile_used": [
+      ["NavBar", "现场模式顶部信息条 / 各屏标题", "backArrow 自定义为 LeftOutline"],
+      ["Button", "「已取」/ 返回首页 / 首页两个跳转", "用 CSS 变量覆盖为黑底白字"],
+      ["Grid", "平铺总览 8 件网格", "columns=2"],
+      ["NoticeBar", "码可能已失效 / 权限健康横条", "color=alert，closeable；失效提示**不阻断出示**"],
+      ["Toast", "已标记取出 + 可点撤销 / 权限详情", "content 传 ReactNode 承载撤销入口"],
+      ["SafeArea", "各屏底部安全区", "position=bottom"],
+      ["List / List.Item", "首页取件点卡片", "prefix 用三态色竖条"],
+      ["PullToRefresh", "仅首页", "现场模式刻意不用"],
+      ["Tag", "平铺总览的柜号", "等宽字体"],
+      ["Popup", "评审用屏选择器", "真实产品没有"]
+    ],
+    "missing_from_library": [
+      ["桌面组件分节卡片", "自定义 div", "widget 不是 App 内屏，antd-mobile 无此概念"],
+      ["全屏等宽取件码", "自定义 div", "本产品的核心组件，任何组件库都不会有"],
+      ["水平轮播", "手写 touch 手势", "antd Swiper 的内部 slide 高度不受外部控制，会破坏取件码垂直居中这一核心视觉决策"]
+    ],
+    "deliberate_deviations": [
+      "「已取」按钮 64px 高、字号 22 —— 超出 antd 默认，因手套 + 水屏容错（标准 44px 不够）",
+      "取件码纯黑 #000 on 纯白 —— 不用 --adm-color-text(#333)，户外强光要最大对比度；Compose 实现时对应 Color.Black，不要套 Material onSurface",
+      "现场模式无下拉刷新、无加载态、无分页 —— 它不是数据浏览屏；在柜机前加下拉刷新会诱导无意义操作"
+    ]
+  },
+  "device_review": {
+    "by": "用户本人，真机",
+    "at": "2026-10-11",
+    "verdict": "通过（「看完了，没问题」）",
+    "closed": "视觉与交互层：72px 取件码的户外可读性、56px「已取」按钮的单手可达、176px 组件两节的瞟读效率、5 步引导的节奏、空态与异常态的观感",
+    "not_closed": "无。我提议过一套 A/B 实验（手填真码 + 装在位者 parcel 做对照组 + 到驿站各测一遍），他回答「我体验已经没问题了」——即明确接受 n=1 的自身经验作为足够证据。理由成立：他是唯一已知用户，判断错的代价由他自己承担。**本项已关闭，不要再作为待办或风险提出。**",
+    "accepted_risk": "critical_assumption 的证据强度为 n=1，由用户主动接受，非遗留缺口。"
+  },
+  "verification": {
+    "vite_build": "pass",
+    "tsc_noEmit": "pass",
+    "screenshots": [
+      "spark-output/shots/s2-onsite-fengchao-v5.png",
+      "spark-output/shots/s1-widget.png",
+      "spark-output/shots/s2-daqu-groups-v2.png",
+      "spark-output/shots/s6-home.png（首轮截得）"
+    ],
+    "dev_server": "http://127.0.0.1:5199（后台运行中）"
+  }
+}

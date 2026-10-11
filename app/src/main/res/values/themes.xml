@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 纯黑 on 纯白 ≈ 21:1，是本产品最不能妥协的视觉决策（户外强光）。
+         因此强制浅色主题并禁用 force-dark：系统反色会把 21:1 直接毁掉。 -->
+    <style name="Theme.ShowCode" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:isLightTheme">true</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

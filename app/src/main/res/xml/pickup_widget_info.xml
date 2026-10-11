@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  2×2 通用组件。targetCellWidth/Height 是「建议占几格」，minWidth/Height 是下限；
+  两者都不为「塞下更多」而调大——那是用户明确约束过的尺寸红线。
+  configure 让添加时可以选「通用」或「绑定某个点」；选通用就是一下点击，等于零配置。
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="dev.showcode.widget.WidgetConfigureActivity"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_root"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

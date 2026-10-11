@@ -1,0 +1,528 @@
+{
+  "skill": "edge",
+  "generated_at": "2026-10-11T00:00:00+08:00",
+  "project_name": "亮码 ShowCode（工作名，待定）",
+  "target_flows": [
+    "首次启动与权限授予",
+    "首页取件点卡片列表（管理模式）",
+    "桌面组件（4 形态）",
+    "现场模式（全屏出示）",
+    "取件点合并与归一化",
+    "手动导入",
+    "未识别收容",
+    "历史",
+    "设置"
+  ],
+  "screen_inventory_note": "无 Flow / Sitemap 上游。9 个走查表面从 frame.json 的 design_decisions 与 journey.json 的 6 stage 推导。已向用户摊出待纠错。",
+  "meta_findings": [
+    {
+      "id": "meta-1",
+      "title": "6 大类里有 2 类几乎不适用",
+      "detail": "本产品纯本地、不联网、无异步数据加载，所以「加载状态」与「网络/服务端错误」基本为空。异常态的重心完全落在「权限」与「数据可信度」上。设计资源不该花在 skeleton / spinner / 错误页模板，而该花在「让用户知道自动收录还活着」与「让用户知道他看到的码是不是真的」。"
+    },
+    {
+      "id": "meta-2",
+      "title": "「离线」不是异常态，是卖点",
+      "detail": "竞品在地下车库、电梯口、信号差的驿站可能转圈，我们不会。因此离线时不应显示任何「无网络」警告——那会把优势说成缺陷。唯一例外是 V2 的动态身份码深链跳转。"
+    },
+    {
+      "id": "meta-3",
+      "title": "本产品有 6 种语义完全不同的空态，绝不可共用文案",
+      "detail": "first-time（还没收到快递）/ collection（全取完了，是成就不是缺失）/ filter（筛选后为空）/ 组件形态 A（等待第一条）/ 组件形态 D（绑定点已清空）/ 现场模式无件（用户站在柜机前会恐慌）/ 未识别页空态（信任建立瞬间）。技能红线 3 明确禁止用通用空状态打包。"
+    }
+  ],
+  "states_matrix": [
+    {
+      "screen": "首次启动引导 / 权限页",
+      "screen_id": "s1-onboarding-permission",
+      "journey_stage": 1,
+      "states": [
+        {
+          "state_type": "permission-sms-denied",
+          "required": true,
+          "severity": "must",
+          "design_description": "不给一句「需要权限」，给一张能力对比：左「全自动：0 操作，快递到了自动收录」/ 右「手动模式：每条自己粘贴，约 3 秒」。隐私承诺（盾牌图标 + 「只在本地读取，永不上传」）放在授权按钮上方。",
+          "fallback_behavior": "三个出口：再试一次授权 / 只用手动导入 / 看隐私说明。拒绝权限不等于拒绝产品，手动导入路径必须是一等公民，页面不锁死任何功能。",
+          "copy_hint": "不给短信权限也能用，只是每条要自己粘贴一下。",
+          "evidence": "在位者 README 使用问题 #6 暗示手动导入退路存在，但未做成一等公民"
+        },
+        {
+          "state_type": "permission-notification-denied",
+          "required": true,
+          "severity": "must",
+          "design_description": "明确说明少了什么，并列出具体来源（微信服务通知 / 菜鸟 App / 京东 App），而不是说「权限不足」。",
+          "fallback_behavior": "去开启 / 就这样用（仅短信自动收录）",
+          "copy_hint": "你会漏掉这些来源：微信公众号推送、菜鸟 App、京东 App 的取件通知。",
+          "evidence": "journey.json Stage 2 机会点：管理预期好过让用户自己发现漏洞"
+        },
+        {
+          "state_type": "permission-health-bar",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "cross_screen": "⚠️ 本状态是**跨屏常驻组件**，不只属于 onboarding。真实作用范围：S2 首页顶部常驻（不可被滚动隐藏）+ S4 现场模式进入时的兜底提示。此处归在 s1 只是因为它的修复入口在权限设置，走查/开发时不要因此漏掉它的常驻性（Check finding m2）。",
+          "design_description": "首页顶部一条琥珀/红色横条，不可被滚动隐藏，直到修复。多项同时失效时只显示最严重一项 + 「还有 2 项」，点击进健康总览（S9）。",
+          "fallback_behavior": "去开启 / 查看分机型图文教程。权限健康必须常驻自检，不能只在 onboarding 检查一次。",
+          "copy_hint": "取件码自动收录已暂停 · 通知监听被关闭 [去开启]",
+          "evidence": "权限失效是静默的——用户不会收到系统通知，只会觉得「最近好像没新快递」，然后把锅甩给「最近没买东西」"
+        },
+        {
+          "state_type": "permission-miui-sms",
+          "required": true,
+          "severity": "must",
+          "design_description": "小米/红米设备的健康检查子项：短信权限已给但「通知类短信」未开，网络短信静默收不到。",
+          "fallback_behavior": "去开启（路径：权限管理→其他权限→通知类短信→始终允许）",
+          "copy_hint": "小米手机还需单独开启『通知类短信』，否则部分驿站的取件码收不到。",
+          "evidence": "在位者 README 使用问题 #3——纯经验传承，成本极低价值高"
+        },
+        {
+          "state_type": "permission-background-killed",
+          "required": true,
+          "severity": "must",
+          "design_description": "后台进程被系统杀掉（国产 ROM 常态）。必须提供分机型图文教程，纯文字说明用户找不到那个开关。",
+          "fallback_behavior": "去设置（自启动白名单 + 耗电管理设为不限制）/ 查看图文教程",
+          "copy_hint": "后台被系统限制了，可能收不到新快递。",
+          "evidence": "在位者 README 使用问题 #5"
+        }
+      ]
+    },
+    {
+      "screen": "首页（管理模式主屏）",
+      "screen_id": "s2-home",
+      "journey_stage": 3,
+      "states": [
+        {
+          "state_type": "empty-first-time",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "3 张降饱和度 + 斜向水印「示例」的取件点卡片（菜鸟驿站/丰巢柜/京东自提点），顶部说明行，加显著 CTA。示例卡片必须明显区别于真数据，否则用户会误以为自己有待取件——演示数据被当真是一个很容易犯的错。",
+          "fallback_behavior": "看现场模式演示（用示例数据走一次完整的 Stage 5）/ 手动导入一条试试 / 检查权限状态。演示必须走到现场模式那一屏，因为那是产品灵魂；让用户在付出权限成本之前先看到回报，这就是「权限按价值顺序请求」的落地。",
+          "copy_hint": "还没有快递？先看一眼取件时的样子 → ／ 这是演示数据，收到第一条取件短信后会自动替换",
+          "related_story": "journey finding 1"
+        },
+        {
+          "state_type": "empty-collection",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "绿色/成功态，不是灰色空态。配轻统计。与 empty-first-time 语义完全相反，绝不可共用文案或视觉。",
+          "fallback_behavior": "无需操作；这是成就确认，消掉「我是不是漏了」的焦虑",
+          "copy_hint": "都取完了 🎉 本月共取 12 件",
+          "related_story": "journey Stage 6「全部清完确认」"
+        },
+        {
+          "state_type": "empty-filter",
+          "required": true,
+          "severity": "should",
+          "design_description": "文案必须区分 collection 语义与 filter 语义。",
+          "fallback_behavior": "清除筛选",
+          "copy_hint": "没有标记为『妈妈』的件 [清除筛选]"
+        },
+        {
+          "state_type": "boundary-overflow",
+          "required": true,
+          "severity": "must",
+          "design_description": "双十一单取件点 8+ 件：卡片显示前 3 件 + 「+5」角标，卡片高度固定不随件数撑破布局。临期/紧急排前面，即使不是最新到达的。",
+          "fallback_behavior": "点卡片进现场模式看全部",
+          "evidence": "三态驱动排序，直接解决在位者 issue #45 / #21"
+        },
+        {
+          "state_type": "boundary-long-text",
+          "required": true,
+          "severity": "must",
+          "design_description": "超长驿站名（如「菜鸟驿站(XX市XX区XX街道XX小区东门北侧便利店)」）在首页截断 + ellipsis，但现场模式必须完整显示——这是管理模式与现场模式的真实分歧，现场用户要靠完整名称确认「我来对地方了」。",
+          "fallback_behavior": "点进详情页看全称"
+        },
+        {
+          "state_type": "boundary-null",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "驿站短信不含货架号/柜号时，柜号区域整个隐藏、取件码占据更大空间。绝不显示 null / -- / 空白占位。原则：不是留白，是重排——信息少了，剩下的就该更大。",
+          "fallback_behavior": "无需操作"
+        },
+        {
+          "state_type": "error-stale-data",
+          "required": true,
+          "severity": "must",
+          "design_description": "数据可能不是最新时（后台被杀、长时间未打开）显示更新时间与琥珀提示。陈旧的码比没有码更危险。",
+          "fallback_behavior": "立即刷新",
+          "copy_hint": "更新于 3 小时前 · 可能不是最新 [立即刷新]"
+        }
+      ]
+    },
+    {
+      "screen": "桌面组件",
+      "screen_id": "s3-widget",
+      "journey_stage": "1, 2, 5",
+      "widget_forms": [
+        { "form": "A", "name": "未绑定 · 空", "trigger": "刚加组件，无任何数据", "state_type": "empty-first-time" },
+        { "form": "B", "name": "通用组件 · 按取件点分节（MVP 默认）", "trigger": "有数据，未绑定到单一取件点", "state_type": "normal", "shows": "最多 2 个取件点分节，每节：点名 · 件数 · 该节最紧急的三态色；超过 2 个点显示「+N 个点」角标；另含未识别角标", "hides": "历史、已取、具体取件码（码留给现场模式，组件只做定位与决策）", "interaction": "点击某一节 → 直进该取件点现场模式；点击组件标题/空白处 → 进 App 首页", "b3_fix": "⚠️ 原定义为「所有待取件按紧急度排序，前 3 条」= 跨点扁平混排 = 在位者组件形态，已由 Check finding B3 修正为按取件点分节" },
+        { "form": "C", "name": "已绑定 · 单取件点（用户升级后可用）", "trigger": "用户把组件固定到某个取件点", "state_type": "normal", "shows": "该点点名 · 件数 · 三态色 · 前 2-3 个码", "role": "免点击概览——这是多组件方案剩下的唯一独有价值" },
+        { "form": "D", "name": "已绑定 · 该点无件", "trigger": "该点全取完了", "state_type": "empty-collection" }
+      ],
+      "form_B_rationale": "Check finding B3（blocker）：方案丙让形态 B 成为 MVP 唯一组件形态。若形态 B 是跨点扁平列表，则 MVP 组件与在位者无法区分，判断一「取件是空间任务不是时间任务」在 MVP 唯一的常驻表面上不生效，差异化要等用户手动升级才出现，而绝大多数用户不会做这个动作。改为按取件点分节后，形态 B 保留了「点击即声明我在这个点」+ 1 步到现场模式的全部语义，却只占 1 个桌面位且不需先有取件点数据。",
+      "corrected_step_count": "⚠️ 修正此前论证：本文件 unresolved_tradeoff 的取舍表原写「方案甲/丙 到现场模式需 3 步」，那是基于形态 B 为扁平列表才算出的。按分节设计**是 1 步**，故方案丙 + 形态 B 分节 严格优于方案乙。",
+      "states": [
+        {
+          "state_type": "form-A-empty",
+          "required": true,
+          "severity": "must",
+          "design_description": "组件版的 empty-first-time，同样承担教学职责。",
+          "fallback_behavior": "点击进入 App 的演示现场模式，而不是进一个空首页",
+          "copy_hint": "等待第一条取件短信 · 点我看看取件时长什么样"
+        },
+        {
+          "state_type": "form-D-bound-point-empty",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "低对比度「✓ 无待取」。不能空白（用户以为组件坏了）也不能移除（下次还要用）。这个态在多组件方案下必然出现（三个点很少同时有件），在单通用组件方案下不存在——是未决取舍的状态成本之一。",
+          "fallback_behavior": "扫一眼即知该点无件，无需操作",
+          "copy_hint": "✓ 无待取"
+        },
+        {
+          "state_type": "unrecognized-badge",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "组件上的琥珀色角标，点击直接进未识别收容页（S7）。这是唯一能在 Stage 2 就把静默失败显性化的位置——组件是用户不打开 App 也会看到的表面。",
+          "fallback_behavior": "点击进未识别收容页，逐条手动提取或忽略",
+          "copy_hint": "⚠ 可能有 2 条未识别",
+          "related_story": "journey finding 3；在位者有 FailSmsScreen 但是被动入口"
+        },
+        {
+          "state_type": "stale-freshness",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "显示数据新鲜度，超过阈值（建议 2 小时）转琥珀。用户拿着三天前的码去柜机前是本产品最坏的失败模式。",
+          "fallback_behavior": "点击组件进 App 触发一次主动同步",
+          "copy_hint": "更新于 12 分钟前 ／ 可能不是最新",
+          "evidence": "在位者 widget updatePeriodMillis=86400000（24 小时才自动刷新一次），靠 CUSTOM_SMS_ADDED 广播与 MIUI 曝光刷新（20 秒）撑着"
+        },
+        {
+          "state_type": "overflow",
+          "required": true,
+          "severity": "must",
+          "design_description": "前 3 + 「+5」角标。红线：不允许为了塞下更多而放大组件（用户明确约束「不占太大位置」）。",
+          "fallback_behavior": "点击进现场模式看全部"
+        }
+      ],
+      "unresolved_tradeoff": {
+        "question": "「按取件点分实例的多组件配置」进不进 MVP？",
+        "option_甲": {
+          "name": "MVP 只做 1 个通用组件",
+          "widget_forms_needed": 2,
+          "empty_states_needed": 1,
+          "binding_flow": "无需绑定，零配置",
+          "chicken_egg": "不存在",
+          "overflow_rule": "全局前 3 + +N，单一规则",
+          "unrecognized_badge": "1 处",
+          "desktop_cost": "1 个组件位",
+          "steps_to_onsite_mode": 1,
+          "steps_to_onsite_mode_correction": "⚠️ 原记为 3 步（点组件 → App 首页 → 选点 → 现场模式），那是基于形态 B 为跨点扁平列表才算出的。按 B3 修复后的分节设计，点击某一节即直进该点现场模式 = 1 步。此错误数字曾误导方案丙的论证，现修正：方案丙在步数上与方案乙相同。",
+          "lost_selling_point": "【已修正】原写「丢失『点组件即声明我在这个点』的语义、需 3 步到现场模式」，该判断基于形态 B 为跨点扁平列表的错误前提。按 B3 修复（形态 B 按取件点分节）后，甲方案**并不丢失**这个语义，也是 1 步到现场模式。甲的真实代价只有一个：不能免点击就在桌面上同时概览多个取件点的码。故甲（即方案丙的组件部分）严格优于乙。"
+        },
+        "option_乙": {
+          "name": "MVP 做分实例多组件",
+          "widget_forms_needed": 4,
+          "empty_states_needed": 2,
+          "binding_flow": "需配置页选点",
+          "chicken_egg": "撞上——必须设计「先加组件、后反向提示绑定」两段式流程",
+          "overflow_rule": "每点各自前 3 + +N，且要处理「某点 8 件、其他点 0 件」的不均",
+          "unrecognized_badge": "N 处 → 新问题：每个组件都显示会很吵",
+          "desktop_cost": "2-3 个组件位",
+          "steps_to_onsite_mode": 1,
+          "lost_selling_point": "无，但复杂度全部集中在 onboarding——而 onboarding 正是 Journey 显示 pain=4 的悬崖。把复杂度堆在最脆弱的环节是坏交易"
+        },
+        "recommendation": {
+          "name": "方案丙（折中）",
+          "decision": "MVP 做「1 个通用组件，但升级为绑定点是一等公民」",
+          "decided_by_user_at": "2026-10-11",
+          "awaiting_user_decision": false,
+          "b3_patch": "⚠️ 方案丙成立的前提是形态 B 必须按取件点分节（见 widget_forms[B] 与 form_B_rationale）。若形态 B 是跨点扁平列表，方案丙会让 MVP 组件退化成在位者形态——这是 Check finding B3 查出的 blocker，已修复。",
+          "rules": [
+            "装完即有 1 个通用组件（形态 B，按取件点分节），零配置 → 绕过鸡生蛋",
+            "收到第一个取件点后，组件上出现轻提示：「固定到桌面？长按可选择只显示某个取件点」",
+            "用户想要分实例时加第二个组件并绑定 → 分实例能力在 MVP 里存在，但不强制在 onboarding 时使用",
+            "形态 A/B/C/D 都要设计（因为能力存在），但 onboarding 只走形态 B"
+          ],
+          "unrecognized_badge_ownership_rule": "正式规则（Check finding M6 要求入档）：未识别角标只在通用组件（形态 B）上显示一次，绑定组件（形态 C）不重复显示，避免桌面出现多个琥珀角标互相干扰。若用户只有绑定组件、没有通用组件，则由最左上角那个绑定组件显示。"
+        }
+      }
+    },
+    {
+      "screen": "现场模式（全屏出示）",
+      "screen_id": "s4-onsite",
+      "journey_stage": 5,
+      "states": [
+        {
+          "state_type": "empty",
+          "required": true,
+          "severity": "must",
+          "design_description": "不能是空白屏——用户站在柜机前看到空白会恐慌，会怀疑自己记错了地方。显示最近一次取件时间作为锚定。",
+          "fallback_behavior": "返回首页",
+          "copy_hint": "这个点没有待取的件 · 最近一次取件：昨天 18:32"
+        },
+        {
+          "state_type": "error-stale-code",
+          "required": true,
+          "severity": "must",
+          "design_description": "取件码是 3 天前的 / 已标记取过但用户又进来 / 组件数据陈旧。现实场景：驿站会把超时未取的包裹退回，码随之失效。红线：不要阻止用户出示，他可能确实需要，只是告知风险——阻断式设计在这里是错的。",
+          "fallback_behavior": "仍然出示 / 刷新",
+          "copy_hint": "这个取件码是 3 天前的，可能已失效"
+        },
+        {
+          "state_type": "boundary-daqu",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "分组标题或顶部两段：「我的（3）」/「帮妈妈取（2）」，代取件用不同强调色边条。红线：轮播不跨组自动滑动——在自己的码和家人的码之间迷失会直接抵消「找得准」这个核心价值。「代取件」必须是一等公民，不是附注。",
+          "fallback_behavior": "切换分组 / 单独轮播某一组",
+          "related_story": "journey finding 5"
+        },
+        {
+          "state_type": "boundary-overflow",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "该点 8 件时必须有位置指示「第 3/8 件」，且必须提供「全部平铺」备选视图。这是双模哲学的一个例外：现场模式通常极低密度（单码占满屏），但 8 件时用户需要中等密度总览。承认这个例外，不要为了哲学一致性牺牲可用性。",
+          "fallback_behavior": "左右滑轮播 / 切换平铺总览"
+        },
+        {
+          "state_type": "boundary-null",
+          "required": true,
+          "severity": "must",
+          "design_description": "同 S2：柜号区隐藏，取件码变大。不是留白，是重排。",
+          "fallback_behavior": "无需操作"
+        },
+        {
+          "state_type": "loading-submit",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "点「已取」后立即视觉反馈（该件淡出/划掉），不等任何异步。红线：在现场用户马上要放下手机去拿包裹，任何 spinner 都是失败。必须支持撤销（3 秒内 toast），因为现场误触成本极高（手抖、戴手套、屏幕有水、后面有人催）——没有撤销的「已取」按钮在现场是危险的。",
+          "fallback_behavior": "3 秒内可撤销",
+          "copy_hint": "已标记取出 · 撤销"
+        },
+        {
+          "state_type": "offline-as-feature",
+          "required": true,
+          "severity": "must",
+          "design_description": "现场模式完全离线可用，且离线时不显示任何「无网络」警告——这是把约束变成卖点，显示警告会把优势说成缺陷。",
+          "fallback_behavior": "正常使用。唯一例外：V2 动态身份码深链跳转需要网络，那时才提示「跳转官方 App 需要网络」"
+        },
+        {
+          "state_type": "demo-mode",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "added_by": "Check finding M8",
+          "design_description": "演示态：由 S2 首页 empty-first-time 的 CTA「看现场模式长什么样」进入，用示例数据完整走一遍现场模式。全程斜向水印「示例」，与 S2 的示例卡片视觉语言一致（避免用户把演示数据当成真数据——这是很容易犯的错）。顶部常驻「退出演示」条。",
+          "fallback_behavior": "轮播、平铺总览、代取件分区全部可用（否则演示不到产品灵魂）；「已取」按钮可点但只影响演示数据，并 toast「这是演示，不会记录」；退出后不残留任何示例数据。",
+          "copy_hint": "这是演示数据 · 退出演示",
+          "why_blocker_dependency": "B1/B2 号 blocker 的修复（首页空状态承担教学职责）依赖本状态存在。缺了它，onboarding 的价值前置就无法落地——而 onboarding 是 Journey 显示 pain=4 的第一道悬崖。"
+        }
+      ]
+    },
+    {
+      "screen": "取件点合并 / 归一化管理",
+      "screen_id": "s5-merge",
+      "journey_stage": 3,
+      "states": [
+        {
+          "state_type": "error-wrong-merge",
+          "required": true,
+          "severity": "must",
+          "critical_missing": true,
+          "design_description": "后果不对称：错合并 → 现场少显示一个码 → 灾难；不合并 → 首页多一张卡片 → 只是难看。设计三件套：(1) 合并前预览「将把 A（3 件）合并到 B（2 件），合并后显示 5 件」+ 列出两边原始名称样本，让用户用证据判断而不是凭记忆；(2) 合并可撤销且入口显眼——成功后 toast 常驻 5 秒，详情页永久保留「合并历史」可回滚；(3) 合并后保留全部原始名称，撤销时能完整还原。关键：把「撤销成本低」在合并前就告诉用户——用户不敢合并是因为怕不可逆，不是因为怕麻烦，纯文案层面就能提高合并率。",
+          "fallback_behavior": "撤销合并 / 从合并历史回滚",
+          "copy_hint": "合并后，这两个名称下的取件码会显示在同一个卡片里。如果合错了，可以随时拆开。",
+          "related_story": "journey finding 4；在位者 issue #53（作者标记为「重大bug」）"
+        },
+        {
+          "state_type": "suspect-duplicate",
+          "required": true,
+          "severity": "should",
+          "design_description": "inline 卡片提示，不弹 modal。红线：不自动执行（守住用户选定的保守归一化策略）。",
+          "fallback_behavior": "是同一个 / 不是",
+          "copy_hint": "『XX便利店』和『菜鸟驿站(XX店)』可能是同一个点？"
+        },
+        {
+          "state_type": "boundary-alias-conflict",
+          "required": true,
+          "severity": "should",
+          "design_description": "V2：社区下发的别名映射与用户本地选择冲突时，用户本地永远优先。公共数据包只填充用户没有表态过的映射。",
+          "fallback_behavior": "保持用户选择",
+          "copy_hint": "社区数据建议这两个是同一点，但你之前标记过『不是』，已按你的选择保留。"
+        }
+      ]
+    },
+    {
+      "screen": "手动导入",
+      "screen_id": "s6-manual-import",
+      "journey_stage": 2,
+      "states": [
+        {
+          "state_type": "error-validation",
+          "required": true,
+          "severity": "must",
+          "design_description": "红线：不能说「格式错误」——用户不知道什么是正确格式。必须保留用户粘贴的原文，不清空；让他重填是惩罚。",
+          "fallback_behavior": "手动指定哪一段是取件码 / 放弃",
+          "copy_hint": "没能从这段文字里找到取件码。取件码通常是 4-8 位数字或字母数字组合。"
+        },
+        {
+          "state_type": "empty-first-time",
+          "required": true,
+          "severity": "should",
+          "design_description": "给示例文本比给说明有效。",
+          "fallback_behavior": "粘贴文本",
+          "copy_hint": "粘贴取件短信原文，自动提取取件码、驿站名和柜号"
+        },
+        {
+          "state_type": "boundary-batch",
+          "required": true,
+          "severity": "should",
+          "design_description": "一次粘贴 5 条短信时尝试批量解析，逐条确认。",
+          "fallback_behavior": "确认 3 条 / 处理 2 条未识别",
+          "copy_hint": "识别出 3 条，2 条未识别"
+        }
+      ]
+    },
+    {
+      "screen": "未识别收容页",
+      "screen_id": "s7-unrecognized",
+      "journey_stage": 2,
+      "states": [
+        {
+          "state_type": "empty-success",
+          "required": true,
+          "severity": "must",
+          "design_description": "这是信任建立的瞬间——用户知道「如果有问题我会被告知」。红线：不要因为没有内容就隐藏这个页面，它的空态本身有价值。",
+          "fallback_behavior": "无需操作",
+          "copy_hint": "所有取件短信都识别成功 ✓"
+        },
+        {
+          "state_type": "list",
+          "required": true,
+          "severity": "must",
+          "design_description": "每条显示原文 + 「我们没找到取件码」。「报告给社区」是别名库/规则库的数据来源，把用户的失败转化为社区资产，对应 A+C 的数据护城河。隐私红线：报告前必须明确告知会上传这条短信的文本内容，且默认不勾选。",
+          "fallback_behavior": "手动提取 / 忽略 / 报告给社区（默认不勾选）",
+          "copy_hint": "上传这条短信的文本内容以帮助改进识别？（默认不开启）"
+        },
+        {
+          "state_type": "boundary-backlog",
+          "required": true,
+          "severity": "should",
+          "design_description": "积压 50 条时按发件人/模板聚合。",
+          "fallback_behavior": "一次性处理同类",
+          "copy_hint": "来自 106xxxx 的 12 条相似短信 [一次性处理]"
+        }
+      ]
+    },
+    {
+      "screen": "历史页",
+      "screen_id": "s8-history",
+      "journey_stage": 6,
+      "states": [
+        { "state_type": "empty", "required": true, "severity": "should", "design_description": "简单空态。", "fallback_behavior": "返回首页", "copy_hint": "还没有取件记录" },
+        { "state_type": "boundary-overflow", "required": true, "severity": "must", "design_description": "一年积累 500 件：按月分组 + 虚拟滚动，默认只显示近 3 个月。", "fallback_behavior": "展开更早月份" }
+      ]
+    },
+    {
+      "screen": "设置页",
+      "screen_id": "s9-settings",
+      "journey_stage": 4,
+      "states": [
+        {
+          "state_type": "threshold-live-preview",
+          "required": true,
+          "severity": "should",
+          "design_description": "调整三态阈值（丰巢 6h→4h、驿站 90min→60min）后立刻预览影响。不给预览的话用户无法理解 6 小时和 4 小时的区别，这个设置项等于没有。顺带验证 frame.json 标注的「阈值默认值是推演的、未实测」风险——用户自己会在预览里发现默认值合不合适。",
+          "fallback_behavior": "保存 / 恢复默认",
+          "copy_hint": "按这个设置，你当前有 2 件会变成临期"
+        },
+        {
+          "state_type": "health-overview",
+          "required": true,
+          "severity": "must",
+          "design_description": "一张体检表，逐项列出权限 / 后台 / 数据新鲜度状态，每项带修复入口和分机型图文教程。",
+          "fallback_behavior": "逐项修复"
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "total_screens": 9,
+    "total_states_planned": 41,
+    "by_severity": { "must": 25, "should": 13, "nice_to_have": 3 },
+    "check_fix_log": "2026-10-11 Check 修复轮：新增 s4-onsite.demo-mode（M8，must）→ 状态 40→41、must 24→25；形态 B 重定义为按取件点分节（B3）；permission-health-bar 补 cross_screen 标注（m2）；方案丙与角标归属规则入档（M6/M10）；取舍表步数 3→1 修正（B3 连带）。",
+    "by_category": {
+      "empty": 9,
+      "loading": 1,
+      "error": 8,
+      "boundary": 10,
+      "permission": 6,
+      "offline": 1
+    },
+    "category_notes": {
+      "loading": "⚠️ 几乎全部 N/A——纯本地 + 不联网，无异步数据加载。唯一的 loading-submit 是现场模式「已取」的即时反馈，且要求它根本不像 loading（不等异步、无 spinner）。原因见 meta_findings[0]",
+      "offline": "🔄 反转为卖点。产品本来就离线，离线不是异常态，因此不显示任何无网络警告。唯一例外是 V2 动态身份码深链跳转。见 meta_findings[1]",
+      "error": "本产品的「错误」不是网络/服务端错误，而是数据可信度错误（解析失败、码已失效、数据陈旧、错合并）",
+      "permission": "本产品最重的一类，且失效是静默的（先给后收回）"
+    },
+    "critical_missing": [
+      { "severity": "blocker", "screen": "首页", "state_type": "empty-first-time", "reason": "首次打开是空列表 = 看不到任何价值 = 直接卸载。第一印象生死线，也是「权限按价值顺序请求」的前提" },
+      { "severity": "blocker", "screen": "桌面组件", "state_type": "unrecognized-badge", "reason": "解析失败是静默的，组件是唯一用户不打开 App 也会看到的表面。不在这里显性化，债务就会在 Stage 5 引爆" },
+      { "severity": "blocker", "screen": "全局", "state_type": "permission-health-bar", "reason": "权限失效是静默的，onboarding 检查一次远远不够，必须常驻自检" },
+      { "severity": "blocker", "screen": "合并管理", "state_type": "error-wrong-merge", "reason": "后果不对称导致理性用户不敢合并，保守归一化策略会反噬自身" },
+      { "severity": "blocker", "screen": "现场模式", "state_type": "loading-submit", "reason": "现场误触成本极高，没有撤销的「已取」按钮在现场是危险的" },
+      { "severity": "high", "screen": "桌面组件", "state_type": "stale-freshness", "reason": "陈旧的码比没有码更危险" },
+      { "severity": "high", "screen": "现场模式", "state_type": "boundary-daqu", "reason": "代取洞的绕行路径依赖它；不显式分区就抵消「找得准」的价值" },
+      { "severity": "high", "screen": "桌面组件", "state_type": "form-D-bound-point-empty", "reason": "多组件方案下必然出现，容易漏" },
+      { "severity": "high", "screen": "首页 + 现场模式", "state_type": "boundary-null", "reason": "正确答案是重排而非留白" },
+      { "severity": "high", "screen": "现场模式", "state_type": "boundary-overflow", "reason": "8 件时需要平铺备选视图，是双模哲学的必要例外" },
+      { "severity": "high", "screen": "首页", "state_type": "empty-collection", "reason": "与 first-time 语义相反：这里空列表是成就不是缺失" }
+    ]
+  },
+  "priority_plan": {
+    "must_do": [
+      "首页 empty-first-time 演示态",
+      "组件 unrecognized-badge",
+      "全局 permission-health-bar",
+      "合并 error-wrong-merge 三件套",
+      "现场模式 loading-submit 即时反馈 + 撤销",
+      "组件 stale-freshness",
+      "现场模式 boundary-daqu 代取分区"
+    ],
+    "should_do": [
+      "empty-collection 成功态（与 first-time 严格区分）",
+      "form-D 绑定点已清空",
+      "boundary-null 无柜号重排",
+      "现场模式 8 件的平铺备选视图",
+      "suspect-duplicate inline 提示",
+      "手动导入 error-validation 文案与原文保留",
+      "设置页阈值实时预览"
+    ],
+    "defer": [
+      "boundary-alias-conflict（依赖公共数据包，V2）",
+      "boundary-backlog 未识别积压聚合",
+      "历史页 500 件按月分组"
+    ]
+  },
+  "open_decision_for_user": {
+    "question": "「按取件点分实例的多组件配置」进不进 MVP？",
+    "recommendation": "方案丙（折中）：MVP 做 1 个通用组件，但升级为绑定点是一等公民。绕过鸡生蛋，同时保住分实例能力。残留代价是未识别角标的归属规则需定为「只在通用组件显示一次」。",
+    "detail_ref": "spark-output/edge/showcode.md 的「未决取舍」章节含完整状态成本对比表"
+  },
+  "upstream_links": [
+    { "edge_states": ["s2-home.empty-first-time", "s1 全部权限态"], "journey_stage": 1, "frame_opportunities": [] },
+    { "edge_states": ["s3-widget.unrecognized-badge", "s7 全部"], "journey_stage": 2, "frame_opportunities": [7, 8] },
+    { "edge_states": ["s5-merge 全部"], "journey_stage": 3, "frame_opportunities": [] },
+    { "edge_states": ["s9-settings.threshold-live-preview"], "journey_stage": 4, "frame_opportunities": [6] },
+    { "edge_states": ["s4-onsite 全部"], "journey_stage": 5, "frame_opportunities": [1, 2, 3, 4, 5] },
+    { "edge_states": ["s2-home.empty-collection", "s4-onsite.loading-submit"], "journey_stage": 6, "frame_opportunities": [5] }
+  ]
+}

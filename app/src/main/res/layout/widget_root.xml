@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  桌面组件根布局（形态 A/B/C/D 共用一个骨架，靠 visibility 切换）。
+  尺寸红线：任何情况下都不为塞下更多内容而放大组件——多出来的点收成「+N」，
+  多出来的码在形态 C 里收成「+N 件」。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <!-- 标题行：点标题/空白进 App 首页 -->
+    <LinearLayout
+        android:id="@+id/widget_title_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="20dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/home_title"
+            android:textColor="#80000000"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <!-- 撑开用：RemoteViews 不允许裸 View，所以用空 TextView -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/widget_stale"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_stale_bg"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="2dp"
+            android:text="@string/widget_stale"
+            android:textColor="#FFFF8F1F"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/widget_badge_bg"
+            android:paddingHorizontal="5dp"
+            android:paddingVertical="3dp"
+            android:textColor="#FFFFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 形态 B：按取件点分节，最多 2 节 -->
+    <LinearLayout
+        android:id="@+id/widget_sections"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1"
+        android:orientation="vertical" />
+
+    <!-- 形态 A：未绑定且无任何数据。组件版的 empty-first-time，同样承担教学职责 -->
+    <LinearLayout
+        android:id="@+id/widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_empty_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:lineSpacingExtra="2dp"
+            android:textColor="#99000000"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/widget_empty_cta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/widget_empty_cta"
+            android:textColor="#FF1677FF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- 形态 D：绑定点已清空。不能空白（以为坏了）也不能移除（下次还要用） -->
+    <LinearLayout
+        android:id="@+id/widget_bound_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_bound_empty_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_bound_empty"
+            android:textColor="#73000000"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/widget_bound_empty_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#61000000"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_more"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:textColor="#8C000000"
+        android:textSize="10sp"
+        android:visibility="gone" />
+</LinearLayout>

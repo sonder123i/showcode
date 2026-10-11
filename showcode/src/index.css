@@ -1,0 +1,58 @@
+/* 亮码 ShowCode · 设计验证 mockup 全局样式
+   ⚠️ 本文件服务于 mockup，不是实现。真实 App 是 Kotlin + Compose。 */
+
+:root {
+  /* ── 现场模式专用变量 ─────────────────────────────
+     为什么不用 antd-mobile 的 --adm-color-text（#333）：
+     现场模式的唯一使用环境是户外强光，对比度必须拉满。
+     纯黑 on 纯白 ≈ 21:1，是本产品最不能妥协的一条视觉决策。
+     Compose 实现时对应 Color.Black / Color.White，不要套 Material 的
+     onSurface（那通常是 #1C1B1F 之类，强光下会发灰）。 */
+  --onsite-ink: #000000;
+  --onsite-surface: #ffffff;
+
+  /* 取件码必须等宽：柜机键盘上要一位一位念，比例字体会让人看错行。
+     对应在位者 issue #30「取件码使用等宽字体显示」 */
+  --onsite-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono",
+    Menlo, Consolas, "Courier New",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* ── 功能面表面色 token（Check 第二轮 M-r2-4）──────────────
+     组件底色 / 分隔线 / 深色底文字一律走这三个变量，不写裸 rgba。
+     豁免项：桌面壁纸渐变、mockup 说明文字——它们不是产品 UI，
+     是评审载体，保留硬编码并在代码处注明豁免理由。 */
+  --surface-inset: rgba(0, 0, 0, 0.035);
+  --surface-inset-strong: rgba(0, 0, 0, 0.06);
+  --hairline: rgba(0, 0, 0, 0.07);
+  --on-dark: #ffffff;
+
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  background: var(--adm-color-background, #f5f5f5);
+}
+
+/* 现场模式的取件码支持长按选中复制（对应在位者 issue #52 的一键复制诉求） */
+code,
+.onsite-code {
+  font-family: var(--onsite-mono);
+  font-variant-numeric: tabular-nums;
+}

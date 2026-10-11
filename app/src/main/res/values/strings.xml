@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">亮码</string>
+
+    <!-- 通用动作 -->
+    <string name="refresh_action">立即刷新</string>
+    <string name="sample_badge">示例</string>
+
+    <!-- 三态（frame 锁定：只有三态三色，紧迫度靠倒计时数字连续变化承载） -->
+    <string name="urgency_safe">还早</string>
+    <string name="urgency_due_soon">临期</string>
+    <string name="urgency_at_risk">过期风险</string>
+
+    <!-- 倒计时：临期态永远显示精确剩余时间，数字本身就是紧迫度梯度 -->
+    <string name="countdown_hours">剩 %1$d小时%2$s分</string>
+    <string name="countdown_minutes">剩 %1$d分%2$s秒</string>
+    <string name="onsite_overdue_fengchao">已超时 · 0.5 元/12小时（上限 3 元）</string>
+    <string name="onsite_overdue_locker">已超时 · 可能开始计费</string>
+    <string name="onsite_station_closed">驿站已关门</string>
+    <string name="onsite_selfpick_closed">自提点已关门</string>
+
+    <!-- 取件点 -->
+    <string name="kind_station">驿站</string>
+    <string name="kind_locker">快递柜</string>
+    <string name="kind_selfpick">自提点</string>
+    <string name="closing_label">%1$s 关门</string>
+
+    <!-- 首页（管理模式） -->
+    <string name="home_title">待取件</string>
+    <string name="home_count_unit">件</string>
+    <string name="home_card_overflow">+%1$d</string>
+    <string name="home_stale">更新于 %1$s · 可能不是最新</string>
+    <string name="home_never_synced">还没同步过</string>
+    <string name="time_just_now">刚刚</string>
+    <string name="home_enable_ingest">开启自动收录</string>
+    <string name="home_enable_ingest_hint">读短信与通知，把取件码自动归到对应取件点下、按紧急度排好。取件码永不出本机。</string>
+    <string name="home_enable_notification">开启通知收录</string>
+    <string name="home_enable_notification_hint">有些驿站不发短信、只在自家 App 推通知；家人经微信转发的取件码也只能从这里进来。</string>
+
+    <!-- 首页空态：语义完全不同的几种空态绝不共用文案（edge meta-3） -->
+    <string name="home_empty_first_time_title">还没有快递？先看一眼取件时的样子</string>
+    <string name="home_empty_first_time_hint">这是演示数据，收到第一条取件短信后会自动替换</string>
+    <string name="home_empty_first_time_cta">看现场模式长什么样</string>
+    <string name="home_empty_collection">都取完了 🎉 本月共取 %1$d 件</string>
+    <string name="home_recently_picked_title">最近已取 · 24 小时内可以改回</string>
+    <string name="home_restore">改回待取</string>
+
+    <!-- 未识别：说清漏掉的是哪一类来源，不说「权限不足」，也不只说「解析失败」 -->
+    <string name="home_unrecognized">可能有 %1$d 条取件短信没认出来</string>
+    <string name="home_unrecognized_hint">5G 消息、无发件人号码的网络短信、微信折叠通知——这几类识别不了是已知限制。宁可让你现在知道漏了，也不要让你站在柜机前才发现。</string>
+    <string name="unrecognized_no_sender">（无发件人号码）</string>
+    <string name="unrecognized_code_in_app">原因：正文里没有取件码，指向了小程序 / App</string>
+    <string name="unrecognized_no_sender_number">原因：网络短信没有发件人号码（5G 消息类）</string>
+    <string name="unrecognized_no_code">原因：正文里没找到可识别的取件码</string>
+
+    <!-- 现场模式 -->
+    <string name="onsite_back">返回</string>
+    <string name="onsite_position">第 %1$d/%2$d 件</string>
+    <string name="onsite_picked">已取</string>
+    <string name="onsite_tiles_entry">平铺看全部</string>
+    <string name="onsite_tiles_title">%1$s · 共 %2$d 件</string>
+    <string name="onsite_copy_hint">长按可复制</string>
+    <string name="onsite_copied">取件码已复制</string>
+    <string name="onsite_locker_label">格口</string>
+    <string name="onsite_shelf_label">货架</string>
+    <string name="onsite_undo">撤销</string>
+    <string name="onsite_marked_picked">已标记取出</string>
+    <string name="onsite_demo_toast">这是演示，不会记录</string>
+    <string name="onsite_demo_bar">这是演示数据</string>
+    <string name="onsite_demo_exit">退出演示</string>
+    <string name="onsite_stale_code">这是 %1$d 天前的码，可能已失效 · 不影响出示</string>
+    <string name="onsite_empty_title">这个点没有待取的件</string>
+    <string name="onsite_all_done_title">这个点已经取完了</string>
+    <string name="onsite_empty_anchor">最近一次取件：%1$s</string>
+    <string name="onsite_back_home">返回首页</string>
+    <string name="onsite_group_self">我的 (%1$d)</string>
+    <string name="onsite_group_family">帮妈妈取 (%1$d)</string>
+
+    <!-- 设置页 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_threshold_section">临期阈值</string>
+    <string name="settings_locker_label">丰巢柜 · 剩余免费 ≤ %1$d 小时</string>
+    <string name="settings_station_label">驿站 / 自提点 · 关门前 ≤ %1$d 分钟</string>
+    <string name="settings_preview_some">按这个设置，你当前有 %1$d 件是临期：%2$s</string>
+    <string name="settings_preview_none">按这个设置，当前没有临期的件</string>
+    <string name="settings_restore">恢复默认</string>
+    <string name="settings_health_section">权限体检</string>
+    <string name="settings_health_all_good">全部正常 ✓ 自动收录在正常工作</string>
+    <string name="health_sms">读取取件短信</string>
+    <string name="health_notification">读取通知</string>
+    <string name="health_miui">小米「通知类短信」</string>
+    <string name="health_background">后台运行</string>
+    <string name="health_on">已开启</string>
+    <string name="health_off">未开启</string>
+    <string name="health_unknown">需确认</string>
+    <string name="health_fix_sms">去开启</string>
+    <string name="health_fix_notification">去开启</string>
+    <string name="health_fix_miui">去确认</string>
+    <string name="health_fix_background">去设置</string>
+    <string name="health_miui_hint">权限管理 → 其他权限 → 通知类短信 → 始终允许。不开的话，部分驿站的取件码会静默收不到。</string>
+    <string name="health_background_hint">把本 App 加进自启动白名单、耗电管理设为「不限制」。国产 ROM 默认会杀后台，进程被杀就没有新快递进来。</string>
+
+    <!-- 首页健康横条：跨屏常驻、不可被滚动隐藏（story-5） -->
+    <string name="health_bar_sms">取件码自动收录已暂停 · 短信权限未开启</string>
+    <string name="health_bar_notification">自动收录不完整 · 通知监听被关闭</string>
+    <string name="health_bar_background">后台可能被系统限制了 · 已 %1$s 没同步过</string>
+    <string name="health_bar_more">还有 %1$d 项</string>
+    <string name="health_bar_view">查看</string>
+
+    <!-- 桌面组件 -->
+    <string name="widget_description">按取件点分节的待取概览。点某个取件点，一步直进它的取件码。</string>
+    <string name="widget_more">+%1$d 个点</string>
+    <string name="widget_more_items">+%1$d 件 · 点开看全部</string>
+    <string name="widget_empty_line1">在等第一条</string>
+    <string name="widget_empty_line2">取件短信</string>
+    <string name="widget_empty_cta">点我看看取件时长什么样</string>
+    <string name="widget_bound_empty">✓ 无待取</string>
+    <string name="widget_stale">可能不是最新</string>
+    <string name="widget_badge">⚠ %1$d 条未识别</string>
+    <string name="widget_configure_title">这个组件显示哪个取件点？</string>
+    <string name="widget_configure_general">通用组件 · 按取件点分节显示全部</string>
+    <string name="widget_configure_general_hint">零配置推荐：瞟一眼决定要不要出门、先去哪个点</string>
+    <string name="widget_configure_bind">只看 %1$s</string>
+    <string name="widget_configure_bind_hint">重度用户：让常用点的码免点击就在桌面可见</string>
+    <string name="widget_configure_add">添加</string>
+
+    <!-- 首页反向绑定横幅（story-3 AC5） -->
+    <string name="home_widget_hint">想让某个取件点在桌面单独可见？添加组件时选择它，就能只看那一个点。</string>
+    <string name="home_widget_hint_action">添加</string>
+    <string name="home_unrecognized_action">查看</string>
+
+    <!-- 未识别收容页 -->
+    <string name="unrecognized_title">没认出来的取件短信</string>
+    <string name="unrecognized_empty">所有取件短信都识别成功 ✓</string>
+    <string name="unrecognized_empty_hint">如果有哪条没认出来，它会出现在这里，不会悄悄漏掉。</string>
+    <string name="unrecognized_extract">手动提取</string>
+    <string name="unrecognized_ignore">忽略</string>
+
+    <!-- 手动导入：拒绝短信权限后的一等公民退路 -->
+    <string name="manual_import_title">手动导入</string>
+    <string name="manual_import_raw">短信 / 通知原文</string>
+    <string name="manual_import_auto">从原文自动提取</string>
+    <string name="manual_import_auto_failed">原文里没认出来，请手动填下面两项</string>
+    <string name="manual_import_code">取件码 *</string>
+    <string name="manual_import_point">取件点名称 *</string>
+    <string name="manual_import_locker">柜号 / 货架号（可选）</string>
+    <string name="manual_import_need_both">取件码和取件点名称都要填</string>
+    <string name="manual_import_save">保存</string>
+    <string name="manual_import_carrier">手动导入</string>
+
+    <!-- onboarding：先理解价值，再请求权限 -->
+    <string name="ob_welcome_sub">取快递时，不用再翻三个 App\n找那些取件码。</string>
+    <string name="ob_value_1">短信和通知里的取件码，自动收进来</string>
+    <string name="ob_value_2">按取件点分好，到哪个点看哪个</string>
+    <string name="ob_value_3">快递柜还剩多少免费时间，一眼就知道</string>
+    <string name="ob_privacy_title">你的取件码永不出本机。</string>
+    <string name="ob_privacy_body">解析全在手机本地完成，不上传、不注册、无广告。只有公共数据（驿站营业时间、快递柜收费规则）会下载。</string>
+    <string name="ob_cta_demo">先看看取件时什么样</string>
+    <string name="ob_cta_setup">直接开始设置</string>
+    <string name="ob_footer">无需注册 · 无广告 · 开源</string>
+    <string name="ob_step">第 %1$d / %2$d 步</string>
+    <string name="ob_skip">跳过这一步</string>
+    <string name="ob_sms_title">读取取件短信</string>
+    <string name="ob_sms_body">绝大多数驿站和快递柜会把取件码发到短信里。允许读取后，码会自动收进来——这一步你什么都不用做。</string>
+    <string name="ob_sms_allow_title">允许</string>
+    <string name="ob_sms_allow_desc">全自动\n0 次操作</string>
+    <string name="ob_sms_deny_title">不允许</string>
+    <string name="ob_sms_deny_desc">每条自己粘贴\n约 3 秒/条</string>
+    <string name="ob_sms_denied">不给短信权限也能用——每条取件短信你粘贴一次，约 3 秒。所有功能都不会锁死。</string>
+    <string name="ob_sms_allow_cta">允许并继续</string>
+    <string name="ob_sms_deny_cta">不用了，我自己粘贴</string>
+    <string name="ob_notif_title">读取通知</string>
+    <string name="ob_notif_body">有些取件码根本不发短信，只推送到 App 或微信。不开这个，你会漏掉下面这些来源：</string>
+    <string name="ob_notif_list_header">不开启会漏掉的来源</string>
+    <string name="ob_notif_src_1">微信「服务通知」 · 很多驿站只推微信，且常被折叠成一条摘要</string>
+    <string name="ob_notif_src_2">菜鸟 App 推送 · 淘系包裹常只在这里出现</string>
+    <string name="ob_notif_src_3">京东 App 推送 · 自提点通知</string>
+    <string name="ob_notif_src_4">丰巢 App 推送 · 入柜通知，部分柜机不发短信</string>
+    <string name="ob_notif_note">这一步会跳到系统设置页，开启后手动返回本 App 即可。取件码仍然只在手机本地解析，不上传。</string>
+    <string name="ob_notif_cta">去系统设置里开启</string>
+    <string name="ob_notif_skip">就这样用，只收短信</string>
+    <string name="ob_widget_title">放到桌面上</string>
+    <string name="ob_widget_body">这一步值得做：瞟一眼桌面就知道该不该现在出门、先去哪个点，不用解锁后翻 App。点某个取件点，直接跳到它的取件码。</string>
+    <string name="ob_widget_step_1">长按桌面空白处</string>
+    <string name="ob_widget_step_2">点「小组件」/「小工具」</string>
+    <string name="ob_widget_step_3">找到「亮码」，长按拖到桌面</string>
+    <string name="ob_widget_caveat">小米 / 华为等机型可能还要单独允许「创建桌面小组件」。加不了也没关系，先跳过，之后随时补。</string>
+    <string name="ob_widget_done">我已添加到桌面</string>
+    <string name="ob_widget_skip">暂时跳过</string>
+    <string name="ob_ready_title">设置好了</string>
+    <string name="ob_ready_body">现在在等第一条取件短信。\n收到后它会自动出现在桌面组件和首页上。</string>
+    <string name="ob_ready_partial">还有 %1$d 项没开启，你会漏掉对应的来源。随时可以补。</string>
+    <string name="ob_ready_health">权限体检</string>
+    <string name="ob_ready_cta">进首页</string>
+    <string name="ob_ready_manual">等不及？手动导入一条试试</string>
+    <string name="ob_ready_note">以上任何一项都能稍后在设置里改</string>
+</resources>

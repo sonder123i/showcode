@@ -1,0 +1,97 @@
+{
+  "skill": "check",
+  "round": 2,
+  "generated_at": "2026-10-11T00:00:00+08:00",
+  "project_name": "亮码 ShowCode（工作名，待定）",
+  "target": [
+    "src/flows/flow-1/flow1-onsite-present.tsx",
+    "src/flows/showcode/showcode.tsx",
+    "src/flows/shared/types.ts",
+    "src/flows/shared/mock-data.ts",
+    "src/App.tsx",
+    "src/index.css"
+  ],
+  "check_mode": "Mode C（stories AC → 代码落地核对）+ Mode A（10 类代码级）",
+  "baseline_note": "无 Brief。Mode C 的基线改用 stories.json 的 28 条验收标准；其中 16 条与本 flow 相关，核对结果 11 落地 / 2 部分 / 3 未落地。",
+  "previous_round": {
+    "ref": "spark-output/check/showcode-走查报告.md",
+    "subject": "文档集一致性",
+    "result": "17 findings（3 blocker / 10 major / 4 minor），已修 15，verdict=holds"
+  },
+  "user_device_verdict": "3 项开放视觉问题（176px 组件可读性 / 分组黑 pill 重量 / swipe 提示缺失）由用户真机判定「没问题」，已关闭，不列为 finding。",
+  "ac_landing_table": [
+    { "story": "S3-1", "ac": "组件按取件点分节，最多 2 节 + +N 个点", "verdict": "pass" },
+    { "story": "S3-2", "ac": "丰巢倒计时数字随时间变化", "verdict": "pass", "evidence": "截图确认 12 分 → 11 分" },
+    { "story": "S3-2", "ac": "设置改阈值实时预览", "verdict": "out-of-scope" },
+    { "story": "S3-3", "ac": "未识别角标点它进列表", "verdict": "fail", "finding": "B-r2-1" },
+    { "story": "S3-3", "ac": "角标只在通用组件显示一次", "verdict": "partial", "finding": "M-r2-5" },
+    { "story": "S3-4", "ac": "无数据时组件非空白", "verdict": "pass" },
+    { "story": "S3-4", "ac": "首条短信后反向提示绑定", "verdict": "fail", "finding": "M-r2-6" },
+    { "story": "S4-1", "ac": "≤1 次点击看清码", "verdict": "pass" },
+    { "story": "S4-2", "ac": "单件全屏/等宽/柜号紧贴/位置指示", "verdict": "pass" },
+    { "story": "S4-3", "ac": "件数多时可切平铺", "verdict": "pass" },
+    { "story": "S4-4", "ac": "已取立刻反馈+3秒撤销+消失", "verdict": "pass" },
+    { "story": "S2-2", "ac": "首页第一级是取件点卡片", "verdict": "pass" },
+    { "story": "S2-3", "ac": "按紧急程度排序", "verdict": "fail", "finding": "M-r2-1" },
+    { "story": "S2-4", "ac": "柜号紧贴/无柜号重排", "verdict": "pass" },
+    { "story": "S5-1", "ac": "常驻横条+直接去修入口", "verdict": "partial", "finding": "B-r2-2" },
+    { "story": "S5-2", "ac": "体检表", "verdict": "out-of-scope" },
+    { "story": "S5-3", "ac": "小米专项图文", "verdict": "out-of-scope" },
+    { "story": "S5-4", "ac": "全正常时横条不出现", "verdict": "pass" },
+    { "story": "S1-2", "ac": "演示态四要件", "verdict": "pass" },
+    { "story": "S1-1", "ac": "首页空状态示例卡片", "verdict": "out-of-scope" }
+  ],
+  "findings": [
+    { "id": "B-r2-1", "category": "flow-continuity", "severity": "blocker", "description": "组件未识别角标渲染为无 onClick 的 span。edge.json 与 Story 3 AC3 均规定点它进未识别收容页。承诺了出口又没收音，比没有角标更糟——而静默失败显性化是 Journey 发现 3 的核心修复。", "suggestion": "加 onClick 跳未识别收容页；该页不在本 flow 时先跳占位路由或 Toast 说明，不留死点击。", "location": "flow1-onsite-present.tsx:251-257" },
+    { "id": "B-r2-2", "category": "flow-continuity", "severity": "blocker", "description": "首页权限横条 extra「去开启」是无 onClick 的 span。Story 5 AC1 要求有直接去修的入口。权限失效是静默的，横条是唯一自救通道，通道末端是死的等于没有通道。", "suggestion": "H5 无法跳系统设置，则点击展示分机型图文步骤或至少 Toast 说明路径。", "location": "flow1-onsite-present.tsx:860" },
+    { "id": "M-r2-1", "category": "brief-consistency", "severity": "major", "description": "首页 sorted 按件数降序，违反锁定决策「三态驱动默认排序」与 Story 2 AC3。后果：3 件全 safe 的驿站排在 1 件过期风险的丰巢前面，用户第一眼看到最不急着取的点。组件（Screen1）做对了、首页没做对，两处还不一致。", "suggestion": "排序键改为该点最紧急的三态（复用 Screen1 的 order 映射），件数只作次级排序。", "location": "flow1-onsite-present.tsx:846-848" },
+    { "id": "M-r2-2", "category": "copy", "severity": "major", "description": "失效码 NoticeBar 只有文字+关闭，无行动出口。edge.json fallback_behavior 明确写了 [仍然出示][刷新]。用户站在柜机前看到「可能已失效」却无动作可做。", "suggestion": "extra 放「刷新」；文案补「不影响出示，可直接念给柜机」（出示本就是默认行为，无需按钮）。", "location": "flow1-onsite-present.tsx:537-542" },
+    { "id": "M-r2-3", "category": "responsive", "severity": "major", "description": "codeFontSize 只看码长不看视口宽。8 字符×0.6em×72px≈346px > 320px 视口可用宽 280px → 溢出。9 字符京东码在 54px 下同样溢出（291>280）。iPhone SE 与大量低端安卓机即 320px。", "suggestion": "字号改 min(Xpx, Yvw)（如 min(72px,17vw)），让码宽永远 ≤ 可用宽度。这是取件码屏唯一硬约束，应写成不变量。", "location": "flow1-onsite-present.tsx:57-60" },
+    { "id": "M-r2-4", "category": "components", "severity": "major", "description": "21 处硬编码颜色（#fff / #1f2937 / rgba(0,0,0,…)）。功能面（组件分节底色、分隔线、选中 pill 文字色）应走 token。壁纸渐变可豁免（mockup-only）。", "suggestion": "功能面改用 var(--adm-color-*) 或 --onsite-*；豁免项加注释标明理由。", "location": "flow1-onsite-present.tsx 全文件" },
+    { "id": "M-r2-5", "category": "edge-states", "severity": "major", "description": "(a) 形态切换器只有 B/A/D，形态 C 未渲染，故「角标只在通用组件显示、绑定组件不重复」的归属规则无验证载体；(b) stale-freshness（>2h 转琥珀）只有文字说明、没有条件渲染。陈旧的码比没有码更危险，不能只活在注释里。", "suggestion": "切换器补 C；mock 数据加 updatedAtMinutesAgo，>120 时组件转琥珀。", "location": "Screen1 形态切换器 / 组件下方说明文字" },
+    { "id": "M-r2-6", "category": "edge-states", "severity": "major", "description": "方案丙关键一环「收到第一个取件点后反向提示可固定成单独组件」未实现（MVP 第 9 条 / Story 3 AC4 后半）。没有它形态 C 永远没人发现，方案丙退化成方案甲。", "suggestion": "形态 B 且存在 ≥1 个取件点时，组件底部加一行可关闭的轻提示。", "location": "Screen1（缺失）" },
+    { "id": "m-r2-1", "category": "ia", "severity": "minor", "description": "取件点名不一致：首页全名截断 14 字，其余屏用 shortName。同一取件点在不同屏名字不同，削弱「这是同一个地方」的认知。", "suggestion": "首页优先 shortName，全名放详情或长按。", "location": "Screen6 List.Item title" },
+    { "id": "m-r2-2", "category": "copy", "severity": "minor", "description": "「全部平铺」非动词开头。", "suggestion": "改「平铺查看全部」。", "location": "Screen2 平铺入口" },
+    { "id": "m-r2-3", "category": "accessibility", "severity": "minor", "description": "交互元素多为 span onClick，不可键盘聚焦、多数无 aria-label（告警图标有）。H5 手机键盘导航权重低，但 aria-label 成本几乎为零。", "suggestion": "为分节、角标、分组 pill、平铺入口补 aria-label。", "location": "全文件交互 span" },
+    { "id": "m-r2-4", "category": "copy", "severity": "minor", "description": "Screen6 绿色说明框是 mockup 注释（「这是 mockup 说明，非真实 UI」），评审完必须移除，否则会被当成真实 UI 设计。", "suggestion": "评审结束后删除该框。", "location": "Screen6 绿色说明框" }
+  ],
+  "out_of_scope_gaps": [
+    "设置页阈值滑块 + 实时预览（Story 3 AC2 后半）",
+    "权限体检表 + 小米「通知类短信」分机型图文（Story 5 AC2/3）",
+    "首页空状态示例卡片 + 演示入口（Story 1 AC1，属 onboarding flow）"
+  ],
+  "out_of_scope_implication": "MVP 14 条里目前只有「现场出示」这一条有可运行验证。onboarding flow（Story 1）是下一个该画的——它承载 3 个 blocker 级状态（empty-first-time / demo-mode / permission-sms-denied）。",
+  "categories_no_finding": [
+    { "category": "visual-hierarchy", "reason": "单焦点全屏设计，主操作唯一且突出；目视 2 轮 + 用户真机判定已确认" },
+    { "category": "feedback", "reason": "已取有即时反馈 + 撤销 Toast；无长操作；无可逆性缺口（已取可撤销，误触出口在首页改回）" }
+  ],
+  "summary": { "blocker": 2, "major": 6, "minor": 4, "pass": 2 },
+  "summary_derivation": "blocker/major/minor 由 findings 按 severity 分组计数（2+6+4=12）；pass = 10 类中无 finding 的数量 = 2（visual-hierarchy / feedback）。brief-consistency 类以 stories AC 为基线计入。",
+  "fix_log": {
+    "fixed_at": "2026-10-11",
+    "result": "12 findings 全部处置：blocker 2 / major 6 / minor 4。tsc + vite build 均通过，dev server 截图复验。",
+    "items": [
+      { "id": "B-r2-1", "status": "fixed", "changed": "角标加 onClick + stopPropagation，打开 Popup 展示 2 条未识别短信原文与原因，并写明「报告给社区默认不勾选」" },
+      { "id": "B-r2-2", "status": "fixed", "changed": "「去开启」加 onClick → Toast 给出具体路径「系统设置 → 应用与通知 → 通知使用权 → 开启亮码」" },
+      { "id": "M-r2-1", "status": "fixed", "changed": "新增模块级 URGENCY_ORDER + worstUrgency，Screen1/Screen6 统一排序实现；首页改为紧急度优先、件数次级。并**改了 mock 数据**：原数据下紧急度序与件数序恰好同序，bug 无法暴露、修完也无法验证——现让丰巢 1 件 at-risk 排到 3 件 due-soon 前面，两种排序分叉，截图已复验" },
+      { "id": "M-r2-2", "status": "fixed", "changed": "NoticeBar 加 extra「刷新」，文案改「这是 3 天前的码，可能已失效 · 不影响出示」" },
+      { "id": "M-r2-3", "status": "fixed", "changed": "codeFontSize 返回 min(px, 140/len vw)，把「码宽 ≤ 可用宽度」写成不变量并注释推导过程" },
+      { "id": "M-r2-4", "status": "fixed", "changed": "index.css 新增 --surface-inset / --surface-inset-strong / --hairline / --on-dark token，功能面改用；壁纸渐变与 mockup 注释保留硬编码并就地注明豁免理由" },
+      { "id": "M-r2-5", "status": "fixed", "changed": "形态切换器补 C（渲染绑定单点 + 前 2 个码 + 无柜号重排），使「角标只在通用组件显示」的归属规则有验证载体；新增「数据陈旧」开关做 stale-freshness 条件渲染" },
+      { "id": "M-r2-6", "status": "fixed_with_correction", "changed": "按 Check 原建议把提示放进组件 → **引入回归**：176px 固定高度装不下，取件点名字被裁掉。改判落点到首页可关闭横幅，并修订 stories.json Story 3 的 AC4（新增 ac_amendment 字段）" },
+      { "id": "m-r2-1", "status": "fixed", "changed": "首页 title 统一用 shortName" },
+      { "id": "m-r2-2", "status": "fixed", "changed": "「全部平铺」→「平铺看全部」" },
+      { "id": "m-r2-3", "status": "fixed", "changed": "分节、角标、关闭按钮补 aria-label" },
+      { "id": "m-r2-4", "status": "open", "changed": "Screen6 绿色 mockup 说明框仍在。它是评审辅助，**发布前必须删除**，已记入待办" }
+    ],
+    "regression_lesson": "M-r2-6 是唯一一个「照 Check 建议修反而修坏」的项。Check 给的修复建议本身没有校验落点的空间预算。桌面组件是全产品空间最紧张的表面，它必须永远保住的那一行是取件点名字——任何新增内容都得先证明它不该放在 App 内。这条已写回 Story 3 的 ac_amendment。"
+  },
+  "verdict": "holds",
+  "verdict_detail": "第二轮 12 findings 全部处置（11 修复 + 1 记为发布前必删）。构建与类型检查通过，dev server 截图复验：首页排序已可观察地按紧急度、组件点名恢复且 176×176 装得下形态切换与角标。M-r2-6 的修复过程暴露了 Check 建议本身未经空间预算校验的问题，已改判落点并回写 AC。",
+  "fix_priority": {
+    "must_fix": ["B-r2-1", "B-r2-2", "M-r2-1"],
+    "should_fix": ["M-r2-2", "M-r2-3", "M-r2-5", "M-r2-6"],
+    "defer": ["M-r2-4 的壁纸豁免部分", "m-r2-1", "m-r2-2", "m-r2-3", "m-r2-4"]
+  },
+  "report_file": "spark-output/check/showcode-走查报告-第二轮代码级.md"
+}

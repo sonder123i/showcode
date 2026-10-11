@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 形态 C（绑定单点）里的一行码。免点击概览：码在桌面直接可见。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:background="@drawable/widget_section_bg"
+    android:orientation="vertical"
+    android:paddingHorizontal="6dp"
+    android:paddingVertical="4dp">
+
+    <TextView
+        android:id="@+id/row_code"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:fontFamily="monospace"
+        android:maxLines="1"
+        android:textColor="#FF000000"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/row_locker"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#80000000"
+        android:textSize="9sp"
+        android:visibility="gone" />
+</LinearLayout>

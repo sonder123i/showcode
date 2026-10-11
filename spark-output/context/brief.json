@@ -1,0 +1,118 @@
+{
+  "skill": "brief",
+  "generated_at": "2026-10-11T00:00:00+08:00",
+  "project_name": "亮码 ShowCode",
+  "project_type": "产品设计",
+  "project_subtype": "全新产品",
+  "business_context": "取件码散在短信、微信与各家 App，到驿站还要翻找。在位者 parcel 把「收集」做好了，但它自认档案柜、优化「全」；而机器前的 5 秒要的是「快」和「及时」。本项目重做现场层，并补它因「不联网」永不做时效决策层。",
+  "why_not_defer_to_incumbent": "开源项目 README 必须回答的第一个问题，成文如下：在位者 shareven/parcel 已把取件码收集得很好（短信+通知双通道、41 条 issue 几乎全关、活跃维护）。但它把自己定义成「档案柜」，于是优化「全」——标签、备注、分组、规则管理越加越多，而用户在驿站现场要的是「快」和「及时」。本项目不是要收集得更全，而是换一个问题：站在机器前的那 5 秒钟该看到什么。并且做它因「不联网」戒律永远不会做的那一层——时效决策与公共数据。差异化打在位者的产品哲学盲区，不在功能多寡。",
+  "business_goal": [
+    "作者本人取件不再翻多平台",
+    "拿到首批外部用户与 star",
+    "沉淀 2 个可积累的数据资产",
+    "差异化不被在位者两周追平"
+  ],
+  "business_goal_note": "开源自用项目没有转化漏斗，硬套 KPI 会假。故本栏写业务结果（含数据资产与差异化可持续性），体验层面的可判断依据一律放在 design_criteria，两者不混。",
+  "user": [
+    "陈屿，27 岁开发者，周 5-10 件",
+    "小区并存驿站 + 快递柜 + 自提点",
+    "解锁后一次点击就要看到码",
+    "次级：帮家人代取，怕搞混"
+  ],
+  "strategy_dimensions": [
+    {
+      "dimension": "信息架构 IA",
+      "thesis": "空间优先于时间，取件点是一级公民。",
+      "tactics": ["首页改为取件点卡片列表", "时间轴降级为历史页", "代取件独立成组不混排"],
+      "rationale": "对应机会点 #1 #3；在位者 5 条 issue 在要空间视图",
+      "covers_stories": ["story-2", "story-3", "story-7"]
+    },
+    {
+      "dimension": "交互设计",
+      "thesis": "管理与出示分两屏，一步到位且可逆。",
+      "tactics": ["点分节直进现场模式", "「已取」零等待 + 3 秒撤销", "8 件可切平铺不强迫滑完"],
+      "rationale": "对应业务目标 1；在位者 #45 #21 是用户在自补排序",
+      "covers_stories": ["story-3", "story-4"]
+    },
+    {
+      "dimension": "内容设计",
+      "thesis": "文案承担功能，不报告错误。",
+      "tactics": ["说清漏了什么，不说权限不足", "合并前先讲可随时拆开", "失效码提示不影响出示"],
+      "rationale": "Story 5/6 的修复核心是文案而非流程",
+      "covers_stories": ["story-5", "story-6"]
+    },
+    {
+      "dimension": "用户引导",
+      "thesis": "先给价值，再要权限。",
+      "tactics": ["首屏演示现场模式再授权", "空态用示例数据做教学", "每步可跳过，拒绝不锁死"],
+      "rationale": "对应 Journey Stage 1（pain 4）；GO Club / Miles 行业共识",
+      "covers_stories": ["story-1"]
+    },
+    {
+      "dimension": "环境与人群适配",
+      "thesis": "为户外强光与戴手套的手设计。",
+      "tactics": ["纯黑 on 纯白最大对比", "触控 ≥56px 落在拇指区", "颜色外必带文字冗余"],
+      "rationale": "对应 Stage 5 moment-of-truth；次级 persona 是老年用户",
+      "covers_stories": ["story-4"]
+    }
+  ],
+  "strategy_dimensions_note": "5 个维度已完整覆盖 stories.json 原先标「待补（无 Brief）」的 7 条 related_strategy_dimension，见各维度的 covers_stories 字段。**「情感化设计」故意不单列**——JTBD 里的「从容 / 避免窘迫」是这五条的结果而非第六个杠杆，硬拆会退化成口号；它的实际落点在交互设计（可撤销）与内容设计（不阻断、不报错误）里。",
+  "design_criteria": {
+    "quantitative": [
+      "解锁 → 看清当前取件点该出示的码 ≤ 1 次点击",
+      "触控目标 ≥ 56px · 取件码对比度 21:1（纯黑 on 纯白）"
+    ],
+    "qualitative": [
+      "任何异常态都不阻断「出示」这个动作",
+      "提示必须列出漏掉了哪些来源，不说「权限不足」"
+    ]
+  },
+  "constraints": [
+    "单人开源项目，无团队无预算",
+    "只做 Android（Kotlin + Compose）",
+    "用户数据永不出本机",
+    "公共数据可下载，不上传个人信息",
+    "核心判断基于发起人经验（已接受）"
+  ],
+  "out_of_scope": [
+    "锁屏 —— 平台已移除第三方组件",
+    "定位自动切换 —— 分节组件已绕开",
+    "跨设备同步 —— 需后端，违背隐私叙事",
+    "iOS / 物流轨迹 —— 平台无 API / 红海",
+    "不 fork 在位者，只当参考实现"
+  ],
+  "out_of_scope_note": "本栏会被直接复用成 README 与 CONTRIBUTING 的边界依据，因此每条都带「为什么不做」，是对外口径而非内部记录。未来收到超出此范围的 PR 或功能请求时，以此为拒绝依据。",
+  "platform_boundary": {
+    "decided_at": "2026-10-11",
+    "decision": "本轮只做 Android（Kotlin + Compose），不开 iOS 分支。",
+    "why_ios_is_not_a_port": "阻塞点是 iOS **平台 API 层**不提供「第三方 App 读取短信正文」与「读取其他 App 通知」的能力，不是 App Store 审核限制。因此「不上架 / 侧载给自己人用」不改变结论——被绕过的只有审核，能力依然拿不到。菜鸟/丰巢在 iOS 上只能靠自家账号 push，即为此约束的旁证。",
+    "degraded_ios_proposition": "若未来做 iOS，价值主张必须改写为「用户自己花 30 秒把码弄进来（手动 / 截图 OCR / 分享扩展），之后保证现场 5 秒最优」，不得承诺自动收码。",
+    "real_risk_if_ios": "WidgetKit 刷新是系统预算制，不像 Android 可发 broadcast 即时重绘；丰巢 18 小时倒计时与三态观感依赖分钟级新鲜度。开 iOS 前必须先验证这一点，它是唯一可能否掉 iOS 路线的因素。",
+    "open_doors_cost_near_zero": [
+      "收码抽象为 ParcelCodeSource 接口（SmsSource / NotificationSource / ManualSource 三个实现），iOS 只换实现不动 domain",
+      "三态判定 / 取件点归一 / 排序 / 字号防溢出规则放进零 Android import 的纯 Kotlin domain 模块"
+    ],
+    "not_decided": "iOS 的 UI 技术选型（CMP vs SwiftUI）推迟——12 屏里 iOS 可直接复用 UI 的不足一半，光引导 6 屏就要重写。",
+    "unanswered": "发起人是否有 Mac + iPhone + 开发者账号；次级 persona（家人）用的是哪个平台。两者都不阻塞本轮。"
+  },
+  "assumption_marker": {
+    "assumption": "取快递时的麻烦核心是「出示慢 / 找不准」的交互问题，而不是「信息散」的聚合问题。",
+    "status": "已接受（2026-10-11 用户判定）",
+    "evidence_strength": "n=1（发起人本人的真实日常体验）",
+    "disposition": "用户明确决定不再追加验证。对这个自用 + 开源的项目，n=1 的自身经验即为足够强度的证据；风险分配成立——他是唯一已知用户，判断错的代价由他自己承担。⚠️ 本项已关闭，不得再列为待办、不得建议跑 Probe、不得在风险清单中作为未解决项出现。"
+  },
+  "style": "Script",
+  "ratio": "16-9",
+  "scale": "md",
+  "html_file": "spark-output/brief/showcode.html",
+  "generation_fidelity": {
+    "method": "脚本原样克隆 prototype/brief.html + brief-themes.css 后定点替换，未凭记忆重建",
+    "lines": 1583,
+    "prototype_lines": 1559,
+    "embedded_css_byte_identical": true,
+    "embedded_css_chars": 33999,
+    "themes_preserved": 9,
+    "self_check": "20/20 通过（含 7 卡片 DOM 顺序、5 策略维度、4 条行首 tag pill、topbar 铅笔按钮、modern-screenshot CDN、isInIframe 分流导出）",
+    "known_layout_note": "s-grid 底层是固定 3 列，5 个维度会渲染成 3+2、第二行余一格。未加第 6 个维度凑网格——那会是为排版而注水。若要网格平衡，可考虑把「环境与人群适配」拆出独立的「视觉设计」（等宽字体作为可读性手段 + 一屏一物的留白哲学，证据是竞品 issue #30），它站得住，但需用户确认。"
+  }
+}

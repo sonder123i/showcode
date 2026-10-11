@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>亮码 ShowCode — User Journey Map</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    body { padding: 32px; background: #FAFAF7; color: #1F2937; }
+    .header { margin-bottom: 24px; }
+    .title { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { font-size: 14px; color: #6B7280; }
+    .hypothesis-stamp { display: inline-block; margin: 12px 0; padding: 8px 14px; background: #FEE2E2; border: 2px solid #DC2626; border-radius: 6px; color: #991B1B; font-size: 13px; font-weight: 700; transform: rotate(-1deg); }
+    .evidence-note { font-size: 12px; color: #6B7280; background: #F9FAFB; border-left: 3px solid #D1D5DB; padding: 10px 14px; margin-bottom: 24px; line-height: 1.6; }
+    .persona-card { display: inline-flex; align-items: center; padding: 12px 20px; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin: 16px 0 32px; }
+    .persona-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #6366F1, #EC4899); margin-right: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
+    .persona-info { font-size: 13px; }
+    .persona-info b { display: block; font-size: 15px; color: #111827; }
+    .persona-info span { color: #6B7280; }
+    .jtbd { font-style: italic; padding: 12px 16px; background: #FEF3C7; border-left: 4px solid #F59E0B; border-radius: 4px; margin-bottom: 32px; font-size: 14px; }
+    .journey-grid { display: grid; grid-template-columns: 120px repeat(6, 1fr); gap: 1px; background: #E5E7EB; border-radius: 12px; overflow: hidden; }
+    .grid-row { display: contents; }
+    .row-label, .stage-cell { background: white; padding: 14px 12px; font-size: 12px; }
+    .row-label { background: #F3F4F6; font-weight: 600; color: #4B5563; display: flex; align-items: center; }
+    .stage-header { background: #1F2937; color: white; padding: 16px 12px; font-size: 13px; font-weight: 600; text-align: center; }
+    .stage-header .emoji { font-size: 24px; display: block; margin-bottom: 4px; }
+    .stage-cell ul { list-style: none; }
+    .stage-cell li { padding: 4px 0; line-height: 1.4; }
+    .stage-cell li:before { content: "·"; color: #9CA3AF; margin-right: 6px; }
+    .emotion-cell { font-size: 28px; text-align: center; padding: 16px; }
+    .pain-bar { height: 4px; background: linear-gradient(to right, #10B981, #F59E0B, #EF4444); border-radius: 2px; margin-top: 8px; }
+    .pain-indicator { height: 8px; margin-top: 4px; display: flex; gap: 2px; }
+    .pain-indicator span { flex: 1; height: 100%; background: #E5E7EB; border-radius: 1px; }
+    .pain-indicator span.active { background: currentColor; }
+    .key-moment-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 4px; }
+    .key-moment-badge.truth { background: #EFF6FF; color: #2563EB; }
+    .key-moment-badge.dropout { background: #FEE2E2; color: #DC2626; }
+    .key-moment-badge.delight { background: #D1FAE5; color: #059669; }
+    .key-moment-badge.recovery { background: #FEF3C7; color: #D97706; }
+    .opportunity { background: #ECFDF5; padding: 6px 8px; border-radius: 4px; font-size: 11px; color: #047857; margin: 3px 0; }
+    .quote { font-style: italic; color: #4B5563; padding: 6px 8px; background: #F9FAFB; border-left: 3px solid #D1D5DB; font-size: 11px; margin: 3px 0; }
+    .quote-src { display: block; font-style: normal; color: #9CA3AF; font-size: 10px; margin-top: 3px; }
+    .hole { background: #FEF2F2; border: 1px dashed #DC2626; padding: 6px 8px; border-radius: 4px; font-size: 11px; color: #991B1B; margin: 3px 0; }
+    .curve-section { margin-top: 32px; padding: 24px; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .curve-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .curve-svg { width: 100%; height: 120px; }
+    .curve-caption { font-size: 12px; color: #6B7280; margin-top: 12px; line-height: 1.6; }
+    .findings { margin-top: 32px; padding: 24px; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .findings h2 { font-size: 18px; margin-bottom: 16px; }
+    .finding { border-left: 4px solid #6366F1; padding: 10px 14px; margin-bottom: 14px; background: #F9FAFB; border-radius: 0 6px 6px 0; }
+    .finding.critical { border-left-color: #DC2626; background: #FEF2F2; }
+    .finding b { display: block; margin-bottom: 6px; font-size: 14px; }
+    .finding p { font-size: 12px; line-height: 1.65; color: #374151; }
+    table.mvp { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+    table.mvp th, table.mvp td { border: 1px solid #E5E7EB; padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.mvp th { background: #F3F4F6; font-weight: 600; }
+    table.mvp td.new { background: #ECFDF5; color: #047857; font-weight: 600; }
+    .footer { margin-top: 24px; text-align: center; color: #9CA3AF; font-size: 11px; }
+    @media print { body { padding: 16px; } .journey-grid { page-break-inside: avoid; } .toolbar { display: none; } }
+    .toolbar { position: fixed; top: 16px; right: 16px; display: flex; gap: 8px; }
+    .toolbar button { padding: 8px 16px; background: #1F2937; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .toolbar button:hover { background: #374151; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="window.print()">打印 / PDF</button>
+  </div>
+
+  <div class="header">
+    <div class="title">亮码 ShowCode — User Journey Map</div>
+    <div class="subtitle">生成时间: 2026-10-11 · 数据源: Frame（spark-output/context/frame.json）+ 在位者 shareven/parcel 的 41 条真实 issue 与 README · 类型: Specific-flow（6 stage）</div>
+  </div>
+
+  <div class="hypothesis-stamp">⚠️ 假设性旅程 HYPOTHESIS JOURNEY — 无 Probe 用研数据，pain_level 为推演值，需实测校准</div>
+
+  <div class="evidence-note">
+    <b>pain_level 判读规则</b>：凡我们的设计<b>没有</b>明确解法的 stage，痛苦度沿用<b>在位者真实 issue</b> 所反映的水平（视为品类固有成本）；凡我们<b>明确设计了解法</b>的，下调但标注「假设，未验证」。<br>
+    <b>quotes 来源</b>：全部取自 shareven/parcel 的真实 issue 编号或其 README 使用问题条目，<b>无一条编造</b>。Stage 4「决策」因是全竞品空白、在位者没有对应 issue，故 quotes 留空并标注「暂无真实用户原话，待验证」。<br>
+    <b>本图不代表已验证的用户声音</b>——它是把 Frame 的设计决策放进时间轴后，用逻辑推演出的断点地图，价值在于<b>暴露我们没想到的环节</b>，不在于描述既成事实。
+  </div>
+
+  <div class="persona-card">
+    <div class="persona-avatar">陈</div>
+    <div class="persona-info">
+      <b>陈屿，27 — 安卓开发者 / 重度网购（每周 5-10 件）</b>
+      <span>小区里同时有菜鸟驿站 + 丰巢柜 + 京东自提点。次级 persona：他妈妈（代取，码在她自己手机上）</span>
+    </div>
+  </div>
+
+  <div class="jtbd">当我站在驿站或快递柜前、手上有多个平台的待取包裹时，我想在不解锁翻 App 的前提下立刻看到当前取件点对应的全部取件码与柜号，从而 2 秒内完成出示；让一起取件的家人觉得我办事利落；感到从容有掌控，避免被人催、抄错码、白跑一趟的窘迫。<br><span style="font-style:normal;color:#92400E;font-size:12px;">注：JTBD 中「不解锁」一词已因用户推翻锁屏前提而失效，实际路径为「解锁 → 点取件点组件 → 现场模式」。</span></div>
+
+  <div class="journey-grid" style="grid-template-columns: 120px repeat(6, 1fr);">
+    <!-- 表头行 -->
+    <div class="row-label"></div>
+    <div class="stage-header"><span class="emoji">📲</span>1 · 授权<br><span style="font-weight:400;font-size:11px;opacity:.7">Onboarding</span></div>
+    <div class="stage-header"><span class="emoji">📩</span>2 · 收件<br><span style="font-weight:400;font-size:11px;opacity:.7">Ingest</span></div>
+    <div class="stage-header"><span class="emoji">🗂️</span>3 · 归一<br><span style="font-weight:400;font-size:11px;opacity:.7">Normalize</span></div>
+    <div class="stage-header"><span class="emoji">⏰</span>4 · 决策<br><span style="font-weight:400;font-size:11px;opacity:.7">Decide</span></div>
+    <div class="stage-header"><span class="emoji">🎯</span>5 · 现场<br><span style="font-weight:400;font-size:11px;opacity:.7">On-site</span></div>
+    <div class="stage-header"><span class="emoji">🏁</span>6 · 收尾<br><span style="font-weight:400;font-size:11px;opacity:.7">Close</span></div>
+
+    <!-- User Goal -->
+    <div class="row-label">用户目标</div>
+    <div class="stage-cell">装好 App、给足权限、把组件摆上桌面，让它能开始工作</div>
+    <div class="stage-cell">快递到了，码自动进 App，我什么都不用做</div>
+    <div class="stage-cell">首页上每个取件点是一张卡片，不多不少，我一眼能认出</div>
+    <div class="stage-cell">知道现在该不该出门、先去哪个点、哪些可以攒着</div>
+    <div class="stage-cell">站在机器前，2 秒内出示正确的那个码，不被人催</div>
+    <div class="stage-cell">标记已取、确认没有遗漏、回家</div>
+
+    <!-- Actions -->
+    <div class="row-label">用户行动</div>
+    <div class="stage-cell"><ul>
+      <li>下载安装并首次打开</li>
+      <li>授予短信权限</li>
+      <li>跳出到系统设置开启通知监听</li>
+      <li>返回 App 确认权限状态</li>
+      <li>长按桌面添加取件点组件</li>
+      <li>为组件绑定取件点</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>收到短信或推送</li>
+      <li>不做任何操作，等后台解析</li>
+      <li>扫一眼桌面组件确认已收录</li>
+      <li>（失败时）复制粘贴手动导入</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>打开首页</li>
+      <li>发现「XX便利店」和「菜鸟驿站(XX店)」是两张卡片</li>
+      <li>回忆它们是不是同一个点</li>
+      <li>手动合并并命名</li>
+      <li>几天后又冒出一张新卡片，再合并一次</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>扫一眼桌面三个组件</li>
+      <li>看到丰巢那个变黄</li>
+      <li>判断今天必须去</li>
+      <li>看驿站那个还是绿的 → 决定顺路一起取</li>
+      <li>京东那个不急，留到明天</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>走到取件点</li>
+      <li>解锁手机</li>
+      <li>点对应取件点的桌面组件</li>
+      <li>直接进该点现场模式</li>
+      <li>左右滑到当前要出示的那一件</li>
+      <li>超大等宽码 + 柜号一起读给对方 / 输入键盘</li>
+      <li>点「已取」</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>逐件点「已取」</li>
+      <li>看卡片件数归零</li>
+      <li>确认三个组件都没有残留</li>
+      <li>把包裹拿回家</li>
+      <li>（代取时）把包裹交给家人</li>
+    </ul></div>
+
+    <!-- Touchpoints -->
+    <div class="row-label">触点</div>
+    <div class="stage-cell"><ul>
+      <li>GitHub Release / 应用商店页</li>
+      <li>首次启动引导</li>
+      <li>系统短信权限弹窗</li>
+      <li>系统通知监听设置页（跳出 App）</li>
+      <li>桌面添加组件</li>
+      <li>组件配置页</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>系统短信</li>
+      <li>微信服务通知</li>
+      <li>菜鸟 / 京东 / 丰巢 App 推送</li>
+      <li>桌面组件</li>
+      <li>App 首页</li>
+      <li>手动导入入口</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>App 首页取件点卡片列表</li>
+      <li>疑似重复提示</li>
+      <li>手动合并入口</li>
+      <li>别名映射库</li>
+      <li>卡片重命名</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>桌面组件三态色</li>
+      <li>丰巢倒计时</li>
+      <li>驿站营业时间（V2）</li>
+      <li>首页按紧急度排序的卡片</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>桌面取件点组件（点击即入口）</li>
+      <li>现场模式全屏页</li>
+      <li>柜机键盘 / 驿站出库扫码机 / 店员</li>
+      <li>一键已取按钮</li>
+      <li>左右滑轮播</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>现场模式「已取」按钮</li>
+      <li>首页卡片件数变化</li>
+      <li>桌面组件刷新</li>
+      <li>历史标签页</li>
+    </ul></div>
+
+    <!-- Thoughts -->
+    <div class="row-label">用户心声</div>
+    <div class="stage-cell"><ul>
+      <li>"读短信？这 App 想干嘛"</li>
+      <li>"为什么还要跳出去开通知监听"</li>
+      <li>"要我绑哪个取件点？可我一件快递都还没收到"</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>"希望它自己抓到了"</li>
+      <li>"组件上没多一件，是没抓到还是我眼花？"</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>"这两张是同一个地方吗？"</li>
+      <li>"怎么又冒出一张"</li>
+      <li>"万一合错了，现场少一个码怎么办"</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>"丰巢还剩 5 小时，下班顺路正好"</li>
+      <li>"驿站 9 点关门，来得及"</li>
+      <li>"京东那个明天再说"</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>"点一下就全是我要的"</li>
+      <li>"字够大，不用凑近"</li>
+      <li>"柜号就在码旁边，不用来回看"</li>
+      <li>"后面排队的人不用等我"</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>"都取完了吧？"</li>
+      <li>"组件清了，踏实"</li>
+    </ul></div>
+
+    <!-- Emotion -->
+    <div class="row-label">情绪</div>
+    <div class="stage-cell emotion-cell">
+      😕
+      <div class="pain-indicator" style="color: #F97316;">
+        <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class=""></span>
+      </div>
+      <span class="key-moment-badge dropout">流失风险</span>
+    </div>
+    <div class="stage-cell emotion-cell">
+      😐
+      <div class="pain-indicator" style="color: #F97316;">
+        <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class=""></span>
+      </div>
+      <span class="key-moment-badge dropout">流失风险</span>
+    </div>
+    <div class="stage-cell emotion-cell">
+      😕
+      <div class="pain-indicator" style="color: #F97316;">
+        <span class="active"></span><span class="active"></span><span class="active"></span><span class="active"></span><span class=""></span>
+      </div>
+      <span class="key-moment-badge dropout">流失风险</span>
+    </div>
+    <div class="stage-cell emotion-cell">
+      🙂
+      <div class="pain-indicator" style="color: #34D399;">
+        <span class="active"></span><span class="active"></span><span class=""></span><span class=""></span><span class=""></span>
+      </div>
+      <span class="key-moment-badge recovery">体验回升</span>
+    </div>
+    <div class="stage-cell emotion-cell">
+      😊
+      <div class="pain-indicator" style="color: #10B981;">
+        <span class="active"></span><span class=""></span><span class=""></span><span class=""></span><span class=""></span>
+      </div>
+      <span class="key-moment-badge truth">关键时刻</span>
+      <span class="key-moment-badge delight">满意峰值</span>
+    </div>
+    <div class="stage-cell emotion-cell">
+      🙂
+      <div class="pain-indicator" style="color: #34D399;">
+        <span class="active"></span><span class="active"></span><span class=""></span><span class=""></span><span class=""></span>
+      </div>
+    </div>
+
+    <!-- Pain Points -->
+    <div class="row-label">痛点</div>
+    <div class="stage-cell"><ul>
+      <li>短信权限的心理抗拒远高于通知权限——用户认知里「读短信」约等于「读我全部隐私」</li>
+      <li>通知监听必须跳出 App 到系统设置，返回路径容易断</li>
+      <li>MIUI 需单独开「通知类短信」权限，用户不知道，且失败是静默的</li>
+      <li><b>首次打开是空列表</b>——还没收到任何快递，看不到任何价值，最容易直接卸载</li>
+      <li><b>🔴 鸡生蛋问题（本轮新发现）</b>：分实例组件要求「绑定一个取件点」，但此时用户还没有任何取件点数据。核心设计在 onboarding 时无法执行</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>5G 消息 / 网络短信无发件人号码 → 解析不了；在位者给的解法是让用户去关闭【服务信息】</li>
+      <li>微信服务通知常被折叠成「XX给你发了一条消息」，抓到也读不出内容</li>
+      <li>部分驿站根本不发短信，只发 App 推送或微信 → 用户必须装着那个 App 才有通知可监听</li>
+      <li><b>🔴 解析失败是静默的</b>——用户不知道漏了一件，直到站在机器前才发现。Stage 2 的债务在 Stage 5 引爆</li>
+    </ul>
+      <div class="hole">🕳️ <b>洞（代取断裂点）</b>：他妈妈的短信在她自己手机上，陈屿的 App 永远收不到。已决定不做跨设备同步 → MVP 无法填。绕行路径见「设计机会」</div>
+    </div>
+    <div class="stage-cell"><ul>
+      <li><b>保守策略的代价在这里兑现</b>：同一取件点的不同写法形成多张卡片，首页变长、件数被拆散</li>
+      <li>判断「是否同一点」全靠用户回忆，App 帮不上忙</li>
+      <li><b>合并是持续性负担，不是一次性</b>——快递模板一变就可能冒新卡片</li>
+      <li><b>🔴 后果不对称导致用户不敢合并</b>：错合并 → 现场少显示一个码 → 灾难；不合并 → 首页一堆重复卡片 → 只是难看。理性用户会选不合并，于是保守策略的代价被放大</li>
+      <li>在位者 #53 是这个问题的技术表现</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>驿站营业时间库在 V2，MVP 期间「驿站临期 / 关门」这一态是空的 → 决策价值只兑现一半（只剩丰巢）</li>
+      <li>阈值默认值是推演的、未实测；若用户习惯 2 小时内就顺手取走，6 小时阈值永不触发，等于没做</li>
+      <li>三态的颜色语义有学习成本</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>若 Stage 2 静默漏收，用户在这一刻才发现少一个码 → 必须退回翻短信，前面所有设计价值归零</li>
+      <li>若 Stage 3 错合并，这一屏会少显示一件 → 灾难性失败正是发生在这里</li>
+      <li>代取件如果没单独分组，会在自己的码里翻找别人的码，抵消「找得准」的价值</li>
+      <li>菜鸟裹裹会话级动态身份码能否本地重现仍未核实，若不行仍需跳官方 App，现场动作链被打断</li>
+    </ul></div>
+    <div class="stage-cell"><ul>
+      <li>在位者 #38「已取快递不显示已取」说明「标记已取」这个动作本身容易失败或状态不同步</li>
+      <li>多个取件点分次取完时，缺少一个「今天全部清完了」的总确认</li>
+      <li>代取的交接在数字产品之外，App 帮不上忙；且「我已代取」的状态她看不到（不做同步的代价）</li>
+    </ul></div>
+
+    <!-- Quotes -->
+    <div class="row-label">用户原话</div>
+    <div class="stage-cell">
+      <div class="quote">"小米手机权限：要打开通知类短信权限【权限管理→其他权限→通知类短信→始终允许】"<span class="quote-src">来源：在位者 README 使用问题 #3</span></div>
+      <div class="quote">"桌面卡片不更新：可能是后台进程被杀了…在系统自启动里面添加 app，在耗电管理里设置不限制应用的后台行为"<span class="quote-src">来源：在位者 README 使用问题 #5</span></div>
+    </div>
+    <div class="stage-cell">
+      <div class="quote">"没有发送者号码的这种网络短信。这种网络短信目前识别不了"<span class="quote-src">来源：在位者 README 使用问题 #4</span></div>
+      <div class="quote">"不发短信的话，可以复制取件码或短信，点击 +号 自动粘贴导入。或者找快递客服，让他把取件码通知方式改成短信通知"<span class="quote-src">来源：在位者 README 使用问题 #6</span></div>
+    </div>
+    <div class="stage-cell">
+      <div class="quote">"根据快递1预先设置的规则不起作用，快递2取件地址无法正确匹配。取件码正常。驿站名称，街道小区地址一变化就复现这个bug"<span class="quote-src">来源：在位者 issue #53（标记为「重大bug」）</span></div>
+      <div class="quote">"[需求]建议增加地址重分类功能"<span class="quote-src">来源：在位者 issue #23</span></div>
+      <div class="quote">"多地址归类"<span class="quote-src">来源：在位者 issue #27</span></div>
+    </div>
+    <div class="stage-cell">
+      <div class="quote" style="background:#FEF2F2;border-left-color:#DC2626;color:#991B1B;">⚠️ 暂无真实用户原话——这一态是全竞品空白，在位者没有任何相关 issue（因为功能不存在）。按技能红线不编造，标注为待验证。<span class="quote-src">建议：跑 Probe 补 3-5 人访谈，验证「知道还剩多少时间」是否真能改变出门决策</span></div>
+    </div>
+    <div class="stage-cell">
+      <div class="quote">"请问取件码只能组件展示吗？可以锁屏通知吗"<span class="quote-src">来源：在位者 issue #24（锁屏路径已确认不可行）</span></div>
+      <div class="quote">"[请求]取件码使用等宽字体显示"<span class="quote-src">来源：在位者 issue #30</span></div>
+      <div class="quote">"能不能把柜号显示在取件码旁边"<span class="quote-src">来源：在位者 issue #28</span></div>
+      <div class="quote">"取件码排列问题"<span class="quote-src">来源：在位者 issue #45</span></div>
+    </div>
+    <div class="stage-cell">
+      <div class="quote">"请问大佬已取快递不显示已取"<span class="quote-src">来源：在位者 issue #38</span></div>
+      <div class="quote">"[需求]建议单个地址隐藏已收件功能增加标识"<span class="quote-src">来源：在位者 issue #22</span></div>
+    </div>
+
+    <!-- Opportunities -->
+    <div class="row-label">设计机会</div>
+    <div class="stage-cell">
+      <div class="opportunity">💡 空状态必须承担教学职责：用示例数据完整演示一次现场模式，让用户在收到第一个快递之前就理解产品价值</div>
+      <div class="opportunity">💡 权限按「价值顺序」请求，不按「技术顺序」——先演示，再要短信权限</div>
+      <div class="opportunity">💡 组件必须支持「未绑定」形态：先加上，收到第一条短信后反向提示「要不要把这个驿站固定到组件」</div>
+      <div class="opportunity">💡 隐私叙事前置到要权限的那一屏：「你的取件码永不出本机」</div>
+    </div>
+    <div class="stage-cell">
+      <div class="opportunity">💡 解析失败必须显性化：桌面组件上直接显示「可能有 N 条未识别」，而不是被动等用户去翻失败列表</div>
+      <div class="opportunity">💡 代取绕行路径（不需要同步、不违背「不联网」）：家人把短信/码经微信转发过来 → 从微信通知解析 → 标记为「代取件」并在现场模式单独分组。在位者已证明此路可行</div>
+      <div class="opportunity">💡 手动导入压到 3 秒：粘贴一段文本自动出结构化结果</div>
+      <div class="opportunity">💡 首次启动明确告知「哪些来源抓得到、哪些抓不到」，管理预期好过让用户自己发现漏洞</div>
+    </div>
+    <div class="stage-cell">
+      <div class="opportunity">💡 别名映射库随公共数据包下发：第一人合并，社区后续用户免合并——把一次性个人负担转化为社区资产（第二个数据护城河）</div>
+      <div class="opportunity">💡 合并必须可撤销且撤销成本极低，否则用户永远不敢合并</div>
+      <div class="opportunity">💡 卡片上显示「该点最近 3 次的原始名称」，用证据辅助判断，而不是让用户凭记忆</div>
+      <div class="opportunity">💡 疑似重复给轻提示但不自动执行（守住保守策略）：「这两个可能是同一个点？」</div>
+    </div>
+    <div class="stage-cell">
+      <div class="opportunity">💡 全竞品空白，也是唯一能改变用户行为的信息：取件码不改变行为（你反正要去），「还剩 3 小时」才改变</div>
+      <div class="opportunity">💡 丰巢倒计时零数据积累即可做（规则已核实：免费 18h，之后 0.5 元/12h，上限 3 元），应在 MVP 完整兑现，不要等营业时间库</div>
+      <div class="opportunity">💡 默认按紧急度排序而非时间，直接解决在位者 #45 / #21</div>
+      <div class="opportunity">💡 「白跑预警」比「超时费提醒」值钱得多——省一整趟 vs 省 3 元</div>
+    </div>
+    <div class="stage-cell">
+      <div class="opportunity">💡 这一屏是整个 A 方向的赌注兑现点，也是产品的 moment of truth——必须做到「点一下就对」</div>
+      <div class="opportunity">💡 现场模式必须显式承载「代取件」分组，让帮家人取件时一眼分清</div>
+      <div class="opportunity">💡 进入现场模式时再确认一次未识别提醒（兜住 Stage 2 的静默失败）</div>
+      <div class="opportunity">💡 动态身份码若无法本地重现，深链跳转必须一步直达且能返回现场模式，不要让用户迷路</div>
+    </div>
+    <div class="stage-cell">
+      <div class="opportunity">💡 已取后组件必须立即刷新（在位者组件 24 小时才自动刷新一次、靠广播撑着，这里能明显做得更好）</div>
+      <div class="opportunity">💡 给一个「全部清完」的收尾确认，消掉「我是不是漏了」的焦虑</div>
+      <div class="opportunity">💡 代取件标记已取时，生成一条可转发文本给家人（不做同步，但闭合信息回路）</div>
+    </div>
+  </div>
+
+  <div class="curve-section">
+    <div class="curve-title">📈 情感曲线（Pain Level over Journey · 越靠上体验越好）</div>
+    <svg class="curve-svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+      <line x1="0" y1="20" x2="1200" y2="20" stroke="#E5E7EB" stroke-dasharray="2" />
+      <line x1="0" y1="60" x2="1200" y2="60" stroke="#E5E7EB" stroke-dasharray="2" />
+      <line x1="0" y1="100" x2="1200" y2="100" stroke="#E5E7EB" stroke-dasharray="2" />
+      <polyline
+        points="0,85 240,85 480,85 720,35 960,10 1200,35"
+        fill="none" stroke="#6366F1" stroke-width="3"
+        stroke-linejoin="round" stroke-linecap="round" />
+      <circle cx="0" cy="85" r="6" fill="#F97316" stroke="white" stroke-width="2" />
+      <circle cx="240" cy="85" r="6" fill="#F97316" stroke="white" stroke-width="2" />
+      <circle cx="480" cy="85" r="6" fill="#F97316" stroke="white" stroke-width="2" />
+      <circle cx="720" cy="35" r="6" fill="#34D399" stroke="white" stroke-width="2" />
+      <circle cx="960" cy="10" r="6" fill="#10B981" stroke="white" stroke-width="2" />
+      <circle cx="1200" cy="35" r="6" fill="#34D399" stroke="white" stroke-width="2" />
+    </svg>
+    <div class="curve-caption">
+      <b>曲线形状本身就是本轮最重要的发现</b>：pain_level 为 4 / 4 / 4 / 2 / 1 / 2 —— <b>前三关全在悬崖上，我们的差异化全部在第四关之后才出现。</b>
+      Stage 1-3（授权、收件、归一）是品类固有成本 + 我们主动选择的保守策略的代价，我们的设计目前<b>几乎没有增量</b>；
+      Stage 4-5（决策、现场）才是 A+C 的价值兑现点。<b>用户根本活不到看见现场模式的那一刻。</b><br>
+      ⚠️ 注：Stage 4-5 的低 pain 是<b>假设值</b>（我们设计了解法，但产品尚不存在、无用户验证）；Stage 1-3 的高 pain 有<b>在位者真实 issue 与 README 故障排查条目</b>作为证据支撑。
+    </div>
+  </div>
+
+  <div class="findings">
+    <h2>🔍 旅程暴露的 5 个新发现（其中 3 个推翻了我们之前的设计）</h2>
+
+    <div class="finding critical">
+      <b>发现 1 · 我们的 MVP 清单是错的</b>
+      <p>上一轮列的 6 条 MVP（解析 / 取件点分组 / 现场模式 / 分实例组件 / 丰巢倒计时 / 三态排序）<b>全部落在 Stage 2-5</b>，
+      而曲线显示流失全在 Stage 1-3。<b>没有一条在解决悬崖。</b> 换句话说：我们花最多心思设计的现场模式，恰恰是旅程里最不需要担心的部分——
+      因为能走到那一屏的用户，已经自己爬过了三道坎。MVP 必须重新切。</p>
+    </div>
+
+    <div class="finding critical">
+      <b>发现 2 · 分实例组件有鸡生蛋问题（直接冲击核心设计）</b>
+      <p>「按取件点分实例的组件」是我们最满意的设计（一次解决展示 + 现场上下文识别）。但它要求<b>先有取件点才能绑定</b>，
+      而用户刚装完 App 时一件快递都还没收到 —— <b>核心设计在最需要它的第一印象时刻无法执行。</b>
+      解法：组件必须支持「未绑定 / 通用」形态，先加上，收到第一条短信后再反向提示「要不要把这个驿站固定到组件」。
+      这同时把 onboarding 的桌面成本从「3 个组件位」降到「1 个」，正好回应「不占太大位置」的约束。</p>
+    </div>
+
+    <div class="finding critical">
+      <b>发现 3 · Stage 2 的静默失败会在 Stage 5 引爆</b>
+      <p>解析失败是<b>静默</b>的：用户不知道漏了一件，直到站在柜机前才发现。这意味着 Stage 2 的债务会在
+      <b>moment of truth 那一屏</b>兑现，而且是以最糟的方式——用户被迫退回翻短信，前面所有设计价值当场归零。
+      在位者有 FailSmsScreen 但它是<b>被动入口</b>（要用户主动去翻）。我们必须把「可能有 N 条未识别」
+      直接顶到桌面组件上，并在进入现场模式时再确认一次。</p>
+    </div>
+
+    <div class="finding">
+      <b>发现 4 · 保守归一化的后果不对称，会让用户不敢合并，从而放大保守策略自己的代价</b>
+      <p>错合并 → 现场少显示一个码 → <b>灾难</b>；不合并 → 首页多一张重复卡片 → <b>只是难看</b>。
+      理性用户必然选择不合并，于是首页越来越长、件数被拆散——<b>正是我们选保守策略想避免的那个体验。</b>
+      所以解法不能是「劝用户合并」，必须是<b>让合并可逆</b>（撤销成本极低）+ <b>用证据辅助判断</b>
+      （卡片上显示该点最近 3 次的原始名称，而不是让用户凭记忆）。别名映射库让第二个用户不必再经历这一步。</p>
+    </div>
+
+    <div class="finding">
+      <b>发现 5 · 代取的洞确认在 Stage 2，绕行路径可行且便宜，可以接受</b>
+      <p>洞的位置明确：他妈妈的短信在她自己手机上，我们的 App 永远收不到，且已决定不做跨设备同步。
+      <b>但存在一条不需要后端、不违背「不联网」的绕行路径</b>：家人把短信/码经微信转发过来 → 从微信通知解析 →
+      标记为「代取件」。在位者的 README 明确写了「监听第三方 app 通知…帮微信朋友取快递更方便了」，<b>此路已被验证可行。</b><br>
+      代价是必须显式设计「代取件」这个类别（Stage 3 分组、Stage 5 现场模式单独分区、Stage 6 生成可转发文本闭合回路），
+      否则它会混在自己的码里，反而抵消「找得准」的价值。<b>结论：这个洞可以接受，但前提是「代取件」成为一等公民而不是附注。</b></p>
+    </div>
+
+    <h2 style="margin-top:28px;">📦 MVP 清单修正（<span style="color:#059669;">绿色 = 本轮新增</span>）</h2>
+    <table class=".mvp">
+      <tr><th style="width:34%">条目</th><th style="width:12%">所属 Stage</th><th style="width:14%">状态</th><th>理由</th></tr>
+      <tr><td class="new">空状态用示例数据完整演示现场模式</td><td>1 授权</td><td class="new">🆕 新增 · 必须</td><td>首次打开是空列表 = 看不到任何价值 = 直接卸载。这是第一印象的生死线</td></tr>
+      <tr><td class="new">权限按「价值顺序」请求，隐私叙事前置</td><td>1 授权</td><td class="new">🆕 新增 · 必须</td><td>短信权限心理抗拒远高于通知权限；先让用户看到价值再要权限</td></tr>
+      <tr><td class="new">组件支持「未绑定 / 通用」形态 + 首条短信后反向提示绑定</td><td>1 授权</td><td class="new">🆕 新增 · 必须</td><td>解决鸡生蛋问题（发现 2）；同时把桌面成本从 3 个组件位降到 1 个</td></tr>
+      <tr><td class="new">组件上显示「可能有 N 条未识别」</td><td>2 收件</td><td class="new">🆕 新增 · 必须</td><td>兜住静默失败（发现 3），避免债务在 Stage 5 引爆</td></tr>
+      <tr><td class="new">合并可撤销 + 卡片显示最近 3 次原始名称</td><td>3 归一</td><td class="new">🆕 新增 · 必须</td><td>解决后果不对称（发现 4），否则保守策略的代价会反噬体验</td></tr>
+      <tr><td>短信 / 通知解析 → 取件码 + 取件点 + 柜号</td><td>2 收件</td><td>保留 · 必须</td><td>产品地基</td></tr>
+      <tr><td>首页按取件点组织（一级公民）</td><td>3 归一</td><td>保留 · 必须</td><td>判断一：取件是空间任务不是时间任务</td></tr>
+      <tr><td>现场模式（独立一屏）</td><td>5 现场</td><td>保留 · 必须</td><td>产品灵魂，moment of truth</td></tr>
+      <tr><td>丰巢超时倒计时</td><td>4 决策</td><td>保留 · 必须</td><td>零数据积累即可做，MVP 里性价比最高的一条</td></tr>
+      <tr><td>三态时效驱动默认排序</td><td>4 决策</td><td>保留 · 必须</td><td>直接解决在位者 #45 / #21</td></tr>
+      <tr><td>「代取件」作为一等类别（分组 + 现场分区）</td><td>2 / 3 / 5</td><td>🔼 从 V2 提到 MVP</td><td>发现 5：代取绕行路径可行，但没有显式类别就会混在一起，反而抵消价值</td></tr>
+      <tr><td>按取件点分实例的多组件配置</td><td>1 / 5</td><td>🔽 降为 V2</td><td>MVP 先做「1 个通用组件 + 可升级为绑定点」，避免 onboarding 就要 3 个桌面位</td></tr>
+      <tr><td>驿站营业时间库 / 白跑预警 / 批量建议</td><td>4 决策</td><td>V2（不变）</td><td>需要养数据集，是长期护城河但不能阻塞首版</td></tr>
+      <tr><td>别名映射库随公共数据包下发</td><td>3 归一</td><td>V2（不变）</td><td>与营业时间库同属公共数据层，一起做</td></tr>
+      <tr><td>分享卡片 / parcel 规则与身份码导入</td><td>1 / 6</td><td>V2（不变）</td><td>迁移路径，重要但不阻塞首版自用</td></tr>
+    </table>
+
+    <p style="font-size:12px;color:#6B7280;margin-top:16px;line-height:1.65;">
+      <b>⚠️ 必须正视的代价</b>：MVP 从 6 条涨到 11 条，对单人项目偏重。上面的降级项（分实例多组件 → V2）是为了压回可控范围，
+      但它同时削弱了「判断三：分实例本身就是小组件的解法」这个卖点。<b>这是一个真实的取舍，不是免费午餐。</b>
+      若坚持分实例组件进 MVP，则空状态演示与组件未绑定形态必须做得更完整，否则 onboarding 直接卡死。
+    </p>
+  </div>
+
+  <div class="footer">
+    Generated by SparkSkillsHub Journey Skill · Persona: 陈屿 · 6 stages · 假设性旅程（无 Probe 数据）· 2026-10-11
+  </div>
+</body>
+</html>

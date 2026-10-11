@@ -1,0 +1,19 @@
+# Gradle / Android 构建产物
+.gradle/
+.kotlin/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# 构建期临时文件
+noproxy-init.gradle
+*.log
+
+# 真机核对截图（验证产物）
+.verify/
