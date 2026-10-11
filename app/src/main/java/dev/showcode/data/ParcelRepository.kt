@@ -14,6 +14,9 @@ import dev.showcode.core.DEFAULT_CLOSING_MINUTE
 import dev.showcode.core.HealthReport
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
+import dev.showcode.core.PointAlias
+import dev.showcode.core.PickupPointGroup
+import dev.showcode.core.resolvePointKey
 import dev.showcode.core.PointKind
 import dev.showcode.core.Source
 import dev.showcode.core.UrgencyThresholds
@@ -40,6 +43,10 @@ data class AppData(
     val loaded: Boolean = false,
     val parcels: List<Parcel> = emptyList(),
     val unrecognized: List<UnrecognizedMessage> = emptyList(),
+    /** 取件点合并登记，键是源点的 pointKey。分组时在读取侧解析，parcel 行不被改写。 */
+    val aliases: Map<String, PointAlias> = emptyMap(),
+    /** 用户已经否认过的「可能是同一个点」对，见 [dev.showcode.core.pairKey]。 */
+    val dismissals: Set<String> = emptySet(),
     val lastSyncAt: Long? = null,
     val monthlyPicked: Int = 0,
     val lastPickupAt: Long? = null,
@@ -260,6 +267,45 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         )
     }
 
+    /**
+     * 合并两个取件点（story-6）。只登记一条别名，不动任何 parcel 行——
+     * 所以 [undoMerge] 删掉登记就等于完整还原，AC3 不需要"回滚"这种危险动作。
+     */
+    fun mergePoints(source: PickupPointGroup, target: PickupPointGroup, at: Long = System.currentTimeMillis()) {
+        scope.launch {
+            db.putAlias(
+                PointAlias(
+                    aliasKey = source.key,
+                    aliasName = source.name,
+                    targetKey = target.key,
+                    targetName = target.name,
+                    createdAt = at,
+                )
+            )
+            reload()
+        }
+    }
+
+    /** 拆开一次合并。返回被撤销的登记，好让撤销条能原样放回去。 */
+    fun undoMerge(aliasKey: String) {
+        scope.launch {
+            db.deleteAlias(aliasKey)
+            reload()
+        }
+    }
+
+    /** 某个点身上背着哪些合并——取件点详情的「合并历史」。 */
+    fun mergeHistoryFor(canonicalKey: String): List<PointAlias> =
+        _data.value.aliases.values.filter { resolvePointKey(it.targetKey, _data.value.aliases) == canonicalKey }
+
+    /** 「不是同一个点」。本地表态优先，V2 的社区别名数据不得覆盖（edge boundary-alias-conflict）。 */
+    fun dismissSuspect(pairKey: String) {
+        scope.launch {
+            db.putDismissal(pairKey, System.currentTimeMillis())
+            reload()
+        }
+    }
+
     private fun stampSync() {
         db.metaPut(KEY_LAST_SYNC, System.currentTimeMillis().toString())
     }
@@ -270,6 +316,8 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             loaded = true,
             parcels = db.allParcels(),
             unrecognized = db.allUnrecognized(),
+            aliases = db.allAliases().associateBy { it.aliasKey },
+            dismissals = db.allDismissals(),
             lastSyncAt = db.metaGet(KEY_LAST_SYNC)?.toLongOrNull(),
             monthlyPicked = db.countPickedSince(startOfCurrentMonth(now)),
             lastPickupAt = db.lastPickupAt(),

@@ -80,7 +80,9 @@ fun ShowCodeRoot() {
     val now = rememberTickingNow(30_000L)
     val thresholds by repository.thresholds.collectAsState()
 
-    val realGroups = remember(appData.parcels, now, thresholds) { groupByPoint(appData.parcels, now, thresholds) }
+    val realGroups = remember(appData.parcels, appData.aliases, now, thresholds) {
+        groupByPoint(appData.parcels, now, thresholds, appData.aliases)
+    }
     val sampleGroups = remember(demoParcels, now, thresholds) { groupByPoint(demoParcels, now, thresholds) }
     val demoGroups = remember(demoParcels, demoPicked.toList(), now, thresholds) {
         groupByPoint(demoParcels.filterNot { demoPicked.contains(it.id) }, now, thresholds)

@@ -10,17 +10,21 @@ fun groupByPoint(
     parcels: List<Parcel>,
     now: Long,
     thresholds: UrgencyThresholds = UrgencyThresholds(),
+    aliases: Map<String, PointAlias> = emptyMap(),
 ): List<PickupPointGroup> = parcels
     .filterNot { it.picked }
-    .groupBy { it.pointKey }
+    // 分组键是解析过别名的 canonical key：合并因此只是读取侧的一次改名，
+    // parcel 行一个字都不动，拆开时也就没有东西可丢。
+    .groupBy { resolvePointKey(it.pointKey, aliases) }
     .map { (key, items) ->
         val sorted = items.sortedWith(parcelOrder(now, thresholds))
         // 显示名取最近一次入库的写法：同一个点在短信里可能有多种拼法，
         // 保守归一化不会合并它们，但同一个 pointKey 内部要用最新的那个名字。
+        // 被合并过的点例外——那要用用户选定的目标点名字。
         val freshest = items.maxBy { it.receivedAt }
         PickupPointGroup(
             key = key,
-            name = freshest.pointName,
+            name = canonicalNameOf(key, aliases.values) ?: freshest.pointName,
             kind = freshest.pointKind,
             closesAtMinuteOfDay = freshest.closesAtMinuteOfDay,
             items = sorted,

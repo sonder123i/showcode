@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
+import dev.showcode.core.PointAlias
 import dev.showcode.core.PointKind
 import dev.showcode.core.Source
 import dev.showcode.core.parse.UnrecognizedReason
@@ -65,14 +66,90 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
             """.trimIndent()
         )
         db.execSQL("CREATE TABLE meta (mkey TEXT PRIMARY KEY, mvalue TEXT NOT NULL)")
+        // 合并登记。parcel 表里没有外键指向它——别名只在读取侧解析，
+        // 所以「拆开」就是删掉这一行，不需要把任何包裹搬回去。
+        db.execSQL(
+            """
+            CREATE TABLE point_alias (
+              alias_key TEXT PRIMARY KEY,
+              alias_name TEXT NOT NULL,
+              target_key TEXT NOT NULL,
+              target_name TEXT NOT NULL,
+              created_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        // 用户已经否认过的疑似重复对。V2 的社区别名数据不得覆盖本地表态，所以要先查这张表。
+        db.execSQL("CREATE TABLE point_dismiss (pair_key TEXT PRIMARY KEY, created_at INTEGER NOT NULL)")
+    }
+
+    fun allAliases(): List<PointAlias> = readableDatabase
+        .rawQuery("SELECT alias_key, alias_name, target_key, target_name, created_at FROM point_alias", null)
+        .use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(
+                        PointAlias(
+                            aliasKey = c.getString(0),
+                            aliasName = c.getString(1),
+                            targetKey = c.getString(2),
+                            targetName = c.getString(3),
+                            createdAt = c.getLong(4),
+                        )
+                    )
+                }
+            }
+        }
+
+    fun putAlias(alias: PointAlias) {
+        writableDatabase.insertWithOnConflict(
+            "point_alias",
+            null,
+            ContentValues().apply {
+                put("alias_key", alias.aliasKey)
+                put("alias_name", alias.aliasName)
+                put("target_key", alias.targetKey)
+                put("target_name", alias.targetName)
+                put("created_at", alias.createdAt)
+            },
+            SQLiteDatabase.CONFLICT_REPLACE,
+        )
+    }
+
+    fun deleteAlias(aliasKey: String) {
+        writableDatabase.delete("point_alias", "alias_key = ?", arrayOf(aliasKey))
+    }
+
+    fun allDismissals(): Set<String> = readableDatabase
+        .rawQuery("SELECT pair_key FROM point_dismiss", null)
+        .use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) }.toSet() }
+
+    fun putDismissal(pairKey: String, at: Long) {
+        writableDatabase.insertWithOnConflict(
+            "point_dismiss",
+            null,
+            ContentValues().apply { put("pair_key", pairKey); put("created_at", at) },
+            SQLiteDatabase.CONFLICT_REPLACE,
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // 尚无发布版本，schema 变更直接重建。发布后必须改成迁移。
-        db.execSQL("DROP TABLE IF EXISTS parcel")
-        db.execSQL("DROP TABLE IF EXISTS unrecognized")
-        db.execSQL("DROP TABLE IF EXISTS meta")
-        onCreate(db)
+        // v1 → v2：story-6 的两张表是纯新增，旧库里没有，直接补建即可。
+        // 这里绝不能走「删表重建」——那会把用户已经收进来的取件码全清掉。
+        if (oldVersion < 2) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS point_alias (
+                  alias_key TEXT PRIMARY KEY,
+                  alias_name TEXT NOT NULL,
+                  target_key TEXT NOT NULL,
+                  target_name TEXT NOT NULL,
+                  created_at INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE TABLE IF NOT EXISTS point_dismiss (pair_key TEXT PRIMARY KEY, created_at INTEGER NOT NULL)")
+        }
     }
 
     fun allParcels(): List<Parcel> = readableDatabase.queryAll().use { c -> buildList { while (c.moveToNext()) add(c.toParcel()) } }
@@ -168,6 +245,6 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     private companion object {
         const val NAME = "showcode.db"
-        const val VERSION = 1
+        const val VERSION = 2
     }
 }

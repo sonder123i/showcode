@@ -17,7 +17,9 @@ import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.Urgency
 import dev.showcode.core.countdownOf
 import dev.showcode.core.deadlineOf
+import dev.showcode.core.badgeOwnerId
 import dev.showcode.core.groupByPoint
+import dev.showcode.core.resolvePointKey
 import dev.showcode.core.urgencyOf
 import dev.showcode.ui.countdownLabel
 import dev.showcode.ui.theme.AccentInt
@@ -76,20 +78,12 @@ class PickupWidgetProvider : AppWidgetProvider() {
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, PickupWidgetProvider::class.java))
-            val badgeOwner = badgeOwner(context, ids)
+            val prefs = context.app.repository.prefs
+            val badgeOwner = badgeOwnerId(ids.toList(), ids.filter { prefs.widgetBinding(it) != null }.toSet())
             ids.forEach { id ->
                 manager.updateAppWidget(id, buildViews(context, id, showBadge = id == badgeOwner))
             }
             scheduleTick(context, ids.isNotEmpty())
-        }
-
-        /**
-         * 角标归属（frame 锁定规则）：未识别角标只在通用组件上显示一次，
-         * 绑定组件不重复显示；若用户只有绑定组件，则由 id 最小的那个顶上。
-         */
-        private fun badgeOwner(context: Context, ids: IntArray): Int? {
-            val prefs = context.app.repository.prefs
-            return ids.firstOrNull { prefs.widgetBinding(it) == null } ?: ids.minOrNull()
         }
 
         private fun buildViews(context: Context, widgetId: Int, showBadge: Boolean): RemoteViews {
@@ -100,8 +94,10 @@ class PickupWidgetProvider : AppWidgetProvider() {
             val prefs = context.app.repository.prefs
 
             val views = RemoteViews(context.packageName, R.layout.widget_root)
-            val groups = groupByPoint(data.parcels, now, thresholds)
-            val boundKey = prefs.widgetBinding(widgetId)
+            val groups = groupByPoint(data.parcels, now, thresholds, data.aliases)
+            /* 绑定点被合并掉之后，组件要跟着指向合并后的那个点：否则用户的桌面
+               会在某天早上突然变成空态，而且不知道为什么。 */
+            val boundKey = prefs.widgetBinding(widgetId)?.let { resolvePointKey(it, data.aliases) }
             val boundGroup = boundKey?.let { key -> groups.firstOrNull { it.key == key } }
 
             // stale-freshness：陈旧的码比没有码更危险

@@ -90,7 +90,9 @@ private fun ConfigureScreen(onPick: (String?, String?) -> Unit) {
     val data by repository.data.collectAsState()
     val thresholds by repository.thresholds.collectAsState()
     val now = rememberTickingNow(60_000L)
-    val groups = remember(data.parcels, now, thresholds) { groupByPoint(data.parcels, now, thresholds) }
+    val groups = remember(data.parcels, data.aliases, now, thresholds) {
+        groupByPoint(data.parcels, now, thresholds, data.aliases)
+    }
 
     Column(
         modifier = Modifier
