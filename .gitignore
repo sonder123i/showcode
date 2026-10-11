@@ -12,8 +12,8 @@ captures/
 *.aab
 
 # 构建期临时文件
-noproxy-init.gradle
 *.log
 
 # 真机核对截图（验证产物）
 .verify/
+.design-qa/
