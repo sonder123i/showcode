@@ -19,6 +19,7 @@ object ParseMetrics {
     data class Report(
         val gateRecall: Double,
         val fieldAccuracy: Double,
+        val unconfirmedRate: Double,
         val silentLoss: Double,
         val falseIntake: Double,
         val text: String,
@@ -28,6 +29,7 @@ object ParseMetrics {
         val tier: Tier,
         val parcels: List<ParsedParcel>,
         val reason: UnrecognizedReason?,
+        val codes: List<String>,
     )
 
     fun measure(cases: List<CorpusCase>, receivedAt: Long): Report {
@@ -43,8 +45,13 @@ object ParseMetrics {
 
         val units = buildList {
             didParse.forEach { case -> addAll(scoreFields(case, outcomes.getValue(case).parcels, receivedAt)) }
+            addAll(refusalCarryUnits(scored, outcomes))
         }
         val hits = units.count { it.hit }
+
+        // 认出了码的消息里，有多少条我们不敢替它决定「在哪个点」。
+        val carriedCode = scored.filter { outcomes.getValue(it).codes.isNotEmpty() }
+        val needConfirm = carriedCode.filter { outcomes.getValue(it).tier == Tier.REJECTED }
 
         val shouldStayOut = scored.filter { it.expect.tier != Tier.PARSED }
         val becameParcel = shouldStayOut.filter { outcomes.getValue(it).tier == Tier.PARSED }
@@ -57,9 +64,12 @@ object ParseMetrics {
         val silentLoss = rate(silentlyLost.size, shouldParse.size)
         val falseIntake = rate(becameParcel.size + pollutedUnrecognized.size, shouldStayOut.size)
 
+        val unconfirmedRate = rate(needConfirm.size, carriedCode.size)
+
         return Report(
             gateRecall = gateRecall,
             fieldAccuracy = fieldAccuracy,
+            unconfirmedRate = unconfirmedRate,
             silentLoss = silentLoss,
             falseIntake = falseIntake,
             text = buildString {
@@ -67,6 +77,7 @@ object ParseMetrics {
                 appendLine()
                 appendLine("进门率        ${pct(gateRecall)}   ${didParse.size}/${shouldParse.size}")
                 appendLine("字段准确率    ${pct(fieldAccuracy)}   $hits/${units.size}")
+                appendLine("需确认率      ${pct(unconfirmedRate)}   ${needConfirm.size}/${carriedCode.size}  ← 认出了码，但不敢替它定「在哪个点」")
                 appendLine("无痕蒸发率    ${pct(silentLoss)}   ${silentlyLost.size}/${shouldParse.size}  ← 用户永远不会知道少了件")
                 appendLine("误收率        ${pct(falseIntake)}   ${becameParcel.size} 条假快递 + ${pollutedUnrecognized.size} 条角标噪音 / ${shouldStayOut.size} 条负样本")
                 appendLine()
@@ -75,6 +86,7 @@ object ParseMetrics {
                 shouldParse.filter { outcomes.getValue(it).tier == Tier.REJECTED }.forEach {
                     appendLine("  🟡 落未识别 ${it.id} ${it.origin} → 实际原因 ${outcomes.getValue(it).reason}")
                 }
+                needConfirm.forEach { appendLine("  🟠 待确认 ${it.id} ${it.origin} → 码 ${outcomes.getValue(it).codes.joinToString()}") }
                 becameParcel.forEach { appendLine("  ⛔ 误收成快递 ${it.id} ${it.origin}") }
                 pollutedUnrecognized.forEach { appendLine("  ⚠️ 角标噪音 ${it.id} ${it.origin}") }
                 if (hits < units.size) {
@@ -93,9 +105,9 @@ object ParseMetrics {
 
     private fun judge(case: CorpusCase, receivedAt: Long): Outcome =
         when (val outcome = PickupCodeParser.parse(case.toMessage(receivedAt))) {
-            is ParseOutcome.Parsed -> Outcome(Tier.PARSED, outcome.parcels, null)
-            is ParseOutcome.Rejected -> Outcome(Tier.REJECTED, emptyList(), outcome.reason)
-            ParseOutcome.Ignored -> Outcome(Tier.IGNORED, emptyList(), null)
+            is ParseOutcome.Parsed -> Outcome(Tier.PARSED, outcome.parcels, null, outcome.parcels.map { it.code })
+            is ParseOutcome.Rejected -> Outcome(Tier.REJECTED, emptyList(), outcome.reason, outcome.codes)
+            ParseOutcome.Ignored -> Outcome(Tier.IGNORED, emptyList(), null, emptyList())
         }
 
     private fun CorpusCase.toMessage(receivedAt: Long) =
@@ -153,6 +165,25 @@ object ParseMetrics {
             )
         }
         return out
+    }
+
+    /**
+     * 被拒的消息是否仍把认出来的码带走了。
+     * 拒绝不等于白拒绝：用户补的应该只是「在哪个点」，不是重新抄一遍码。
+     */
+    private fun refusalCarryUnits(
+        scored: List<CorpusCase>,
+        outcomes: Map<CorpusCase, Outcome>,
+    ): List<Hit> = scored.mapNotNull { case ->
+        val want = case.expect.hintCodes
+        if (want.isEmpty()) return@mapNotNull null
+        val got = outcomes.getValue(case).codes
+        val missing = want.filterNot { it in got }
+        Hit(
+            "拒绝仍带码 · ${case.id}",
+            missing.isEmpty(),
+            "拒绝仍带码：${case.id} 期望带上 ${want.joinToString()}，实际 ${got.joinToString().ifBlank { "无" }}",
+        )
     }
 
     private data class Hit(val label: String, val hit: Boolean, val why: String)

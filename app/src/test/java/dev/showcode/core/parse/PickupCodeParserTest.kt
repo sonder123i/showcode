@@ -162,9 +162,15 @@ class PickupCodeParserTest {
     }
 
     @Test
-    fun `没有点位名时退到品牌名`() {
-        val p = parsed("106575580", "【丰巢】您有一个快递已入柜，取件码6-1-0088，请及时取件。")
-        assertEquals("丰巢快递柜", p.pointName)
-        assertEquals(PointKind.LOCKER, p.pointKind)
+    fun `认不出具体门店时不再合成一张卡，而是带着码送确认`() {
+        val outcome = PickupCodeParser.parse(
+            sms("106575580", "【丰巢】您有一个快递已入柜，取件码6-1-0088，请及时取件。"),
+        )
+        assertTrue("期望送确认，实际 $outcome", outcome is ParseOutcome.Rejected)
+        val rejected = outcome as ParseOutcome.Rejected
+        assertEquals(UnrecognizedReason.POINT_NAME_UNCONFIRMED, rejected.reason)
+        // 「丰巢快递柜」会把小区门口两台柜机合成一张卡，所以不再退化成那种看着正常的名字。
+        // 但码是确定的——不带下去就等于让用户在手动导入页重新抄一遍。
+        assertEquals(listOf("6-1-0088"), rejected.codes)
     }
 }

@@ -16,11 +16,12 @@ object Formats {
     val CASES: List<CorpusCase> = listOf(
         CorpusCase(
             id = "fmt-cainiao",
-            origin = "菜鸟驿站标准格式：货架号 + 营业时间段",
-            body = "【菜鸟驿站】您的中通快递包裹已到站，取件码5-2-7712，货架3排12号，营业时间08:00-20:00",
+            origin = "菜鸟驿站标准格式：门店名 + 货架「N排M号」 + 营业时间段",
+            body = "【菜鸟驿站】您的中通快递包裹已到向阳小区菜鸟驿站，取件码5-2-7712，货架3排12号，营业时间08:00-20:00",
             expect = Expect(
                 tier = Tier.PARSED,
                 code = "5-2-7712",
+                pointName = "向阳小区菜鸟驿站",
                 lockerNo = "3排12号",
                 kind = PointKind.STATION,
                 closesAtMinute = 20 * 60,
@@ -135,8 +136,8 @@ object Formats {
         ),
         CorpusCase(
             id = "fmt-notification",
-            origin = "菜鸟 App 通知（换行分段的 bigText 风格）。实测：点名正则只挡标点不挡换行，" +
-                "于是抽出来的「点名」把后面两行整段吞了——卡片会显示成一段地址+取件码+提示语",
+            origin = "菜鸟 App 通知（换行分段的 bigText）。实测：动词后的 \\s* 会吃掉换行，" +
+                "所以「点名独占一行」仍然抽得对——而且换行修复之后不再把「⏎取件码…」一起吞进来",
             sender = "com.cainiao.wireless",
             channel = Source.NOTIFICATION,
             body = "您有一件包裹已到达\n向阳小区菜鸟驿站(08号店)\n取件码 7-1-3393\n请及时取件",
@@ -152,7 +153,7 @@ object Formats {
             id = "fmt-strong-anchor-beats-spam",
             origin = "强锚定优先于负向锚：真实取件短信会写「取件码…请勿泄露给他人」，" +
                 "和验证码短信共用同一个负向词——谁先判，决定这件会不会凭空消失",
-            body = "【丰巢】您的中通快件已入柜，取件码8-3-7713，请勿泄露给他人",
+            body = "【丰巢】您的中通快件已放入丰巢智能柜(示例花园3号楼柜)，取件码8-3-7713，请勿泄露给他人",
             expect = Expect(
                 tier = Tier.PARSED,
                 code = "8-3-7713",

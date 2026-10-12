@@ -198,6 +198,7 @@ private fun unrecognizedReasonText(reason: UnrecognizedReason): String = stringR
         UnrecognizedReason.CODE_LIVES_IN_APP -> R.string.unrecognized_code_in_app
         UnrecognizedReason.NO_SENDER_NUMBER -> R.string.unrecognized_no_sender_number
         UnrecognizedReason.NO_CODE_FOUND -> R.string.unrecognized_no_code
+        UnrecognizedReason.POINT_NAME_UNCONFIRMED -> R.string.unrecognized_point_unconfirmed
     }
 )
 
@@ -264,8 +265,17 @@ fun ManualImportScreen(
                                 extras = outcome.parcels.drop(1).map { it.code }
                                 error = null
                             }
-                            is ParseOutcome.Rejected ->
-                                error = context.getString(R.string.manual_import_auto_failed)
+                            is ParseOutcome.Rejected -> {
+                                // 码是确定的就先把码填上。这类消息缺的只是「在哪个点」，
+                                // 让人重新抄一遍码等于把省下来的时间又还回去。
+                                code = outcome.codes.firstOrNull().orEmpty()
+                                extras = outcome.codes.drop(1)
+                                error = if (outcome.reason == UnrecognizedReason.POINT_NAME_UNCONFIRMED) {
+                                    context.getString(R.string.manual_import_auto_point_only)
+                                } else {
+                                    context.getString(R.string.manual_import_auto_failed)
+                                }
+                            }
                             ParseOutcome.Ignored ->
                                 error = context.getString(R.string.manual_import_auto_failed)
                         }

@@ -27,6 +27,8 @@ class ParseMetricsTest {
             report.gateRecall + EPS >= ParseBaseline.GATE_RECALL)
         assertTrue("字段准确率退化 ${fp(report.fieldAccuracy)} < 基线 ${fp(ParseBaseline.FIELD_ACCURACY)}\n\n${report.text}",
             report.fieldAccuracy + EPS >= ParseBaseline.FIELD_ACCURACY)
+        assertTrue("需确认率升高 ${fp(report.unconfirmedRate)} > 基线 ${fp(ParseBaseline.UNCONFIRMED_RATE)}\n\n${report.text}",
+            report.unconfirmedRate <= ParseBaseline.UNCONFIRMED_RATE + EPS)
         assertTrue("无痕蒸发率升高 ${fp(report.silentLoss)} > 基线 ${fp(ParseBaseline.SILENT_LOSS)}\n\n${report.text}",
             report.silentLoss <= ParseBaseline.SILENT_LOSS + EPS)
         assertTrue("误收率升高 ${fp(report.falseIntake)} > 基线 ${fp(ParseBaseline.FALSE_INTAKE)}\n\n${report.text}",
@@ -45,6 +47,13 @@ class ParseMetricsTest {
                 (it.expect.code != null || it.expect.pointName != null || it.expect.kind != null)
         }
         assertEquals("期望静默丢弃的语料不该带真值字段：$badIgnored", 0, badIgnored.size)
+
+        // 拒绝不该等于白拒绝：送去确认的消息必须声明它带走了哪些码，
+        // 否则用户在手动导入页要从头抄一遍取件码。
+        val unconfirmedBlind = ALL.filter {
+            it.expect.reason == UnrecognizedReason.POINT_NAME_UNCONFIRMED && it.expect.hintCodes.isEmpty()
+        }
+        assertEquals("这些语料送去确认却没要求带走码：$unconfirmedBlind", 0, unconfirmedBlind.size)
     }
 
     private fun hasAnyField(expect: dev.showcode.core.parse.corpus.Expect): Boolean =

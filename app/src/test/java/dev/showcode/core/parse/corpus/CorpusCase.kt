@@ -38,6 +38,12 @@ data class Expect(
     /** tier 为 REJECTED 时期望的原因。 */
     val reason: UnrecognizedReason? = null,
     /**
+     * 被拒的消息**仍然必须带上已经认出来的码**。
+     * 「不确定是哪个点」这类拒绝里，码是确定的；不把它带到手动导入页，
+     * 用户就得从头抄一遍——那等于把省下来的时间还回去。
+     */
+    val hintCodes: List<String> = emptyList(),
+    /**
      * 点名里出现这些子串就判脏值。地址串冒充取件点名是真实高频错法，
      * 而「点名非空」这件事本身并不能说明它是对的。
      */

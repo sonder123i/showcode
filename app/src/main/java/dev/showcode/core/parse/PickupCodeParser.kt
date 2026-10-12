@@ -42,6 +42,15 @@ enum class UnrecognizedReason {
 
     /** 有取件语义，但正文里找不到可识别的取件码。 */
     NO_CODE_FOUND,
+
+    /**
+     * 码认出来了，但**这个件属于哪个取件点没把握**。
+     *
+     * 走这条而不是生成一张卡，是因为兜底出来的名字（「菜鸟驿站」「丰巢快递柜」「取件点」）
+     * 会把不同门店合成同一张——用户站在 A 点看着 B 点的码，而且毫不怀疑。
+     * 一张可疑的卡比一条待确认的未识别更危险。
+     */
+    POINT_NAME_UNCONFIRMED,
 }
 
 sealed interface ParseOutcome {
@@ -54,8 +63,11 @@ sealed interface ParseOutcome {
      */
     data class Parsed(val parcels: List<ParsedParcel>) : ParseOutcome
 
-    /** 是取件消息但没解析出码 → 落库为「未识别」，让用户知道漏了什么。 */
-    data class Rejected(val reason: UnrecognizedReason) : ParseOutcome
+    /**
+     * @param codes 已经认出来的码。带着它，用户只需补那一个不确定的字段
+     *              （通常是取件点名称），不必重新抄一遍码。
+     */
+    data class Rejected(val reason: UnrecognizedReason, val codes: List<String> = emptyList()) : ParseOutcome
 
     /**
      * 与取件无关 → 静默丢弃，**不落库**。两种情况都归这里：根本不是取件消息
@@ -75,14 +87,29 @@ object PickupCodeParser {
         val hits = extractCodes(body)
         val primary = hits.firstOrNull()
         return when {
-            primary != null && MessageGate.admitsCode(body, strong = primary.strong) -> parsed(message, body, hits)
+            primary != null && MessageGate.admitsCode(body, strong = primary.strong) -> {
+                val name = extractPointName(body)
+                if (name.confirmed) {
+                    parsed(message, body, hits, name.value)
+                } else {
+                    // 码是确定的、点是不确定的：把码一起带进未识别，用户只补那一个字段。
+                    ParseOutcome.Rejected(
+                        UnrecognizedReason.POINT_NAME_UNCONFIRMED,
+                        hits.map { it.value },
+                    )
+                }
+            }
             MessageGate.looksLikePickup(body) -> ParseOutcome.Rejected(reasonOf(body, message.sender))
             else -> ParseOutcome.Ignored
         }
     }
 
-    private fun parsed(message: IncomingMessage, body: String, hits: List<CodeHit>): ParseOutcome.Parsed {
-        val pointName = extractPointName(body)
+    private fun parsed(
+        message: IncomingMessage,
+        body: String,
+        hits: List<CodeHit>,
+        pointName: String,
+    ): ParseOutcome.Parsed {
         val kind = kindOf(pointName, body)
         val closingMinute = if (kind == PointKind.LOCKER) null else closingMinuteOf(body, kind)
         val freeUntil = if (kind == PointKind.LOCKER) {
@@ -232,23 +259,31 @@ object PickupCodeParser {
     private val NAME_PREFIX_NOISE = Regex("^(您的|你的|包裹|快递|快件|一个|您的包裹)+")
     private val BRAND_FALLBACK = Regex("丰巢|菜鸟驿站|菜鸟|京东自提|京东|顺丰|中通|圆通|韵达|申通|邮政|极兔")
 
-    private fun extractPointName(body: String): String {
+    /** [confirmed] = 这个名字是从正文的点位短语里抽出来的，还是兜底猜出来的。 */
+    private data class PointNameHit(val value: String, val confirmed: Boolean)
+
+    /** 方括号与引号里装的是占位符或整句的尾巴，不是一个点位名。 */
+    private val PLACEHOLDER_MARKS = Regex("[【】“”\"「」]")
+
+    private fun extractPointName(body: String): PointNameHit {
         val fromVerb = POINT_NAME.find(body)?.groupValues?.get(1)
             ?.replace(NAME_PREFIX_NOISE, "")
             ?.trim()
-            ?.takeIf { it.length >= 2 }
-        if (fromVerb != null) return fromVerb
+            ?.takeIf { it.length >= 2 && !PLACEHOLDER_MARKS.containsMatchIn(it) }
+        if (fromVerb != null) return PointNameHit(fromVerb, confirmed = true)
 
-        // 没有点位名时退到品牌名。注意这会让同品牌的多个未知点位合并成一张卡片——
-        // 保守归一化只承诺「不合并名称不同的点」，这里两次的名称是同一个（都未知）。
+        // 走到这里就是认不出具体门店了。以前退成「菜鸟驿站」「丰巢快递柜」直接成卡——
+        // 那会把同城不同小区的两个点合成一张，用户站在 A 点看着 B 点的码且毫不怀疑。
+        // 现在这个名字只用来把消息解释给人看，件本身送未识别等确认（POINT_NAME_UNCONFIRMED）。
         val tag = BRAND_TAG.find(body)?.groupValues?.get(1)
         val brand = BRAND_FALLBACK.find(tag ?: body)?.value
-        return when {
+        val guess = when {
             brand == "丰巢" -> "丰巢快递柜"
             brand != null && brand.startsWith("菜鸟") -> "菜鸟驿站"
             brand != null -> brand + "自提点"
             else -> "取件点"
         }
+        return PointNameHit(guess, confirmed = false)
     }
 
     private val KIND_STATION = Regex("驿站")
