@@ -5,6 +5,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import dev.showcode.app
 import dev.showcode.core.Source
+import dev.showcode.core.ownerOfForward
 import dev.showcode.core.parse.IncomingMessage
 
 /**
@@ -27,6 +28,7 @@ class PickupNotificationListener : NotificationListenerService() {
                 body = body,
                 receivedAt = sbn.postTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
                 channel = Source.NOTIFICATION,
+                owner = ownerOfForward(sbn.packageName),
             )
         )
     }

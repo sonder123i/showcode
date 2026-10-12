@@ -3,6 +3,7 @@ package dev.showcode.data
 import android.content.Context
 import android.content.SharedPreferences
 import dev.showcode.core.HOUR_MS
+import dev.showcode.core.FAMILY_LABEL_DEFAULT
 import dev.showcode.core.UrgencyThresholds
 
 /**
@@ -36,6 +37,14 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_ONBOARDING_DONE, value).apply()
 
     /** 首页「长按组件可只显示一个点」横幅是否已关闭（story-3 AC5：可关闭）。 */
+    /**
+     * 代取件分组的名字（story-7 AC2：用户能改）。「帮妈妈取」只是默认值——
+     * 有人帮妈妈、有人帮室友，写死成一个称呼等于替用户决定了他的家庭结构。
+     */
+    var familyLabel: String
+        get() = sp.getString(KEY_FAMILY_LABEL, null)?.takeIf { it.isNotBlank() } ?: FAMILY_LABEL_DEFAULT
+        set(value) = sp.edit().putString(KEY_FAMILY_LABEL, value.trim()).apply()
+
     var widgetHintDismissed: Boolean
         get() = sp.getBoolean(KEY_WIDGET_HINT_DISMISSED, false)
         set(value) = sp.edit().putBoolean(KEY_WIDGET_HINT_DISMISSED, value).apply()
@@ -75,6 +84,7 @@ class Prefs(context: Context) {
         private const val KEY_STATION_MINUTES = "station_due_soon_minutes"
         private const val KEY_ONBOARDING_DONE = "onboarding_done"
         private const val KEY_WIDGET_HINT_DISMISSED = "widget_hint_dismissed"
+        private const val KEY_FAMILY_LABEL = "family_label"
 
         const val DEFAULT_LOCKER_HOURS = 6
         const val DEFAULT_STATION_MINUTES = 90

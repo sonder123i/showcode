@@ -131,6 +131,14 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         }
     }
 
+    /** 改归属（story-7 最小版：手动打标签）。管理面，不需要现场那种同帧反馈。 */
+    fun setParcelOwner(id: Long, owner: Owner) {
+        scope.launch {
+            db.updateParcel(id, ContentValues().apply { put("owner", owner.name) })
+            reload()
+        }
+    }
+
     fun undoPicked(id: Long) {
         _data.update { snapshot ->
             snapshot.copy(parcels = snapshot.parcels.map { if (it.id == id) it.copy(picked = false, pickedAt = null) else it })
@@ -184,7 +192,13 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
      * 与自动收录走同一张表、同一套保守归一化，只是来源标成 MANUAL；
      * 时效依据给驿站默认关门时刻——手动导入的文本里通常没有营业时间。
      */
-    fun manualAdd(code: String, pointName: String, lockerNo: String?, raw: String): Job = scope.launch {
+    fun manualAdd(
+        code: String,
+        pointName: String,
+        lockerNo: String?,
+        raw: String,
+        owner: Owner = Owner.SELF,
+    ): Job = scope.launch {
         val values = ContentValues().apply {
             put("code", code)
             put("locker_no", lockerNo)
@@ -192,7 +206,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             put("point_key", pointKey(pointName))
             put("point_name", pointName)
             put("point_kind", PointKind.STATION.name)
-            put("owner", Owner.SELF.name)
+            put("owner", owner.name)
             put("source", Source.MANUAL.name)
             put("received_at", System.currentTimeMillis())
             putNull("free_until_at")
@@ -233,7 +247,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             put("point_key", key)
             put("point_name", parsed.pointName)
             put("point_kind", parsed.pointKind.name)
-            put("owner", Owner.SELF.name)
+            put("owner", message.owner.name)
             put("source", message.channel.name)
             put("received_at", message.receivedAt)
             if (parsed.freeUntilAt != null) put("free_until_at", parsed.freeUntilAt) else putNull("free_until_at")

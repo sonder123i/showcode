@@ -87,6 +87,8 @@ fun OnsiteScreen(
     focusParcelId: Long?,
     lastPickupAt: Long?,
     allPickedHere: Boolean,
+    /** 代取件分组的名字，用户可改（story-7 AC2）。 */
+    familyLabel: String,
     onBack: () -> Unit,
     onExitDemo: () -> Unit,
     onOpenTiles: (Long) -> Unit,
@@ -150,6 +152,7 @@ fun OnsiteScreen(
                 GroupSwitch(
                     selfCount = selfCount,
                     familyCount = familyCount,
+                    familyLabel = familyLabel,
                     selected = group,
                     onSelect = { group = it },
                 )
@@ -289,7 +292,13 @@ private fun OnsiteTopBar(pointName: String, isDemo: Boolean, onBack: () -> Unit,
 }
 
 @Composable
-private fun GroupSwitch(selfCount: Int, familyCount: Int, selected: Owner, onSelect: (Owner) -> Unit) {
+private fun GroupSwitch(
+    selfCount: Int,
+    familyCount: Int,
+    familyLabel: String,
+    selected: Owner,
+    onSelect: (Owner) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -303,7 +312,7 @@ private fun GroupSwitch(selfCount: Int, familyCount: Int, selected: Owner, onSel
             onClick = { onSelect(Owner.SELF) },
         )
         GroupTab(
-            label = stringResource(R.string.onsite_group_family, familyCount),
+            label = stringResource(R.string.onsite_group_family, familyLabel, familyCount),
             selected = selected == Owner.FAMILY,
             modifier = Modifier.weight(1f),
             onClick = { onSelect(Owner.FAMILY) },

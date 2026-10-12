@@ -23,10 +23,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -68,6 +73,9 @@ fun SettingsScreen(
     smsGranted: Boolean,
     notificationEnabled: Boolean,
     unrecognizedCount: Int,
+    /** 代取件分组的名字（story-7 AC2 要求用户能改）。 */
+    familyLabel: String,
+    onFamilyLabel: (String) -> Unit,
     onOpenUnrecognized: () -> Unit,
     onLockerHours: (Int) -> Unit,
     onStationMinutes: (Int) -> Unit,
@@ -77,6 +85,7 @@ fun SettingsScreen(
     onOpenAppDetails: () -> Unit,
     onBack: () -> Unit,
 ) {
+    var familyLabelDraft by remember { mutableStateOf(familyLabel) }
     val dueSoon = parcels.filter { !it.picked && urgencyOf(it, now, thresholds) == Urgency.DUE_SOON }
 
     Column(
@@ -126,6 +135,36 @@ fun SettingsScreen(
                     onStationMinutes = onStationMinutes,
                     onRestoreDefaults = onRestoreDefaults,
                 )
+            }
+
+            /* 分组名可改：写死「帮妈妈取」等于替用户决定他的家庭结构。
+               输入框用本地草稿状态，否则清空时会回落到默认值、把正在编辑的那一格弹走。 */
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+                        .padding(16.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_family_label),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = OnsiteInk,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_family_label_hint, familyLabel),
+                        fontSize = 13.sp,
+                        color = OnsiteInk.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    OutlinedTextField(
+                        value = familyLabelDraft,
+                        onValueChange = { familyLabelDraft = it; onFamilyLabel(it) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        singleLine = true,
+                    )
+                }
             }
 
             // 收容页的空态是信任建立瞬间，所以 N=0 时也要有路可达（首页入口只在 N>0 时出现）

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.showcode.R
+import dev.showcode.core.Owner
 import dev.showcode.core.Source
 import dev.showcode.core.parse.IncomingMessage
 import dev.showcode.core.parse.ParseOutcome
@@ -208,12 +209,13 @@ private fun unrecognizedReasonText(reason: UnrecognizedReason): String = stringR
 fun ManualImportScreen(
     prefillRaw: String,
     onBack: () -> Unit,
-    onSave: (code: String, pointName: String, lockerNo: String?, raw: String) -> Unit,
+    onSave: (code: String, pointName: String, lockerNo: String?, raw: String, owner: Owner) -> Unit,
 ) {
     var raw by remember(prefillRaw) { mutableStateOf(prefillRaw) }
     var code by remember { mutableStateOf("") }
     var pointName by remember { mutableStateOf("") }
     var lockerNo by remember { mutableStateOf("") }
+    var owner by remember { mutableStateOf(Owner.SELF) }
     var error by remember { mutableStateOf<String?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -295,6 +297,31 @@ fun ManualImportScreen(
                     label = { Text(stringResource(R.string.manual_import_locker)) },
                 )
             }
+            /* 归属在录入时就问一句，而不是事后去列表里改：
+               妈妈发来的码之所以难处理，是因为它长得和自己的码一模一样。 */
+            item {
+                Column {
+                    Text(
+                        text = stringResource(R.string.owner_field),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = OnsiteInk.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OwnerChoice(
+                            label = stringResource(R.string.owner_mine),
+                            selected = owner == Owner.SELF,
+                            onSelect = { owner = Owner.SELF },
+                        )
+                        OwnerChoice(
+                            label = stringResource(R.string.owner_family),
+                            selected = owner == Owner.FAMILY,
+                            onSelect = { owner = Owner.FAMILY },
+                        )
+                    }
+                }
+            }
             item {
                 error?.let {
                     Text(
@@ -320,7 +347,7 @@ fun ManualImportScreen(
                             if (trimmedCode.isEmpty() || trimmedName.isEmpty()) {
                                 error = context.getString(R.string.manual_import_need_both)
                             } else {
-                                onSave(trimmedCode, trimmedName, lockerNo.trim().takeIf { it.isNotEmpty() }, raw)
+                                onSave(trimmedCode, trimmedName, lockerNo.trim().takeIf { it.isNotEmpty() }, raw, owner)
                             }
                         },
                     verticalArrangement = Arrangement.Center,
@@ -336,6 +363,24 @@ fun ManualImportScreen(
             }
         }
     }
+}
+
+@Composable
+private fun OwnerChoice(label: String, selected: Boolean, onSelect: () -> Unit) {
+    Text(
+        text = label,
+        modifier = Modifier
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) OnsiteInk else OnsiteInk.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(12.dp),
+            )
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        fontSize = 15.sp,
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+        color = OnsiteInk,
+    )
 }
 
 @Composable

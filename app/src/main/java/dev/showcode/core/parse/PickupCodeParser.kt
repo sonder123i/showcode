@@ -2,6 +2,7 @@ package dev.showcode.core.parse
 
 import dev.showcode.core.DEFAULT_CLOSING_MINUTE
 import dev.showcode.core.LOCKER_FREE_HOURS_DEFAULT
+import dev.showcode.core.Owner
 import dev.showcode.core.PointKind
 import dev.showcode.core.Source
 import dev.showcode.core.pointKey
@@ -13,6 +14,8 @@ data class IncomingMessage(
     val body: String,
     val receivedAt: Long,
     val channel: Source,
+    /** 谁的件。微信/QQ 转发进来的会被标成代取件，其余默认是自己的。 */
+    val owner: Owner = Owner.SELF,
 )
 
 /** 解析成功产物，尚未落库（不含 id、pointKey 等派生字段）。 */

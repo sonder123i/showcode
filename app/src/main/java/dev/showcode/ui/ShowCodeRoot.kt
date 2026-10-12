@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -25,6 +26,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.showcode.app
 import dev.showcode.core.DAY_MS
 import dev.showcode.core.HealthIssue
+import dev.showcode.core.Owner
 import dev.showcode.core.PointAlias
 import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.groupByPoint
@@ -84,6 +86,10 @@ fun ShowCodeRoot() {
        而进程在弹层开着时被杀掉是无关紧要的丢失——重开一次预览就行。 */
     var pendingMerge by remember { mutableStateOf<dev.showcode.core.MergePreview?>(null) }
     var mergeReturn by rememberSaveable { mutableStateOf(Route.HOME) }
+    var unrecognizedReturn by rememberSaveable { mutableStateOf(Route.HOME) }
+    /* 代取件分组的名字。写在这里而不是每次现读 prefs：prefs 不是可观察的，
+       用户在设置页改完必须当场反映到现场模式的那个分组标签上。 */
+    var familyLabel by remember { mutableStateOf(repository.prefs.familyLabel) }
     var keepTarget by rememberSaveable { mutableStateOf(true) }
     var lastMerge by remember { mutableStateOf<PointAlias?>(null) }
     var smsAttempted by rememberSaveable { mutableStateOf(false) }
@@ -267,6 +273,29 @@ fun ShowCodeRoot() {
         }
     }
 
+    /* 系统返回键。批 1 起每个子屏都只画了自己的左上角箭头，没接 BackHandler，
+       于是按返回 = 直接退出 App。站在柜机前被退到桌面，是比少显示一个码更让人恼火的事。
+       引导的第一步例外：那时没有「来路」可回，返回就该退出。 */
+    BackHandler(enabled = route != Route.HOME && !(route == Route.ONBOARDING && onboardStep == OnboardStep.WELCOME)) {
+        when (route) {
+            Route.ONSITE -> if (demo) exitDemo() else route = Route.HOME
+            Route.TILES -> route = Route.ONSITE
+            Route.POINT_DETAIL -> route = Route.HOME
+            Route.MERGE_PREVIEW -> {
+                pendingMerge = null
+                route = mergeReturn
+            }
+            Route.SETTINGS -> route = Route.HOME
+            Route.UNRECOGNIZED -> route = unrecognizedReturn
+            Route.MANUAL_IMPORT -> route = manualReturn
+            Route.ONBOARDING -> {
+                val steps = OnboardStep.entries
+                onboardStep = steps[(steps.indexOf(onboardStep) - 1).coerceAtLeast(0)]
+            }
+            Route.HOME -> Unit
+        }
+    }
+
     val healthReport = remember(appData.lastSyncAt, smsGranted, notificationGranted, now) {
         repository.healthReport(now)
     }
@@ -357,6 +386,7 @@ fun ShowCodeRoot() {
                     focusParcelId = currentId
                     route = Route.TILES
                 },
+                familyLabel = familyLabel,
                 onMarkPicked = { parcel ->
                     if (demo) demoPicked.add(parcel.id) else repository.markPicked(parcel.id)
                 },
@@ -389,7 +419,15 @@ fun ShowCodeRoot() {
             smsGranted = smsGranted,
             notificationEnabled = notificationGranted,
             unrecognizedCount = appData.unrecognized.size,
-            onOpenUnrecognized = { route = Route.UNRECOGNIZED },
+            onOpenUnrecognized = {
+                unrecognizedReturn = Route.SETTINGS
+                route = Route.UNRECOGNIZED
+            },
+            familyLabel = familyLabel,
+            onFamilyLabel = {
+                repository.prefs.familyLabel = it
+                familyLabel = repository.prefs.familyLabel
+            },
             onLockerHours = { repository.setLockerDueSoonHours(it) },
             onStationMinutes = { repository.setStationDueSoonMinutes(it) },
             onRestoreDefaults = { repository.restoreThresholdDefaults() },
@@ -402,7 +440,7 @@ fun ShowCodeRoot() {
         Route.UNRECOGNIZED -> UnrecognizedScreen(
             messages = appData.unrecognized,
             now = now,
-            onBack = { route = Route.HOME },
+            onBack = { route = unrecognizedReturn },
             onExtract = { message ->
                 manualPrefill = message.body
                 manualSourceId = message.id
@@ -415,8 +453,8 @@ fun ShowCodeRoot() {
         Route.MANUAL_IMPORT -> ManualImportScreen(
             prefillRaw = manualPrefill,
             onBack = { route = manualReturn },
-            onSave = { code, name, locker, raw ->
-                repository.manualAdd(code, name, locker, raw)
+            onSave = { code, name, locker, raw, owner ->
+                repository.manualAdd(code, name, locker, raw, owner)
                 manualSourceId?.let { repository.clearUnrecognized(it) }
                 manualSourceId = null
                 manualPrefill = ""
@@ -439,6 +477,7 @@ fun ShowCodeRoot() {
                 onBack = { route = Route.HOME },
                 onOpenPoint = { g -> openPoint(g.key, g.name) },
                 onSplit = { alias -> repository.undoMerge(alias.aliasKey) },
+                onSetOwner = { parcel, owner -> repository.setParcelOwner(parcel.id, owner) },
                 onMergeOtherIntoThis = { other ->
                     group?.let { openMergePreview(other, it, preferTarget = it) }
                 },

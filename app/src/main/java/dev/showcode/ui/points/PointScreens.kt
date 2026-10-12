@@ -1,6 +1,7 @@
 package dev.showcode.ui.points
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.showcode.R
 import dev.showcode.core.MergePreview
+import dev.showcode.core.Owner
+import dev.showcode.core.Parcel
 import dev.showcode.core.PointAlias
 import dev.showcode.core.SuspectPair
 import dev.showcode.core.PickupPointGroup
@@ -266,6 +269,24 @@ fun MergeUndoBar(keptName: String, onUndo: () -> Unit) {
  * 点卡片直进现场模式那个 1 步承诺不能被管理功能污染。
  */
 @Composable
+private fun OwnerChip(label: String, highlighted: Boolean, onClick: () -> Unit) {
+    Text(
+        text = label,
+        modifier = Modifier
+            .border(
+                width = 1.dp,
+                color = if (highlighted) OnsiteInk else OnsiteInk.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(8.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        fontSize = 12.sp,
+        fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal,
+        color = OnsiteInk.copy(alpha = if (highlighted) 1f else 0.55f),
+    )
+}
+
+@Composable
 fun PointDetailScreen(
     group: PickupPointGroup?,
     history: List<PointAlias>,
@@ -276,6 +297,7 @@ fun PointDetailScreen(
     onOpenPoint: (PickupPointGroup) -> Unit,
     onSplit: (PointAlias) -> Unit,
     onMergeOtherIntoThis: (PickupPointGroup) -> Unit,
+    onSetOwner: (Parcel, Owner) -> Unit,
 ) {
     val name = group?.name ?: history.firstOrNull()?.targetName.orEmpty()
     Scaffold(
@@ -324,10 +346,31 @@ fun PointDetailScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = urgencyColor(urgencyOf(parcel, now)),
                         )
+                        /* 归属切换放在管理面，不放现场：站在柜机前不应该
+                           顺手改一件件的所属。 */
+                        Spacer(Modifier.width(8.dp))
+                        OwnerChip(
+                            label = stringResource(
+                                if (parcel.owner == Owner.FAMILY) R.string.detail_owner_family
+                                else R.string.detail_owner_mine
+                            ),
+                            highlighted = parcel.owner == Owner.FAMILY,
+                            onClick = {
+                                onSetOwner(
+                                    parcel,
+                                    if (parcel.owner == Owner.FAMILY) Owner.SELF else Owner.FAMILY,
+                                )
+                            },
+                        )
                     }
                 }
+                Text(
+                    text = stringResource(R.string.detail_owner_hint),
+                    fontSize = 12.sp,
+                    color = OnsiteInk.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
             }
-
             Spacer(Modifier.height(20.dp))
             HorizontalDivider(thickness = 1.dp, color = OnsiteInk.copy(alpha = 0.08f))
 
