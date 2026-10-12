@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    # 没有这一行，release job 就是死代码：GitHub 在 push 带了 branches 过滤器时
+    # 一律不为标签触发工作流，而它自己的 if 却要求 refs/tags/v*。
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
