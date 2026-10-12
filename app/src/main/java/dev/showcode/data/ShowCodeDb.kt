@@ -10,6 +10,7 @@ import dev.showcode.core.Parcel
 import dev.showcode.core.PointAlias
 import dev.showcode.core.PointKind
 import dev.showcode.core.Source
+import dev.showcode.core.enumOrDefault
 import dev.showcode.core.parse.UnrecognizedReason
 
 /** 一条没认出来的取件消息。原文必须留着——用户要靠原文判断自己漏了什么。 */
@@ -159,6 +160,11 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         arrayOf(code, pointKey),
     ).use { if (it.moveToFirst()) it.getLong(0) else null }
 
+    /**
+     * 插入新行。`SQLiteDatabase.insert()` 撞约束时**返回 -1 而不是抛**，
+     * 所以返回值 ≤ 0 就是「没写进去」。调用方必须检查——不检查的话界面会跳到首页
+     * 像是存好了，而那个码根本不在库里。
+     */
     fun insertParcel(values: ContentValues): Long = writableDatabase.insert("parcel", null, values)
 
     fun updateParcel(id: Long, values: ContentValues) {
@@ -174,8 +180,7 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
                         UnrecognizedMessage(
                             id = c.getLong(0),
                             sender = c.getString(1),
-                            reason = runCatching { UnrecognizedReason.valueOf(c.getString(3)) }
-                                .getOrDefault(UnrecognizedReason.NO_CODE_FOUND),
+                            reason = enumOrDefault(c.getString(3), UnrecognizedReason.NO_CODE_FOUND),
                             body = c.getString(2),
                             receivedAt = c.getLong(4),
                         )
@@ -232,9 +237,11 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         carrier = getString(3),
         pointKey = getString(4),
         pointName = getString(5),
-        pointKind = PointKind.valueOf(getString(6)),
-        owner = Owner.valueOf(getString(7)),
-        source = Source.valueOf(getString(8)),
+        // 认不出类型时退成驿站：柜件的 closes_at_minute 那列是 null，于是 deadline 为空 → 安全态。
+        // 宁可少一个颜色，也不编造一个截止时间把人吓得半夜跑一趟。
+        pointKind = enumOrDefault(getString(6), PointKind.STATION),
+        owner = enumOrDefault(getString(7), Owner.SELF),
+        source = enumOrDefault(getString(8), Source.SMS),
         receivedAt = getLong(9),
         freeUntilAt = if (isNull(10)) null else getLong(10),
         closesAtMinuteOfDay = if (isNull(11)) null else getInt(11),

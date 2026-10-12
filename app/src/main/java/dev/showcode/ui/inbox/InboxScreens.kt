@@ -57,6 +57,7 @@ import dev.showcode.ui.theme.OnsiteSurface
 import dev.showcode.ui.theme.SurfaceInset
 import dev.showcode.ui.theme.UrgencyDueSoon
 import dev.showcode.ui.theme.UrgencySafe
+import kotlinx.coroutines.launch
 
 /**
  * 未识别收容页（edge s7-unrecognized）。
@@ -210,7 +211,7 @@ private fun unrecognizedReasonText(reason: UnrecognizedReason): String = stringR
 fun ManualImportScreen(
     prefillRaw: String,
     onBack: () -> Unit,
-    onSave: (code: String, pointName: String, lockerNo: String?, raw: String, owner: Owner) -> Unit,
+    onSave: suspend (code: String, pointName: String, lockerNo: String?, raw: String, owner: Owner) -> Boolean,
 ) {
     var raw by remember(prefillRaw) { mutableStateOf(prefillRaw) }
     var code by remember { mutableStateOf("") }
@@ -219,6 +220,7 @@ fun ManualImportScreen(
     var lockerNo by remember { mutableStateOf("") }
     var owner by remember { mutableStateOf(Owner.SELF) }
     var error by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
@@ -391,7 +393,17 @@ fun ManualImportScreen(
                             if (trimmedCode.isEmpty() || trimmedName.isEmpty()) {
                                 error = context.getString(R.string.manual_import_need_both)
                             } else {
-                                onSave(trimmedCode, trimmedName, lockerNo.trim().takeIf { it.isNotEmpty() }, raw, owner)
+                                // 以落库的返回为准，不能点下去就当成功。
+                                scope.launch {
+                                    val stored = onSave(
+                                        trimmedCode,
+                                        trimmedName,
+                                        lockerNo.trim().takeIf { it.isNotEmpty() },
+                                        raw,
+                                        owner,
+                                    )
+                                    if (!stored) error = context.getString(R.string.manual_import_save_failed)
+                                }
                             }
                         },
                     verticalArrangement = Arrangement.Center,

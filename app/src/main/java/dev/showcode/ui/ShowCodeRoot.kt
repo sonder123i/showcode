@@ -454,14 +454,18 @@ fun ShowCodeRoot() {
             prefillRaw = manualPrefill,
             onBack = { route = manualReturn },
             onSave = { code, name, locker, raw, owner ->
-                repository.manualAdd(code, name, locker, raw, owner)
-                manualSourceId?.let { repository.clearUnrecognized(it) }
-                manualSourceId = null
-                manualPrefill = ""
-                // 从引导里手动导入成功 = 用户已经拿到价值，引导可以收尾了
-                if (manualReturn == Route.ONBOARDING) repository.prefs.onboardingDone = true
-                manualReturn = Route.HOME
-                route = Route.HOME
+                val stored = repository.manualAdd(code, name, locker, raw, owner)
+                if (stored) {
+                    manualSourceId?.let { repository.clearUnrecognized(it) }
+                    manualSourceId = null
+                    manualPrefill = ""
+                    // 从引导里手动导入成功 = 用户已经拿到价值，引导可以收尾了
+                    if (manualReturn == Route.ONBOARDING) repository.prefs.onboardingDone = true
+                    manualReturn = Route.HOME
+                    route = Route.HOME
+                }
+                // 失败时留在原地：用户已经打好的字不能被清掉，那比一句报错重要。
+                stored
             },
         )
 

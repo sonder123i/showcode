@@ -148,6 +148,7 @@
     <string name="manual_import_point">取件点名称 *</string>
     <string name="manual_import_locker">柜号 / 货架号（可选）</string>
     <string name="manual_import_need_both">取件码和取件点名称都要填</string>
+    <string name="manual_import_save_failed">没能写进本机数据库，你填的内容还在这里，可以再试一次</string>
     <string name="manual_import_save">保存</string>
     <string name="manual_import_carrier">手动导入</string>
 
