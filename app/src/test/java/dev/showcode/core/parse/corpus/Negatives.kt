@@ -44,6 +44,13 @@ object Negatives {
             expect = Expect(tier = Tier.IGNORED),
         ),
         CorpusCase(
+            id = "neg-weak-anchor-needs-context",
+            origin = "弱锚定必须有语境：「请使用」后面确实有数字，但整条没有取件语境——" +
+                "收进来就是一件永远取不到的假快递",
+            body = "【示例支付】请使用 889900 完成支付，请勿转发他人",
+            expect = Expect(tier = Tier.IGNORED),
+        ),
+        CorpusCase(
             id = "neg-courier-phone",
             origin = "派件员电话联系，正文里有一个 11 位手机号",
             body = "您的快递员正在派送，联系电话13800138000，请保持电话畅通",

@@ -114,6 +114,17 @@ object Formats {
             ),
         ),
         CorpusCase(
+            id = "fmt-strong-anchor-beats-spam",
+            origin = "强锚定优先于负向锚：真实取件短信会写「取件码…请勿泄露给他人」，" +
+                "和验证码短信共用同一个负向词——谁先判，决定这件会不会凭空消失",
+            body = "【丰巢】您的中通快件已入柜，取件码8-3-7713，请勿泄露给他人",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "8-3-7713",
+                kind = PointKind.LOCKER,
+            ),
+        ),
+        CorpusCase(
             id = "fmt-code-in-app",
             origin = "码在 App 里，短信只有指引：必须给原因，不能静默",
             body = "【菜鸟】您的包裹已到站，请打开菜鸟App查看取件码",

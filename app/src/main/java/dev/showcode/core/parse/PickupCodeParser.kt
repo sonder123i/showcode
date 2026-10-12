@@ -51,7 +51,10 @@ sealed interface ParseOutcome {
     data class Rejected(val reason: UnrecognizedReason) : ParseOutcome
 
     /**
-     * 根本不是取件消息 → 静默丢弃，**不落库**。
+     * 与取件无关 → 静默丢弃，**不落库**。两种情况都归这里：根本不是取件消息
+     * （营销、物流轨迹、验证码），以及抽得出数字但既没有强锚定也没有取件语境
+     * （「请使用 889900 完成支付」）。
+     *
      * 这一档的存在是「未识别」列表有用的前提：如果营销短信也算未识别，
      * 角标会常年是个无意义的数字，用户会直接忽略它。
      */
@@ -62,10 +65,15 @@ object PickupCodeParser {
 
     fun parse(message: IncomingMessage): ParseOutcome {
         val body = message.body
-        if (!PICKUP_SIGNAL.containsMatchIn(body)) return ParseOutcome.Ignored
+        val hit = extractCode(body)
+        return when {
+            hit != null && MessageGate.admitsCode(body, strong = hit.strong) -> parsed(message, body, hit.value)
+            MessageGate.looksLikePickup(body) -> ParseOutcome.Rejected(reasonOf(body, message.sender))
+            else -> ParseOutcome.Ignored
+        }
+    }
 
-        val code = extractCode(body) ?: return ParseOutcome.Rejected(reasonOf(body, message.sender))
-
+    private fun parsed(message: IncomingMessage, body: String, code: String): ParseOutcome.Parsed {
         val pointName = extractPointName(body)
         val kind = kindOf(pointName, body)
         val closingMinute = if (kind == PointKind.LOCKER) null else closingMinuteOf(body, kind)
@@ -84,31 +92,54 @@ object PickupCodeParser {
                 pointKind = kind,
                 closesAtMinuteOfDay = closingMinute,
                 freeUntilAt = freeUntil,
-            )
+            ),
         )
     }
 
     /** 由 ParsedParcel 生成入库用的取件点标识（保守归一化，见 core.pointKey）。 */
     fun pointKeyOf(parsed: ParsedParcel): String = pointKey(parsed.pointName)
 
-    // ── 是否为取件消息 ────────────────────────────────
-    // 门槛要够高：物流轨迹通知（「已到达XX中转中心」）、营销短信都不能进来，
-    // 否则「未识别」列表会被垃圾填满，角标随之失效。
-    private val PICKUP_SIGNAL = Regex(
-        "取件|提货|取货|已到站|已入柜|已放入|已投递|投递到|快递柜|驿站|自提点|丰巢|包裹已到|快递已到"
-    )
-
     // ── 取件码 ────────────────────────────────────────
-    private val CODE_PATTERNS = listOf(
-        Regex("(?:取件码|提货码|取货码|取件号|取件密码|领取码|取件验证码)\\s*[:：是为]?\\s*([0-9A-Za-z][0-9A-Za-z\\-]{1,14})"),
+    /**
+     * 命中结果。[strong] = 锚定词本身就带取件语义，可以越过负向锚直接进门；
+     * 弱锚定必须由语境担保，见 [MessageGate]。
+     */
+    data class CodeHit(val value: String, val strong: Boolean)
+
+    // 「N号柜」前缀是可选的非捕获组：柜号与码粘连（issue #29 的「取件码 4号柜719077」）
+    // 不该让整条抽不到码，而柜号本身另有 LOCKER_PATTERNS 负责取出来。
+    private val CODE_PATTERNS_STRONG = listOf(
+        Regex(
+            "(?:取件码|提货码|取货码|取件号|取件密码|领取码|取件验证码|开柜码|柜机码)" +
+                "\\s*[:：是为]?\\s*(?:[0-9一二两三四五六七八九十]{1,3}\\s*号\\s*柜\\s*)?" +
+                "([0-9A-Za-z][0-9A-Za-z\\-]{1,14})"
+        ),
         Regex("凭\\s*([0-9A-Za-z][0-9A-Za-z\\-]{1,14})\\s*(?:取件|提货|领取|取货|取)"),
     )
+
+    /** 句式锚定：光凭这几个字不能断定是取件，所以进门时要语境担保。 */
+    private val CODE_PATTERNS_WEAK = listOf(
+        // 「请用T8-99到人工货架取包裹」「请凭数字密码 8-9-0765 到柜领取」
+        Regex(
+            "(?:请用|请凭|使用|凭)(?:数字)?(?:密码|码)?\\s*[:：是为]?" +
+                "\\s*([0-9A-Za-z][0-9A-Za-z\\-]{1,14})"
+        ),
+        // 「到店输入02996或扫码亮灯取件」——没有「取件码」三个字，码就在「输入」后面
+        Regex("输入\\s*[:：是为]?\\s*(\\d{4,8})"),
+    )
+
     private val PHONE_NUMBER = Regex("1\\d{10}")
 
-    private fun extractCode(body: String): String? = CODE_PATTERNS
-        .firstNotNullOfOrNull { it.find(body)?.groupValues?.get(1) }
-        ?.trim()
-        ?.takeIf { it.length in 2..12 && !PHONE_NUMBER.matches(it) }
+    private fun extractCode(body: String): CodeHit? =
+        sequenceOf(search(body, CODE_PATTERNS_STRONG, strong = true), search(body, CODE_PATTERNS_WEAK, strong = false))
+            .filterNotNull()
+            .firstOrNull()
+
+    private fun search(body: String, patterns: List<Regex>, strong: Boolean): CodeHit? =
+        patterns.firstNotNullOfOrNull { it.find(body)?.groupValues?.get(1) }
+            ?.trim()
+            ?.takeIf { it.length in 2..12 && !PHONE_NUMBER.matches(it) }
+            ?.let { CodeHit(it, strong) }
 
     // ── 格口号 / 货架号 ───────────────────────────────
     // 只取值，不取「格口」「货架」这两个字：那两个字是 UI 按取件点类型加的前缀。
