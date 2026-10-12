@@ -69,18 +69,30 @@
 ./gradlew :app:testDebugUnitTest      # 73 个单元测试
 ```
 
-打 release 包需要一个自己的签名密钥，四个环境变量指定（密钥不进仓库）：
+打 release 包需要一个你自己的签名密钥。**密钥和口令不要提交进仓库**，两条受支持的来源：
 
 ```bash
-keytool -genkeypair -keystore showcode.jks -alias showcode \
-    -keyalg RSA -keysize 2048 -validity 10000
+# 1) 生成密钥（PKCS12 要求 key 口令与库口令一致，别给两个不同的值）
+keytool -genkeypair -keystore release.keystore -storetype PKCS12 \
+    -alias showcode -keyalg RSA -keysize 2048 -validity 10000 \
+    -dname "CN=ShowCode, OU=app, O=<you>, C=CN"
 
-export SHOWCODE_KEYSTORE=/path/to/showcode.jks
-export SHOWCODE_KEYSTORE_PASSWORD=...
-export SHOWCODE_KEY_ALIAS=showcode
-export SHOWCODE_KEY_PASSWORD=...
+# 2a) 本机：把 keystore.properties 放在仓库外面，然后在 gitignore 掉的
+#     local.properties 里加一行指针
+#     showcode.keystore.props=/abs/path/outside/repo/keystore.properties
+#     文件内容：storeFile / storePassword / keyPassword / keyAlias
+
+# 2b) CI：不设文件，改用四个环境变量
+#     SHOWCODE_KEYSTORE / SHOWCODE_KEYSTORE_PASSWORD /
+#     SHOWCODE_KEY_ALIAS / SHOWCODE_KEY_PASSWORD   （环境变量优先于文件）
+
 ./gradlew :app:assembleRelease
 ```
+
+两者都没有时 `assembleRelease` 会直接失败，而不是悄悄产出一个装不上的包。
+
+⚠️ **备份好这个 keystore**。Android 不认新密钥：换了对签名，老用户就装不上升级包，
+只能卸载重装、丢掉本地数据。它的优先级高于这个项目里任何其他文件。
 
 技术选型上有两处刻意的"少依赖"，都是为了让贡献者能把项目跑起来：
 **不用 Room/KSP**（`SQLiteOpenHelper` 两张表 + 一张键值表，够用了），

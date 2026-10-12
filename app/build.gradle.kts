@@ -1,7 +1,27 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+/* 签名材料两条来源：环境变量（CI 用），或仓库外的一个 keystore.properties（本机用）。
+   指针写在 gitignore 掉的 local.properties 里，所以仓库里永远不会有口令。
+   环境变量优先，这样 CI 不需要伪造一个本机文件。 */
+val localProperties = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+val keystoreProperties = Properties().apply {
+    val pointer = System.getenv("SHOWCODE_KEYSTORE_PROPERTIES")
+        ?: localProperties.getProperty("showcode.keystore.props")
+    val f = pointer?.let { file(it) }
+    if (f != null && f.exists()) f.inputStream().use { load(it) }
+}
+
+fun signingProperty(key: String, envVar: String): String? =
+    System.getenv(envVar) ?: keystoreProperties.getProperty(key)?.takeIf { it.isNotBlank() }
 
 android {
     namespace = "dev.showcode"
@@ -17,17 +37,20 @@ android {
 
     signingConfigs {
         create("release") {
-            /* 密钥不进仓库，全部走环境变量。自己签一个：
-                 keytool -genkeypair -keystore showcode.jks -alias showcode \
-                     -keyalg RSA -keysize 2048 -validity 10000
-               然后设 SHOWCODE_KEYSTORE / SHOWCODE_KEYSTORE_PASSWORD /
-               SHOWCODE_KEY_ALIAS / SHOWCODE_KEY_PASSWORD 四个变量。
-               没设时 assembleRelease 会失败而不是悄悄产出一个不可安装的包——
-               这是故意的：未签名的 release 包对使用者没有意义。 */
-            storeFile = System.getenv("SHOWCODE_KEYSTORE")?.let { file(it) }
-            storePassword = System.getenv("SHOWCODE_KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("SHOWCODE_KEY_ALIAS")
-            keyPassword = System.getenv("SHOWCODE_KEY_PASSWORD")
+            /* 密钥与口令一律不进仓库（仓库是公开的）。两条来源：
+               1) CI：设 SHOWCODE_KEYSTORE / SHOWCODE_KEYSTORE_PASSWORD /
+                  SHOWCODE_KEY_ALIAS / SHOWCODE_KEY_PASSWORD 四个环境变量；
+               2) 本机：在 gitignore 掉的 local.properties 里写一行
+                  showcode.keystore.props=<仓库外>\\keystore.properties，
+               文件里是 storeFile / storePassword / keyPassword / keyAlias。
+               自己签一个：
+                 keytool -genkeypair -keystore release.keystore -storetype PKCS12 \
+                     -alias showcode -keyalg RSA -keysize 2048 -validity 10000
+               两者都没有时 assembleRelease 直接失败，而不是悄悄产出一个装不上的包。 */
+            storeFile = signingProperty("storeFile", "SHOWCODE_KEYSTORE")?.let { file(it) }
+            storePassword = signingProperty("storePassword", "SHOWCODE_KEYSTORE_PASSWORD")
+            keyAlias = signingProperty("keyAlias", "SHOWCODE_KEY_ALIAS")
+            keyPassword = signingProperty("keyPassword", "SHOWCODE_KEY_PASSWORD")
         }
     }
 

@@ -11,6 +11,12 @@ captures/
 *.apk
 *.aab
 
+# 签名材料（仓库是公开的，这些东西只能待在仓库外）
+*.jks
+*.keystore
+keystore.properties
+keystore-debug.properties
+
 # 构建期临时文件
 *.log
 
