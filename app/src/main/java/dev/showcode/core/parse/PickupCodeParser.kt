@@ -116,16 +116,34 @@ object PickupCodeParser {
         Regex("(?:格口|货格|柜号|格子|箱号)\\s*号?\\s*[:：]?\\s*([^\\s，,。；;！!？?]{1,10})"),
         Regex("(?:货架|架子)\\s*号?\\s*[:：]?\\s*([^\\s，,。；;！!？?]{1,12})"),
         Regex("([0-9]{1,2}\\s*排\\s*[0-9]{1,3}\\s*号?)"),
+        // 「到9号柜取件」「请到五号柜取件」：没有锚定词，柜号就在「N号柜」这三个字里。
+        // 汉字那一种是 issue #56 专门报过的。放在最后，别抢走带锚定词的写法。
+        Regex("([0-9一二两三四五六七八九十百]{1,4}\\s*号\\s*柜)"),
     )
 
+    /** 柜号形状：必须含数字、拉丁字母或中文数字，否则它是个短语不是一个号。 */
+    private val LOCKER_NO_SHAPE = Regex("[0-9A-Za-z一二两三四五六七八九十百零]")
+    private val WHITESPACE = Regex("\\s")
+
+    /**
+     * 取第一个**形状合法**的匹配，而不是取第一个匹配。
+     * 「到人工货架取包裹」会让货架那条抓到「取包裹」，如果先匹配先返回，
+     * 同一条里真正有效的柜号就再也没机会被尝试了。
+     */
     private fun extractLockerNo(body: String): String? = LOCKER_PATTERNS
-        .firstNotNullOfOrNull { it.find(body)?.groupValues?.get(1) }
-        ?.replace("\\s".toRegex(), "")
-        ?.takeIf { it.isNotBlank() }
+        .asSequence()
+        .mapNotNull { pattern -> pattern.find(body)?.groupValues?.get(1) }
+        .map { WHITESPACE.replace(it, "") }
+        .firstOrNull { LOCKER_NO_SHAPE.containsMatchIn(it) }
 
     // ── 取件点名称 ────────────────────────────────────
+    // 续接位也要排除空白：App 通知的 bigText 是按行分段的
+    // （「您有一件包裹已到达⏎向阳小区菜鸟驿站(08号店)⏎取件码 7-1-3393⏎请及时取件」），
+    // 只挡标点会让取件码和提示语整段住进卡片标题。
+    // 代价是名字里不能带空格——这些文案里空格和换行一样是分隔符，宁可名字短一截。
     private val POINT_NAME = Regex(
-        "(?:已到达|已到站|已到|已送至|已放入|已投放|投放到|投递到|投递至|存放于|存放在|放入|到达)\\s*([^，,。；;！!？?\\s][^，,。；;！!？?]{1,39})"
+        "(?:已到达|已到站|已到|已送至|已放入|已投放|投放到|投递到|投递至|存放于|存放在|放入|到达)" +
+            "\\s*([^，,。；;！!？?\\s][^，,。；;！!？?\\s]{1,39})"
     )
     private val BRAND_TAG = Regex("【(.{1,20}?)】")
     private val NAME_PREFIX_NOISE = Regex("^(您的|你的|包裹|快递|快件|一个|您的包裹)+")
@@ -183,13 +201,30 @@ object PickupCodeParser {
         CARRIERS.firstNotNullOfOrNull { (name, re) -> name.takeIf { re.containsMatchIn(body) } } ?: "快递"
 
     // ── 时效依据 ──────────────────────────────────────
-    private val FREE_HOURS = Regex("(\\d{1,3})\\s*(?:小时|個小時)\\s*内?\\s*免费")
+    // 两种词序都要认：「18小时内免费保管」和「免费保管24小时」。
+    // 只认前一种会静默退到默认 18，而默认值常常恰好是对的——于是这个洞永远暴露不了自己。
+    private val FREE_HOURS = listOf(
+        Regex("(\\d{1,3})\\s*(?:小时|個小時)\\s*内?\\s*免费"),
+        Regex("免费(?:保管|存放)?\\s*(\\d{1,3})\\s*(?:小时|個小時)"),
+    )
     private val BUSINESS_RANGE =
         Regex("营业时间[^0-9]{0,6}(\\d{1,2})\\s*[:：.]\\s*(\\d{2})\\s*[-~至到]\\s*(\\d{1,2})\\s*[:：.]\\s*(\\d{2})")
-    private val CLOSE_BEFORE = Regex("(\\d{1,2})\\s*[:：点]\\s*(\\d{0,2})\\s*前(?:取件|领取|来取|取走|前来|取)")
 
-    private fun freeHoursOf(body: String): Int? =
-        FREE_HOURS.find(body)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..168 }
+    // 第一个捕获组是 12 小时制的中文修饰：不认它，「下午6点前取件」会算成 06:00，
+    // 于是那件从早上起就全天标着「过期风险」。
+    private val CLOSE_BEFORE = Regex(
+        "(凌晨|早上|上午|中午|下午|晚上|晚)?\\s*(\\d{1,2})\\s*[:：点]\\s*(\\d{0,2})\\s*前(?:取件|领取|来取|取走|前来|取)"
+    )
+
+    private fun freeHoursOf(body: String): Int? = FREE_HOURS
+        .firstNotNullOfOrNull { it.find(body)?.groupValues?.get(1) }
+        ?.toIntOrNull()?.takeIf { it in 1..168 }
+
+    private fun shiftHour(meridiem: String, hour: Int): Int = when (meridiem) {
+        "下午", "晚上", "晚" -> if (hour in 1..11) hour + 12 else hour
+        "中午" -> if (hour in 1..5) hour + 12 else hour
+        else -> hour
+    }
 
     /**
      * 短信里写了营业时间/截止时间就用短信的；没写就退到内置默认。
@@ -202,9 +237,10 @@ object PickupCodeParser {
             if (h in 0..23 && min in 0..59) return h * 60 + min
         }
         CLOSE_BEFORE.find(body)?.let { m ->
-            val h = m.groupValues[1].toIntOrNull() ?: return@let
-            val min = m.groupValues[2].ifBlank { "0" }.toIntOrNull() ?: return@let
-            if (h in 0..23 && min in 0..59) return h * 60 + min
+            val h = m.groupValues[2].toIntOrNull() ?: return@let
+            val min = m.groupValues[3].ifBlank { "0" }.toIntOrNull() ?: return@let
+            val shifted = shiftHour(m.groupValues[1], h)
+            if (shifted in 0..23 && min in 0..59) return shifted * 60 + min
         }
         return DEFAULT_CLOSING_MINUTE[kind]
     }
