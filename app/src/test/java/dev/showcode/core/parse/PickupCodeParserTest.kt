@@ -55,7 +55,7 @@ class PickupCodeParserTest {
 
     @Test
     fun `丰巢 - 短信写了别的免费时长就以短信为准`() {
-        val p = parsed("106575580", "【丰巢】快递已放入丰巢柜，取件码1234，24小时内免费保管。")
+        val p = parsed("106575580", "【丰巢】快递已放入丰巢智能柜(阳光花园3号楼柜)，取件码1234，24小时内免费保管。")
         assertEquals(now + 24 * 3600_000L, p.freeUntilAt)
     }
 
@@ -92,7 +92,7 @@ class PickupCodeParserTest {
 
     @Test
     fun `X点前取件 - 解析为关门时间`() {
-        val p = parsed("10691777", "【京东】您的包裹已到达京东自提点，取件码JD123，请在21点前取件。")
+        val p = parsed("10691777", "【京东】您的包裹已到达京东自提点(好邻居便利店)，取件码JD123，请在21点前取件。")
         assertEquals(21 * 60, p.closesAtMinuteOfDay)
     }
 

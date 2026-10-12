@@ -259,21 +259,51 @@ object PickupCodeParser {
     private val NAME_PREFIX_NOISE = Regex("^(您的|你的|包裹|快递|快件|一个|您的包裹)+")
     private val BRAND_FALLBACK = Regex("丰巢|菜鸟驿站|菜鸟|京东自提|京东|顺丰|中通|圆通|韵达|申通|邮政|极兔")
 
-    /** [confirmed] = 这个名字是从正文的点位短语里抽出来的，还是兜底猜出来的。 */
+    /** [confirmed] = 这个名字携带了具体门店信息，还是只有品牌 + 类别词。 */
     private data class PointNameHit(val value: String, val confirmed: Boolean)
 
     /** 方括号与引号里装的是占位符或整句的尾巴，不是一个点位名。 */
     private val PLACEHOLDER_MARKS = Regex("[【】“”\"「」]")
 
+    /**
+     * 通用名：只有品牌加类别词，不含任何具体门店信息。
+     *
+     * 判「这个名字能不能用」必须看名字本身，而不是看它是从哪抽出来的——
+     * 「丰巢柜」即使是从「已放入丰巢柜」里抽的，也一样会把小区门口两台柜机合成一张卡。
+     */
+    private val GENERIC_NAME = Regex(
+        "^(丰巢|菜鸟|京东|顺丰|中通|圆通|韵达|申通|邮政|极兔|兔喜)?" +
+            "(快递柜|智能柜|自提柜|自提点|代收点|驿站|取件点|柜机|柜)$"
+    )
+
+    /**
+     * 拼多多 / 兔喜的分享文本是分段式的：「取件码 X⏎韵达快递超市代收点 | 富里红波精品超市」。
+     * 竖线**后面**才是门店，前面那半截是品牌加类别。这类文本没有任何短信动词，
+     * 以前只能整条送确认——而它其实带着完整的点名信息。
+     */
+    private val POINT_NAME_PIPE = Regex("[|｜]\\s*([^|｜\\n，,。；;！!？?]{2,40})")
+
     private fun extractPointName(body: String): PointNameHit {
         val fromVerb = POINT_NAME.find(body)?.groupValues?.get(1)
             ?.replace(NAME_PREFIX_NOISE, "")
             ?.trim()
-            ?.takeIf { it.length >= 2 && !PLACEHOLDER_MARKS.containsMatchIn(it) }
-        if (fromVerb != null) return PointNameHit(fromVerb, confirmed = true)
+            ?.takeIf { it.length >= 2 }
 
-        // 走到这里就是认不出具体门店了。以前退成「菜鸟驿站」「丰巢快递柜」直接成卡——
-        // 那会把同城不同小区的两个点合成一张，用户站在 A 点看着 B 点的码且毫不怀疑。
+        // 动词抽到的名字如果是个占位符或通用名，就不算确认——但先试竖线分段，
+        // 因为粘贴式文本里真正的门店名只出现在竖线后面。
+        val fromPipe = POINT_NAME_PIPE.find(body)?.groupValues?.get(1)?.trim()
+
+        for (candidate in listOf(fromVerb, fromPipe)) {
+            if (candidate != null && candidate.length >= 2 &&
+                !PLACEHOLDER_MARKS.containsMatchIn(candidate) &&
+                !GENERIC_NAME.matches(candidate)
+            ) {
+                return PointNameHit(candidate, confirmed = true)
+            }
+        }
+
+        // 走到这里就是消息里根本没有携带「是哪个点」的信息。以前会退成「菜鸟驿站」「丰巢快递柜」
+        // 直接成卡，那会把不同小区合成一张——用户站在 A 点看着 B 点的码且毫不怀疑。
         // 现在这个名字只用来把消息解释给人看，件本身送未识别等确认（POINT_NAME_UNCONFIRMED）。
         val tag = BRAND_TAG.find(body)?.groupValues?.get(1)
         val brand = BRAND_FALLBACK.find(tag ?: body)?.value

@@ -43,23 +43,26 @@ object Upstream {
         CorpusCase(
             id = "up-29-a",
             origin = "issue #29 · 从拼多多复制的粘贴式文本：换行 + 竖线分隔，没有短信动词。" +
-                "码认得出来，但下一行到底是不是取件点，我们不敢替用户决定",
+                "门店名在竖线后面，信息是齐的，不该送确认",
             body = "取件码 H7-05528\n韵达快递超市代收点 | 示例红波精品超市",
             expect = Expect(
-                tier = Tier.REJECTED,
-                reason = UnrecognizedReason.POINT_NAME_UNCONFIRMED,
-                hintCodes = listOf("H7-05528"),
+                tier = Tier.PARSED,
+                code = "H7-05528",
+                pointName = "示例红波精品超市",
+                kind = PointKind.SELFPICK,
             ),
         ),
         CorpusCase(
             id = "up-29-b",
             origin = "issue #29 · 柜号与码粘连「取件码 4号柜719077」，在位者报「100%解析失败」。" +
-                "粘连已经能拆开，但取件点仍然认不出",
+                "类型期望是代收超市（SELFPICK）：现在的解析器只看名字、不看竖线左半截，" +
+                "所以这条会诚实地记一个字段漏——别把它改成 null 藏起来",
             body = "取件码 4号柜719077\n兔喜快递超市代收点 | 示例农贸市场斜对面中通快递",
             expect = Expect(
-                tier = Tier.REJECTED,
-                reason = UnrecognizedReason.POINT_NAME_UNCONFIRMED,
-                hintCodes = listOf("719077"),
+                tier = Tier.PARSED,
+                code = "719077",
+                lockerNo = "4号柜",
+                kind = PointKind.SELFPICK,
             ),
         ),
         CorpusCase(

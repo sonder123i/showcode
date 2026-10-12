@@ -79,12 +79,24 @@ object Formats {
         CorpusCase(
             id = "fmt-free-hours-reversed",
             origin = "免费时长的反序词序「免费保管24小时」：抽不到就退默认 18，于是这个洞永远不会自己暴露",
-            body = "【丰巢】快件已投递到丰巢柜，取件码226688，免费保管24小时",
+            body = "【丰巢】快件已投递到丰巢智能柜(示例花园3号楼柜)，取件码226688，免费保管24小时",
             expect = Expect(
                 tier = Tier.PARSED,
                 code = "226688",
+                pointName = "丰巢智能柜(示例花园3号楼柜)",
                 kind = PointKind.LOCKER,
                 freeUntilHours = 24L,
+            ),
+        ),
+        CorpusCase(
+            id = "fmt-generic-name-from-verb-is-still-generic",
+            origin = "通用名判据：名字即使是从动词短语里抽出来的，只要它不含具体门店信息就不许成卡。" +
+                "「已放入丰巢柜」这种写法会把小区门口的两台柜机合成一张",
+            body = "【丰巢】快件已放入丰巢柜，取件码226699，24小时内免费保管",
+            expect = Expect(
+                tier = Tier.REJECTED,
+                reason = UnrecognizedReason.POINT_NAME_UNCONFIRMED,
+                hintCodes = listOf("226699"),
             ),
         ),
         CorpusCase(
@@ -125,7 +137,7 @@ object Formats {
         CorpusCase(
             id = "fmt-hours-is-not-a-second-parcel",
             origin = "量词闸门：「，24小时内免费」里的 24 是保管时长不是取件码；这条同时钉住显式免费时长的解析",
-            body = "【丰巢】快件已放入丰巢柜，取件码118077，24小时内免费保管",
+            body = "【丰巢】快件已放入丰巢智能柜(示例花园5号楼柜)，取件码118077，24小时内免费保管",
             expect = Expect(
                 tier = Tier.PARSED,
                 code = "118077",
