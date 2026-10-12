@@ -15,10 +15,27 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            /* 密钥不进仓库，全部走环境变量。自己签一个：
+                 keytool -genkeypair -keystore showcode.jks -alias showcode \
+                     -keyalg RSA -keysize 2048 -validity 10000
+               然后设 SHOWCODE_KEYSTORE / SHOWCODE_KEYSTORE_PASSWORD /
+               SHOWCODE_KEY_ALIAS / SHOWCODE_KEY_PASSWORD 四个变量。
+               没设时 assembleRelease 会失败而不是悄悄产出一个不可安装的包——
+               这是故意的：未签名的 release 包对使用者没有意义。 */
+            storeFile = System.getenv("SHOWCODE_KEYSTORE")?.let { file(it) }
+            storePassword = System.getenv("SHOWCODE_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("SHOWCODE_KEY_ALIAS")
+            keyPassword = System.getenv("SHOWCODE_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

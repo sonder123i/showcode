@@ -113,18 +113,21 @@ private fun Welcome(onEnterDemo: () -> Unit, onSetup: () -> Unit) {
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(start = 24.dp, end = 24.dp, top = 48.dp, bottom = 24.dp)
+                .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 12.dp)
         ) {
             Text(text = "📦", fontSize = 40.sp)
             Spacer(Modifier.height(8.dp))
             Text(text = stringResource(R.string.app_name), fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = OnsiteInk)
             Spacer(Modifier.height(10.dp))
             Text(text = stringResource(R.string.ob_welcome_sub), fontSize = 17.sp, color = OnsiteInk.copy(alpha = 0.7f))
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(18.dp))
             ValueRow(icon = "📩", text = stringResource(R.string.ob_value_1))
             ValueRow(icon = "📍", text = stringResource(R.string.ob_value_2))
             ValueRow(icon = "⏰", text = stringResource(R.string.ob_value_3))
-            Spacer(Modifier.height(28.dp))
+            /* 隐私承诺必须整张卡都在折叠线之上：在 640dp 高的屏上原来被主 CTA
+               切掉最后一行，而「只有公共数据会下载、不上传」正是这半句最要紧。
+               宁可让上面三段各少 10dp，也不能让它需要滚动才看得全。 */
+            Spacer(Modifier.height(16.dp))
             PrivacyPromise()
         }
         Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp)) {
