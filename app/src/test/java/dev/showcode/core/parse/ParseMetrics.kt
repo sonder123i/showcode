@@ -26,7 +26,7 @@ object ParseMetrics {
 
     private data class Outcome(
         val tier: Tier,
-        val parcel: ParsedParcel?,
+        val parcels: List<ParsedParcel>,
         val reason: UnrecognizedReason?,
     )
 
@@ -42,7 +42,7 @@ object ParseMetrics {
         val silentlyLost = shouldParse.filter { outcomes.getValue(it).tier == Tier.IGNORED }
 
         val units = buildList {
-            didParse.forEach { case -> addAll(scoreFields(case, outcomes.getValue(case).parcel!!, receivedAt)) }
+            didParse.forEach { case -> addAll(scoreFields(case, outcomes.getValue(case).parcels, receivedAt)) }
         }
         val hits = units.count { it.hit }
 
@@ -93,17 +93,19 @@ object ParseMetrics {
 
     private fun judge(case: CorpusCase, receivedAt: Long): Outcome =
         when (val outcome = PickupCodeParser.parse(case.toMessage(receivedAt))) {
-            is ParseOutcome.Parsed -> Outcome(Tier.PARSED, outcome.parcel, null)
-            is ParseOutcome.Rejected -> Outcome(Tier.REJECTED, null, outcome.reason)
-            ParseOutcome.Ignored -> Outcome(Tier.IGNORED, null, null)
+            is ParseOutcome.Parsed -> Outcome(Tier.PARSED, outcome.parcels, null)
+            is ParseOutcome.Rejected -> Outcome(Tier.REJECTED, emptyList(), outcome.reason)
+            ParseOutcome.Ignored -> Outcome(Tier.IGNORED, emptyList(), null)
         }
 
     private fun CorpusCase.toMessage(receivedAt: Long) =
         IncomingMessage(sender = sender, body = body, receivedAt = receivedAt, channel = channel)
 
-    /** 每个非 null 的真值字段算一票；`extraCodes` 与禁串各算一票。 */
-    private fun scoreFields(case: CorpusCase, parcel: ParsedParcel, receivedAt: Long): List<Hit> {
+    /** 每个非 null 的真值字段算一票；多件的必含与禁含各算一票。 */
+    private fun scoreFields(case: CorpusCase, parcels: List<ParsedParcel>, receivedAt: Long): List<Hit> {
         val exp = case.expect
+        val parcel = parcels.first()
+        val codes = parcels.map { it.code }
         val out = mutableListOf<Hit>()
 
         fun check(field: String, want: String, got: String?, ok: Boolean) {
@@ -127,10 +129,19 @@ object ParseMetrics {
             check("关门", label, parcel.closesAtMinuteOfDay?.let(::clock), parcel.closesAtMinuteOfDay == it)
         }
         if (exp.extraCodes.isNotEmpty()) {
+            val missing = exp.extraCodes.filterNot { it in codes }
             out += Hit(
                 "同条多件 · ${case.id}",
-                hit = false,
-                why = "同条多件：${case.id} 还期望 ${exp.extraCodes.joinToString()}，但 ParseOutcome 一次只能返回一个件（模型上限，不是文案问题）",
+                missing.isEmpty(),
+                "同条多件：${case.id} 切出 ${codes.size} 件「${codes.joinToString()}」，还缺 ${missing.joinToString()}",
+            )
+        }
+        if (exp.forbiddenCodes.isNotEmpty()) {
+            val bogus = exp.forbiddenCodes.filter { it in codes }
+            out += Hit(
+                "禁切成件 · ${case.id}",
+                bogus.isEmpty(),
+                "禁切成件：${case.id} 把 ${bogus.joinToString()} 当成了一件，那是格口号或数量，不是码",
             )
         }
         if (exp.forbiddenInPointName.isNotEmpty()) {

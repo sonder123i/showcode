@@ -45,7 +45,14 @@ enum class UnrecognizedReason {
 }
 
 sealed interface ParseOutcome {
-    data class Parsed(val parcel: ParsedParcel) : ParseOutcome
+    /**
+     * 一条消息可能是**多个件**：同一次网购拆包、同一驿站一次到几件，
+     * 真实写法就是「取件码 5-1-2277、5-2-3391」。
+     *
+     * 只取第一个的话，第二个既不入库也不落未识别——那是永久消失，不是延后处理。
+     * 顺序即正文里的出现顺序。
+     */
+    data class Parsed(val parcels: List<ParsedParcel>) : ParseOutcome
 
     /** 是取件消息但没解析出码 → 落库为「未识别」，让用户知道漏了什么。 */
     data class Rejected(val reason: UnrecognizedReason) : ParseOutcome
@@ -65,15 +72,16 @@ object PickupCodeParser {
 
     fun parse(message: IncomingMessage): ParseOutcome {
         val body = message.body
-        val hit = extractCode(body)
+        val hits = extractCodes(body)
+        val primary = hits.firstOrNull()
         return when {
-            hit != null && MessageGate.admitsCode(body, strong = hit.strong) -> parsed(message, body, hit.value)
+            primary != null && MessageGate.admitsCode(body, strong = primary.strong) -> parsed(message, body, hits)
             MessageGate.looksLikePickup(body) -> ParseOutcome.Rejected(reasonOf(body, message.sender))
             else -> ParseOutcome.Ignored
         }
     }
 
-    private fun parsed(message: IncomingMessage, body: String, code: String): ParseOutcome.Parsed {
+    private fun parsed(message: IncomingMessage, body: String, hits: List<CodeHit>): ParseOutcome.Parsed {
         val pointName = extractPointName(body)
         val kind = kindOf(pointName, body)
         val closingMinute = if (kind == PointKind.LOCKER) null else closingMinuteOf(body, kind)
@@ -82,17 +90,22 @@ object PickupCodeParser {
         } else {
             null
         }
+        // 多件时柜号不填：一条短信里只有一个「格口A12」，却对应两个件，
+        // 猜给谁都是赌。现场少显示一个柜号，远好过把人指向另一个格口。
+        val lockerNo = if (hits.size > 1) null else extractLockerNo(body)
 
         return ParseOutcome.Parsed(
-            ParsedParcel(
-                code = code,
-                lockerNo = extractLockerNo(body),
-                carrier = carrierOf(body),
-                pointName = pointName,
-                pointKind = kind,
-                closesAtMinuteOfDay = closingMinute,
-                freeUntilAt = freeUntil,
-            ),
+            hits.map {
+                ParsedParcel(
+                    code = it.value,
+                    lockerNo = lockerNo,
+                    carrier = carrierOf(body),
+                    pointName = pointName,
+                    pointKind = kind,
+                    closesAtMinuteOfDay = closingMinute,
+                    freeUntilAt = freeUntil,
+                )
+            },
         )
     }
 
@@ -130,16 +143,55 @@ object PickupCodeParser {
 
     private val PHONE_NUMBER = Regex("1\\d{10}")
 
-    private fun extractCode(body: String): CodeHit? =
-        sequenceOf(search(body, CODE_PATTERNS_STRONG, strong = true), search(body, CODE_PATTERNS_WEAK, strong = false))
-            .filterNotNull()
-            .firstOrNull()
+    /** 一条消息最多切成几个件。粘贴进来的一整页文本不该一次生成几十件；超出就是有意截断。 */
+    private const val MAX_PARCELS_PER_MESSAGE = 12
 
-    private fun search(body: String, patterns: List<Regex>, strong: Boolean): CodeHit? =
-        patterns.firstNotNullOfOrNull { it.find(body)?.groupValues?.get(1) }
-            ?.trim()
-            ?.takeIf { it.length in 2..12 && !PHONE_NUMBER.matches(it) }
-            ?.let { CodeHit(it, strong) }
+    /** 紧跟量词的候选是数量不是码：「，24小时内免费」里的 24 不能变成一个假件。 */
+    private val FOLLOWER_UNIT = Regex("^(小时|个小时|個小時|天|月|日|年|元|点|分|秒|折|单|箱)")
+
+    private fun extractCodes(body: String): List<CodeHit> =
+        hits(body, CODE_PATTERNS_STRONG, strong = true).ifEmpty { hits(body, CODE_PATTERNS_WEAK, strong = false) }
+
+    /** 保持「强锚定整条优先」：第一个能抓到码的锚定词组赢，后面的组不再参与。 */
+    private fun hits(body: String, patterns: List<Regex>, strong: Boolean): List<CodeHit> {
+        for (pattern in patterns) {
+            val codes = LinkedHashSet<String>()
+            pattern.findAll(body).forEach { match ->
+                val primary = match.groupValues[1].asCode() ?: return@forEach
+                codes += primary
+                codes += followers(body, match.range.last, primary)
+            }
+            if (codes.isNotEmpty()) {
+                return codes.take(MAX_PARCELS_PER_MESSAGE).map { CodeHit(it, strong) }
+            }
+        }
+        return emptyList()
+    }
+
+    /**
+     * 主码之后被顿号/逗号/斜杠/「和」「及」或空格串起来的**同形**码。
+     * 同形是关键的精度闸门：「取件码 1234、A12」里 A12 是格口，不是第二个件。
+     */
+    private fun followers(body: String, primaryEnd: Int, primary: String): List<String> {
+        val shape = if ('-' in primary) "[0-9A-Za-z]*-[0-9A-Za-z\\-]{1,13}" else "\\d{2,12}"
+        val separator = Regex("[、,，/和及\\s]{1,3}")
+        val candidate = Regex("^($shape)")
+        val out = mutableListOf<String>()
+        var rest = body.substring(primaryEnd + 1)
+        while (true) {
+            val gap = separator.find(rest)?.value ?: break
+            rest = rest.substring(gap.length)
+            val match = candidate.find(rest) ?: break
+            if (FOLLOWER_UNIT.containsMatchIn(rest.substring(match.value.length))) break
+            val code = match.groupValues[1].asCode() ?: break
+            out += code
+            rest = rest.substring(match.value.length)
+        }
+        return out
+    }
+
+    private fun String?.asCode(): String? =
+        this?.trim()?.takeIf { it.length in 2..12 && !PHONE_NUMBER.matches(it) }
 
     // ── 格口号 / 货架号 ───────────────────────────────
     // 只取值，不取「格口」「货架」这两个字：那两个字是 UI 按取件点类型加的前缀。

@@ -233,7 +233,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     private fun process(message: IncomingMessage) {
         when (val outcome = PickupCodeParser.parse(message)) {
             ParseOutcome.Ignored -> Unit
-            is ParseOutcome.Parsed -> upsert(outcome.parcel, message)
+            is ParseOutcome.Parsed -> outcome.parcels.forEach { upsert(it, message) }
             is ParseOutcome.Rejected -> recordUnrecognized(message, outcome.reason)
         }
     }

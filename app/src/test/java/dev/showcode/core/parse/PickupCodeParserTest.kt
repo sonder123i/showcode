@@ -21,7 +21,8 @@ class PickupCodeParserTest {
     private fun parsed(sender: String, body: String): ParsedParcel {
         val outcome = PickupCodeParser.parse(sms(sender, body))
         assertTrue("期望解析成功，实际 $outcome", outcome is ParseOutcome.Parsed)
-        return (outcome as ParseOutcome.Parsed).parcel
+        // 单件断言只看第一件；一条多件的切分由语料棘轮（ParseMetricsTest）考核。
+        return (outcome as ParseOutcome.Parsed).parcels.first()
     }
 
     @Test

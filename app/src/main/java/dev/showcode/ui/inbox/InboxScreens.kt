@@ -213,6 +213,7 @@ fun ManualImportScreen(
 ) {
     var raw by remember(prefillRaw) { mutableStateOf(prefillRaw) }
     var code by remember { mutableStateOf("") }
+    var extras by remember { mutableStateOf<List<String>>(emptyList()) }
     var pointName by remember { mutableStateOf("") }
     var lockerNo by remember { mutableStateOf("") }
     var owner by remember { mutableStateOf(Owner.SELF) }
@@ -256,9 +257,11 @@ fun ManualImportScreen(
                         )
                         when (outcome) {
                             is ParseOutcome.Parsed -> {
-                                code = outcome.parcel.code
-                                pointName = outcome.parcel.pointName
-                                lockerNo = outcome.parcel.lockerNo.orEmpty()
+                                val first = outcome.parcels.first()
+                                code = first.code
+                                pointName = first.pointName
+                                lockerNo = first.lockerNo.orEmpty()
+                                extras = outcome.parcels.drop(1).map { it.code }
                                 error = null
                             }
                             is ParseOutcome.Rejected ->
@@ -271,6 +274,37 @@ fun ManualImportScreen(
                     fontWeight = FontWeight.Bold,
                     color = Accent,
                 )
+            }
+            if (extras.isNotEmpty()) {
+                item {
+                    // 一条里还有别的码就摆出来让人逐个点走。只填第一个，等于把第二件
+                    // 重新变成看不见的——那正是这一整批在修的缺陷。
+                    Text(
+                        text = stringResource(R.string.manual_import_extra, extras.size),
+                        fontSize = 12.sp,
+                        color = OnsiteInk.copy(alpha = 0.6f),
+                    )
+                    Row(
+                        modifier = Modifier.padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        extras.forEach { extra ->
+                            Text(
+                                text = extra,
+                                modifier = Modifier
+                                    .background(SurfaceInset, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        code = extra
+                                        extras = extras - extra
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OnsiteInk,
+                            )
+                        }
+                    }
+                }
             }
             item {
                 OutlinedTextField(

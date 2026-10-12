@@ -24,11 +24,17 @@ data class Expect(
     /** 关门时刻（一天内分钟数）。 */
     val closesAtMinute: Int? = null,
     /**
-     * 同一条短信里第二个及以后的取件码。
-     * 现有 `ParseOutcome` 一次只返回一个件，所以这一项今天必然判漏——
-     * 它不是苛刻，是把「一条两件时第二件永久消失」这个丢失量记进指标。
+     * 除主码之外，这一条里还必须切出哪些件。
+     * 真实场景是同一次网购拆两个包裹、同一驿站一次到几件；只取第一个的话，
+     * 后面的件既不入库也不落未识别，是永久消失。
      */
     val extraCodes: List<String> = emptyList(),
+    /**
+     * 这些串**绝对不许**被当成一个件。「取件码 1234、A12」里的 A12 是格口，
+     * 「，24小时内免费」里的 24 是数量——它们一旦被切成件，就多一张永远取不到的假快递。
+     * 这是放宽切分时最容易引入的回归，所以和 [extraCodes] 一样要进门禁。
+     */
+    val forbiddenCodes: List<String> = emptyList(),
     /** tier 为 REJECTED 时期望的原因。 */
     val reason: UnrecognizedReason? = null,
     /**

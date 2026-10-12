@@ -99,6 +99,41 @@ object Formats {
             ),
         ),
         CorpusCase(
+            id = "fmt-two-parcels-repeated-anchor",
+            origin = "多件的第二种写法：锚定词各写一次，而不是用顿号串起来",
+            body = "【菜鸟驿站】您的两个包裹已到向阳小区菜鸟驿站，取件码7-1-3394，取件码7-2-8802，请及时取件",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "7-1-3394",
+                extraCodes = listOf("7-2-8802"),
+                kind = PointKind.STATION,
+            ),
+        ),
+        CorpusCase(
+            id = "fmt-locker-no-is-not-a-second-parcel",
+            origin = "同形闸门：主码是纯数字时，顿号后面的 A12 是格口，不是一个件——" +
+                "把它切成件就多一张永远取不到的假快递",
+            body = "【菜鸟驿站】您的韵达包裹已到向阳小区菜鸟驿站，取件码512330、A12，请及时取件",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "512330",
+                forbiddenCodes = listOf("A12"),
+                kind = PointKind.STATION,
+            ),
+        ),
+        CorpusCase(
+            id = "fmt-hours-is-not-a-second-parcel",
+            origin = "量词闸门：「，24小时内免费」里的 24 是保管时长不是取件码；这条同时钉住显式免费时长的解析",
+            body = "【丰巢】快件已放入丰巢柜，取件码118077，24小时内免费保管",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "118077",
+                forbiddenCodes = listOf("24"),
+                kind = PointKind.LOCKER,
+                freeUntilHours = 24L,
+            ),
+        ),
+        CorpusCase(
             id = "fmt-notification",
             origin = "菜鸟 App 通知（换行分段的 bigText 风格）。实测：点名正则只挡标点不挡换行，" +
                 "于是抽出来的「点名」把后面两行整段吞了——卡片会显示成一段地址+取件码+提示语",

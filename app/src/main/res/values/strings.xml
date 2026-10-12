@@ -141,6 +141,7 @@
     <string name="manual_import_raw">短信 / 通知原文</string>
     <string name="manual_import_auto">从原文自动提取</string>
     <string name="manual_import_auto_failed">原文里没认出来，请手动填下面两项</string>
+    <string name="manual_import_extra">这条里还有 %1$d 个码，点一下填进取件码，存完再点下一个</string>
     <string name="manual_import_code">取件码 *</string>
     <string name="manual_import_point">取件点名称 *</string>
     <string name="manual_import_locker">柜号 / 货架号（可选）</string>
