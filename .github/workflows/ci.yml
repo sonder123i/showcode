@@ -30,13 +30,10 @@ jobs:
           retention-days: 14
 
   release:
-    # 只有打了 v* 标签、且仓库配了签名密钥时才跑。
-    # 没配密钥时这个 job 干净地跳过，而不是留一个红叉——
-    # 因为 AGP 对缺密钥的行为是硬失败（不会产出未签名的包），
-    # 那是正确的构建语义，但不该由一个还没准备好的仓库来承担。
-    if: >-
-      startsWith(github.ref, 'refs/tags/v') &&
-      secrets.SHOWCODE_KEYSTORE_BASE64 != ''
+    # 只在 v* 标签上跑。密钥配没配用下面那个 gate 步骤判：
+    # jobs.*.if 里拿不到 secrets 上下文（写上去整个工作流解析失败、0 秒红叉），
+    # 而"没配密钥"是还没准备好的正常状态，不该在公开仓库上留一个失败标记。
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -47,7 +44,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: 检查有没有配签名密钥
+        id: gate
+        env:
+          KEYSTORE_B64: ${{ secrets.SHOWCODE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::仓库还没配 SHOWCODE_KEYSTORE_BASE64，跳过签名包"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 写入签名材料
+        if: steps.gate.outputs.ready == 'true'
         env:
           SHOWCODE_KEYSTORE_BASE64: ${{ secrets.SHOWCODE_KEYSTORE_BASE64 }}
           SHOWCODE_KEYSTORE_PASSWORD: ${{ secrets.SHOWCODE_KEYSTORE_PASSWORD }}
@@ -60,9 +70,11 @@ jobs:
           echo "SHOWCODE_KEY_PASSWORD=$SHOWCODE_KEY_PASSWORD" >> "$GITHUB_ENV"
 
       - name: 打 release 包
+        if: steps.gate.outputs.ready == 'true'
         run: ./gradlew --no-daemon :app:assembleRelease
 
       - uses: actions/upload-artifact@v4
+        if: steps.gate.outputs.ready == 'true'
         with:
           name: app-release
           path: app/build/outputs/apk/release/app-release.apk
