@@ -61,14 +61,25 @@
 
 ## 安装
 
-到 [Releases](../../releases) 下载 APK。minSdk 26（Android 8.0），targetSdk 36。
+到 [Releases](../../releases) 下载 `showcode-<版本>.apk`。minSdk 26（Android 8.0），targetSdk 36。
+
+打 `v*` 标签时 CI 会自动签名、按版本号命名，并附上 `SHA256SUMS.txt`。
+**装之前对一下哈希**：这个 App 完全不联网，你没有任何别的办法确认下到的包就是官方构建的那一个。
+
+```bash
+sha256sum -c SHA256SUMS.txt   # 和 Release 页面里那份对上一致再装
+```
+
+尚未上架任何应用商店（包括 F-Droid）。仓库里已经按 F-Droid 的格式放好了
+`fastlane/metadata/android/{zh-CN,en-US}/`（标题、简介、详细说明、截图、每版更新说明），
+提交时缺的只有一个 512×512 的图标——现有启动图标是自适应矢量，F-Droid 的机器人不吃这个。
 
 ## 自己构建
 
 ```bash
 # JDK 17
 ./gradlew :app:assembleDebug          # 调试包
-./gradlew :app:testDebugUnitTest      # 73 个单元测试
+./gradlew :app:testDebugUnitTest      # 86 个单元测试
 ```
 
 打 release 包需要一个你自己的签名密钥。**密钥和口令不要提交进仓库**，两条受支持的来源：
@@ -111,6 +122,14 @@ keytool -genkeypair -keystore release.keystore -storetype PKCS12 \
 
 这两份数据只下载、不上传，本地表态永远优先于社区建议。
 想认领其中一块，先开一个 issue 说一声。
+
+第三种贡献最便宜，也最缺：**一条我们认不出来的真实短信**。识别质量现在是被语料棘轮量出来的
+（`app/src/test/java/dev/showcode/core/parse/corpus/`，五个指标加一条不许下调的地板），
+所以「贴一条原文 + 说明它该被解析成什么」比改代码更有价值——开 issue 就行。
+
+⚠️ 贴之前请**脱敏**：手机号、小区名、门牌号都要换成别的，但**长度、字符类、连字符位置，
+以及「驿站 / 柜 / 超市 / 代收点」这类后缀词不要动**——解析器认的就是这些形态，
+形态一改动，这条样本就废了。
 
 改代码的话：`core/` 目录是零 Android 依赖的纯 Kotlin（时效判定、取件点归一、排序、字号防溢出规则），
 所有值得测的东西都应该留在那一层——先跑 `./gradlew :app:testDebugUnitTest` 看有没有红。

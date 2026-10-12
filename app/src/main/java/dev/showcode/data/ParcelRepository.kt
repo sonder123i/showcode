@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class AppData(
     /** false = 还没读过库。首页的三种空态语义完全不同，不能把「加载中」当成「还没有快递」。 */
@@ -101,6 +102,8 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         lastSyncAt = _data.value.lastSyncAt,
         now = now,
         isXiaomi = Build.MANUFACTURER.equals("xiaomi", true) || Build.MANUFACTURER.equals("redmi", true),
+        // 演示数据不落库，所以这里看到的必然是真件：没件可取时「很久没同步」是正常的。
+        hasUnpicked = _data.value.parcels.any { !it.picked },
     )
 
     /** 数据或阈值变化后通知外部常驻表面（桌面组件）。批 2 由 widget 注册。 */
@@ -191,19 +194,24 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
      * 手动导入 / 未识别页的手动提取。
      * 与自动收录走同一张表、同一套保守归一化，只是来源标成 MANUAL；
      * 时效依据给驿站默认关门时刻——手动导入的文本里通常没有营业时间。
+     *
+     * @return 是否真的写进去了。以前这里直接 `insertParcel` 而不先查 `findUnpicked`，
+     *         于是同一个码同一个点再输一次会撞部分唯一索引；`insert()` 撞约束只返回 -1 不抛，
+     *         界面照样跳到首页像是存好了——**码其实没进库**。
      */
-    fun manualAdd(
+    suspend fun manualAdd(
         code: String,
         pointName: String,
         lockerNo: String?,
         raw: String,
         owner: Owner = Owner.SELF,
-    ): Job = scope.launch {
+    ): Boolean = withContext(Dispatchers.IO) {
+        val key = pointKey(pointName)
         val values = ContentValues().apply {
             put("code", code)
             put("locker_no", lockerNo)
             put("carrier", context.getString(R.string.manual_import_carrier))
-            put("point_key", pointKey(pointName))
+            put("point_key", key)
             put("point_name", pointName)
             put("point_kind", PointKind.STATION.name)
             put("owner", owner.name)
@@ -214,9 +222,19 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             put("picked", 0)
             put("raw", raw)
         }
-        db.insertParcel(values)
-        stampSync()
-        reload()
+        // 已有同码同点的未取件：更新那一条（补上的柜号、归属都要生效），而不是再插一条。
+        val existing = db.findUnpicked(code, key)
+        val stored = if (existing != null) {
+            db.updateParcel(existing, values)
+            true
+        } else {
+            db.insertParcel(values) > 0
+        }
+        if (stored) {
+            stampSync()
+            reload()
+        }
+        stored
     }
 
     fun hasSmsPermission(): Boolean =
@@ -233,7 +251,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     private fun process(message: IncomingMessage) {
         when (val outcome = PickupCodeParser.parse(message)) {
             ParseOutcome.Ignored -> Unit
-            is ParseOutcome.Parsed -> upsert(outcome.parcel, message)
+            is ParseOutcome.Parsed -> outcome.parcels.forEach { upsert(it, message) }
             is ParseOutcome.Rejected -> recordUnrecognized(message, outcome.reason)
         }
     }

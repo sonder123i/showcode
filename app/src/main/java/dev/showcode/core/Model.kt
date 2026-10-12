@@ -19,6 +19,16 @@ enum class Owner { SELF, FAMILY }
 enum class Source { SMS, NOTIFICATION, MANUAL, DEMO }
 
 /**
+ * 读库时的枚举兜底：名字对不上就当不认识，用调用方给的默认值，**绝不抛**。
+ *
+ * `valueOf` 直接用在行解码上意味着：只要以后给这些枚举改过一次名（或者用户装了更旧的 APK），
+ * `reload()` 每次读表都会炸，整个 App 打不开。这里宁可丢那一个字段的精度，
+ * 也不能让一列文本决定用户能不能看见自己的取件码。
+ */
+inline fun <reified E : Enum<E>> enumOrDefault(raw: String?, fallback: E): E =
+    raw?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: fallback
+
+/**
  * 一件待取包裹。
  *
  * 时效不入库：urgency 是 (deadline, now) 的派生值，存下来就会过期。

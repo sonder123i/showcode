@@ -36,6 +36,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 要建 GitHub Release；默认 token 没这个权限
     steps:
       - uses: actions/checkout@v4
 
@@ -78,3 +80,30 @@ jobs:
         with:
           name: app-release
           path: app/build/outputs/apk/release/app-release.apk
+
+      # 完全离线的 App，用户没有别的手段判断「我下到的这个包是不是官方构建的那个」，
+      # 所以 SHA-256 必须和 APK 一起出现在下载页上。
+      - name: 按版本号命名并算校验和
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp app/build/outputs/apk/release/app-release.apk "showcode-$VERSION.apk"
+          sha256sum "showcode-$VERSION.apk" | tee SHA256SUMS.txt
+          echo "APK=showcode-$VERSION.apk" >> "$GITHUB_ENV"
+
+      - name: 发布到 GitHub Release
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 更新说明只维护一份：fastlane 里对应 versionCode 的 changelog。
+          # 找不到就退回 GitHub 自动生成的 notes，而不是让发布卡在这一步。
+          CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -1)
+          NOTES="fastlane/metadata/android/zh-CN/changelogs/$CODE.txt"
+          if [ -f "$NOTES" ]; then
+            gh release create "$GITHUB_REF_NAME" --title "亮码 ${GITHUB_REF_NAME#v}" \
+              --notes-file "$NOTES" "$APK" SHA256SUMS.txt
+          else
+            gh release create "$GITHUB_REF_NAME" --title "亮码 ${GITHUB_REF_NAME#v}" \
+              --generate-notes "$APK" SHA256SUMS.txt
+          fi

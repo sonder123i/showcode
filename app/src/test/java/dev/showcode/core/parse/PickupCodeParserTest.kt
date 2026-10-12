@@ -21,7 +21,8 @@ class PickupCodeParserTest {
     private fun parsed(sender: String, body: String): ParsedParcel {
         val outcome = PickupCodeParser.parse(sms(sender, body))
         assertTrue("期望解析成功，实际 $outcome", outcome is ParseOutcome.Parsed)
-        return (outcome as ParseOutcome.Parsed).parcel
+        // 单件断言只看第一件；一条多件的切分由语料棘轮（ParseMetricsTest）考核。
+        return (outcome as ParseOutcome.Parsed).parcels.first()
     }
 
     @Test
@@ -54,7 +55,7 @@ class PickupCodeParserTest {
 
     @Test
     fun `丰巢 - 短信写了别的免费时长就以短信为准`() {
-        val p = parsed("106575580", "【丰巢】快递已放入丰巢柜，取件码1234，24小时内免费保管。")
+        val p = parsed("106575580", "【丰巢】快递已放入丰巢智能柜(阳光花园3号楼柜)，取件码1234，24小时内免费保管。")
         assertEquals(now + 24 * 3600_000L, p.freeUntilAt)
     }
 
@@ -91,7 +92,7 @@ class PickupCodeParserTest {
 
     @Test
     fun `X点前取件 - 解析为关门时间`() {
-        val p = parsed("10691777", "【京东】您的包裹已到达京东自提点，取件码JD123，请在21点前取件。")
+        val p = parsed("10691777", "【京东】您的包裹已到达京东自提点(好邻居便利店)，取件码JD123，请在21点前取件。")
         assertEquals(21 * 60, p.closesAtMinuteOfDay)
     }
 
@@ -161,9 +162,15 @@ class PickupCodeParserTest {
     }
 
     @Test
-    fun `没有点位名时退到品牌名`() {
-        val p = parsed("106575580", "【丰巢】您有一个快递已入柜，取件码6-1-0088，请及时取件。")
-        assertEquals("丰巢快递柜", p.pointName)
-        assertEquals(PointKind.LOCKER, p.pointKind)
+    fun `认不出具体门店时不再合成一张卡，而是带着码送确认`() {
+        val outcome = PickupCodeParser.parse(
+            sms("106575580", "【丰巢】您有一个快递已入柜，取件码6-1-0088，请及时取件。"),
+        )
+        assertTrue("期望送确认，实际 $outcome", outcome is ParseOutcome.Rejected)
+        val rejected = outcome as ParseOutcome.Rejected
+        assertEquals(UnrecognizedReason.POINT_NAME_UNCONFIRMED, rejected.reason)
+        // 「丰巢快递柜」会把小区门口两台柜机合成一张卡，所以不再退化成那种看着正常的名字。
+        // 但码是确定的——不带下去就等于让用户在手动导入页重新抄一遍。
+        assertEquals(listOf("6-1-0088"), rejected.codes)
     }
 }

@@ -97,5 +97,28 @@ fun countdownOf(remainingMs: Long): Countdown {
     )
 }
 
+/**
+ * 下一个「状态会变」的时刻：某件跨进临期，或跨进过期风险。
+ *
+ * 组件的 60 秒闹钟只在**已经有临期件**时挂，于是「安全 → 临期」那一刻没有任何东西被安排醒来，
+ * 桌面要等到下一次 30 分钟系统周期才跟上——而临期提醒恰恰是这个 App 的差异化所在。
+ * 这个函数就是给那次唤醒用的：没有待取件、或所有件都没有时效依据时返回 null。
+ */
+fun nextCrossingAt(
+    parcels: List<Parcel>,
+    now: Long,
+    thresholds: UrgencyThresholds = UrgencyThresholds(),
+): Long? = parcels.filterNot { it.picked }.mapNotNull { parcel ->
+    val deadline = deadlineOf(parcel, now) ?: return@mapNotNull null
+    val window = when (parcel.pointKind) {
+        PointKind.LOCKER -> thresholds.lockerDueSoonMs
+        PointKind.STATION, PointKind.SELFPICK -> thresholds.stationDueSoonMinutes * MINUTE_MS
+    }
+    listOfNotNull(
+        (deadline - window).takeIf { it > now },
+        deadline.takeIf { it > now },
+    ).minOrNull()
+}.minOrNull()
+
 /** 已存放天数。>1 时现场模式提示「可能已失效」，但绝不阻断出示。 */
 fun staleDaysOf(parcel: Parcel, now: Long): Int = ((now - parcel.receivedAt) / DAY_MS).toInt()

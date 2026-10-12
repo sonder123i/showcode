@@ -1,0 +1,41 @@
+Note: the app interface is Chinese-only. It parses Chinese carrier SMS and notifications,
+which is what Chinese pickup stations send.
+
+The pain of picking up a parcel is not "my tracking info is scattered". It is the 30 seconds
+in front of the locker: digging through three apps for a code, not knowing which slot,
+not knowing how long until the locker starts charging.
+
+ShowCode is not a parcel archive. It is the panel you use while standing at the locker.
+
+Automatic capture
+· Parses pickup codes, slot / shelf numbers and which station they belong to from SMS and app notifications.
+· Backfills the last 14 days of your inbox on install — parcels already on your phone should not
+  wait for the next SMS.
+· If one message contains several parcels, all of them are captured. The second one does not vanish.
+
+Stations are the first-class object
+· The home screen is grouped by station ("how many parcels here, what is the most urgent state"),
+  not a time-sorted list of parcels.
+· The desktop widget is sectioned the same way; tapping a section goes straight to that station.
+
+Three urgency states
+· Safe / due soon / at risk — three colours only. Lockers count down free storage,
+  stations count down to closing time. Urgency within "due soon" is carried by a ticking
+  countdown, not by adding a fourth colour.
+
+It never guesses on your behalf
+· Same station, different spelling: the app does not merge automatically, it only asks.
+· Merging shows a preview, is undoable for 5 seconds, keeps a permanent history and is reversible —
+  undoing loses nothing.
+· When a code cannot be attributed to a station, it goes to "not recognised" for you to confirm,
+  instead of inventing a name and producing a card that looks fine.
+
+Privacy
+· All parsing happens on the device. No uploads, no accounts, no ads, no analytics SDKs.
+· Data lives in a local SQLite database and disappears on uninstall.
+· Works without the SMS permission: manual import is a first-class entry point.
+
+Known limits
+· Android only. iOS has no API to read SMS bodies or other apps' notifications at all.
+· 5G messages, network SMS without a sender number, and collapsed WeChat notifications cannot be
+  parsed — but they land in the "not recognised" list rather than being dropped silently.

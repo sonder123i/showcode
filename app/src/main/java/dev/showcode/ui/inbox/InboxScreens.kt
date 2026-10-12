@@ -57,6 +57,7 @@ import dev.showcode.ui.theme.OnsiteSurface
 import dev.showcode.ui.theme.SurfaceInset
 import dev.showcode.ui.theme.UrgencyDueSoon
 import dev.showcode.ui.theme.UrgencySafe
+import kotlinx.coroutines.launch
 
 /**
  * 未识别收容页（edge s7-unrecognized）。
@@ -198,6 +199,7 @@ private fun unrecognizedReasonText(reason: UnrecognizedReason): String = stringR
         UnrecognizedReason.CODE_LIVES_IN_APP -> R.string.unrecognized_code_in_app
         UnrecognizedReason.NO_SENDER_NUMBER -> R.string.unrecognized_no_sender_number
         UnrecognizedReason.NO_CODE_FOUND -> R.string.unrecognized_no_code
+        UnrecognizedReason.POINT_NAME_UNCONFIRMED -> R.string.unrecognized_point_unconfirmed
     }
 )
 
@@ -209,14 +211,16 @@ private fun unrecognizedReasonText(reason: UnrecognizedReason): String = stringR
 fun ManualImportScreen(
     prefillRaw: String,
     onBack: () -> Unit,
-    onSave: (code: String, pointName: String, lockerNo: String?, raw: String, owner: Owner) -> Unit,
+    onSave: suspend (code: String, pointName: String, lockerNo: String?, raw: String, owner: Owner) -> Boolean,
 ) {
     var raw by remember(prefillRaw) { mutableStateOf(prefillRaw) }
     var code by remember { mutableStateOf("") }
+    var extras by remember { mutableStateOf<List<String>>(emptyList()) }
     var pointName by remember { mutableStateOf("") }
     var lockerNo by remember { mutableStateOf("") }
     var owner by remember { mutableStateOf(Owner.SELF) }
     var error by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
@@ -256,13 +260,24 @@ fun ManualImportScreen(
                         )
                         when (outcome) {
                             is ParseOutcome.Parsed -> {
-                                code = outcome.parcel.code
-                                pointName = outcome.parcel.pointName
-                                lockerNo = outcome.parcel.lockerNo.orEmpty()
+                                val first = outcome.parcels.first()
+                                code = first.code
+                                pointName = first.pointName
+                                lockerNo = first.lockerNo.orEmpty()
+                                extras = outcome.parcels.drop(1).map { it.code }
                                 error = null
                             }
-                            is ParseOutcome.Rejected ->
-                                error = context.getString(R.string.manual_import_auto_failed)
+                            is ParseOutcome.Rejected -> {
+                                // 码是确定的就先把码填上。这类消息缺的只是「在哪个点」，
+                                // 让人重新抄一遍码等于把省下来的时间又还回去。
+                                code = outcome.codes.firstOrNull().orEmpty()
+                                extras = outcome.codes.drop(1)
+                                error = if (outcome.reason == UnrecognizedReason.POINT_NAME_UNCONFIRMED) {
+                                    context.getString(R.string.manual_import_auto_point_only)
+                                } else {
+                                    context.getString(R.string.manual_import_auto_failed)
+                                }
+                            }
                             ParseOutcome.Ignored ->
                                 error = context.getString(R.string.manual_import_auto_failed)
                         }
@@ -271,6 +286,37 @@ fun ManualImportScreen(
                     fontWeight = FontWeight.Bold,
                     color = Accent,
                 )
+            }
+            if (extras.isNotEmpty()) {
+                item {
+                    // 一条里还有别的码就摆出来让人逐个点走。只填第一个，等于把第二件
+                    // 重新变成看不见的——那正是这一整批在修的缺陷。
+                    Text(
+                        text = stringResource(R.string.manual_import_extra, extras.size),
+                        fontSize = 12.sp,
+                        color = OnsiteInk.copy(alpha = 0.6f),
+                    )
+                    Row(
+                        modifier = Modifier.padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        extras.forEach { extra ->
+                            Text(
+                                text = extra,
+                                modifier = Modifier
+                                    .background(SurfaceInset, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        code = extra
+                                        extras = extras - extra
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = OnsiteInk,
+                            )
+                        }
+                    }
+                }
             }
             item {
                 OutlinedTextField(
@@ -347,7 +393,17 @@ fun ManualImportScreen(
                             if (trimmedCode.isEmpty() || trimmedName.isEmpty()) {
                                 error = context.getString(R.string.manual_import_need_both)
                             } else {
-                                onSave(trimmedCode, trimmedName, lockerNo.trim().takeIf { it.isNotEmpty() }, raw, owner)
+                                // 以落库的返回为准，不能点下去就当成功。
+                                scope.launch {
+                                    val stored = onSave(
+                                        trimmedCode,
+                                        trimmedName,
+                                        lockerNo.trim().takeIf { it.isNotEmpty() },
+                                        raw,
+                                        owner,
+                                    )
+                                    if (!stored) error = context.getString(R.string.manual_import_save_failed)
+                                }
                             }
                         },
                     verticalArrangement = Arrangement.Center,

@@ -33,7 +33,13 @@ data class HealthReport(
     val allGood: Boolean get() = issues.isEmpty() && manualChecks.isEmpty()
 }
 
-/** 权限都正常却这么久没同步过，就怀疑后台被限制。6 小时是保守值：宁可晚报，不可误报。 */
+/**
+ * 权限都正常却这么久没同步过，就怀疑后台被限制。6 小时是保守值：宁可晚报，不可误报。
+ *
+ * ⚠️ 这条判据必须和 [hasUnpicked] 一起用：`lastSyncAt` 只在**真的收到消息**时盖章，
+ * 所以「今天没买东西」也会让它超时。真机上闲 7 小时就常驻红条——那是误报，
+ * 而一条常驻的误报会把真正需要看的两条（短信权限、通知权限）一起废掉。
+ */
 const val BACKGROUND_SUSPECT_MS = 6 * HOUR_MS
 
 fun healthReport(
@@ -42,11 +48,15 @@ fun healthReport(
     lastSyncAt: Long?,
     now: Long,
     isXiaomi: Boolean,
+    /** 一件都没得取时，长时间没同步是正常状态，不是后台被杀。 */
+    hasUnpicked: Boolean,
 ): HealthReport {
     val issues = buildList {
         if (!smsGranted) add(HealthIssue.SMS_DENIED)
         if (!notificationEnabled) add(HealthIssue.NOTIFICATION_DENIED)
-        if (smsGranted && notificationEnabled && lastSyncAt != null && now - lastSyncAt > BACKGROUND_SUSPECT_MS) {
+        if (smsGranted && notificationEnabled && hasUnpicked &&
+            lastSyncAt != null && now - lastSyncAt > BACKGROUND_SUSPECT_MS
+        ) {
             add(HealthIssue.BACKGROUND_SUSPECTED)
         }
     }

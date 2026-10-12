@@ -1,0 +1,10 @@
+· One message with several parcels now captures all of them; the second parcel no longer disappears.
+· Codes that cannot be attributed to a station go to "not recognised" for confirmation instead of
+  inventing a name and producing a card that looks trustworthy.
+· Re-entering a duplicate code no longer pretends to save; if it cannot be stored, it says so.
+· The widget no longer shows "no parcels" during the cold-start instant, and it now wakes up on its
+  own at the moment a parcel crosses into "due soon".
+· Widget refresh scheduling survives a device reboot.
+· A quiet afternoon no longer triggers a false "background may be restricted" warning.
+· Now parsed correctly: Chinese-numeral locker numbers ("五号柜"), "下午6点前取件",
+  and the reversed word order "免费保管24小时".
