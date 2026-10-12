@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: 单元测试与调试包
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: app/build/reports/tests/**
+          retention-days: 14
+
+  release:
+    # 只有打了 v* 标签才尝试出签名包；没有配密钥时这个 job 会失败，
+    # 而不是产出一个装不上的未签名包（AGP 对缺密钥的行为就是这么硬）。
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: 写入签名材料
+        env:
+          SHOWCODE_KEYSTORE_BASE64: ${{ secrets.SHOWCODE_KEYSTORE_BASE64 }}
+          SHOWCODE_KEYSTORE_PASSWORD: ${{ secrets.SHOWCODE_KEYSTORE_PASSWORD }}
+          SHOWCODE_KEY_PASSWORD: ${{ secrets.SHOWCODE_KEY_PASSWORD }}
+        run: |
+          echo "$SHOWCODE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "SHOWCODE_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          echo "SHOWCODE_KEY_ALIAS=showcode" >> "$GITHUB_ENV"
+          echo "SHOWCODE_KEYSTORE_PASSWORD=$SHOWCODE_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SHOWCODE_KEY_PASSWORD=$SHOWCODE_KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: 打 release 包
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/app-release.apk
