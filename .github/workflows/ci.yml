@@ -17,8 +17,8 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
+      # runner 镜像自带 Android SDK 且已接受 licenses；缺的 platform 由 AGP 自己拉。
+      # 不用 android-actions/setup-android：它会去装 Google 已下架的 tools 包，直接 exit 1。
       - name: 单元测试与调试包
         run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
@@ -42,8 +42,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
-      - uses: android-actions/setup-android@v3
 
       - name: 写入签名材料
         env:
