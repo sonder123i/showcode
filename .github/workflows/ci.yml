@@ -30,9 +30,13 @@ jobs:
           retention-days: 14
 
   release:
-    # 只有打了 v* 标签才尝试出签名包；没有配密钥时这个 job 会失败，
-    # 而不是产出一个装不上的未签名包（AGP 对缺密钥的行为就是这么硬）。
-    if: startsWith(github.ref, 'refs/tags/v')
+    # 只有打了 v* 标签、且仓库配了签名密钥时才跑。
+    # 没配密钥时这个 job 干净地跳过，而不是留一个红叉——
+    # 因为 AGP 对缺密钥的行为是硬失败（不会产出未签名的包），
+    # 那是正确的构建语义，但不该由一个还没准备好的仓库来承担。
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') &&
+      secrets.SHOWCODE_KEYSTORE_BASE64 != ''
     needs: build
     runs-on: ubuntu-latest
     steps:
