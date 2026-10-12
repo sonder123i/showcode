@@ -102,6 +102,8 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         lastSyncAt = _data.value.lastSyncAt,
         now = now,
         isXiaomi = Build.MANUFACTURER.equals("xiaomi", true) || Build.MANUFACTURER.equals("redmi", true),
+        // 演示数据不落库，所以这里看到的必然是真件：没件可取时「很久没同步」是正常的。
+        hasUnpicked = _data.value.parcels.any { !it.picked },
     )
 
     /** 数据或阈值变化后通知外部常驻表面（桌面组件）。批 2 由 widget 注册。 */

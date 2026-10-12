@@ -131,7 +131,9 @@ fun HomeScreen(
     mergeUndoName: String?,
     onUndoMerge: () -> Unit,
 ) {
-    val isStale = state.smsPermissionGranted &&
+    /* 陈旧提示对任何一条收录通道都成立。以前它只被短信权限门住，
+       于是「拒了短信、只开通知监听」这个完全合法的配置下，用户永远看不到「可能不是最新」。 */
+    val isStale = (state.smsPermissionGranted || state.notificationAccessGranted) &&
         (state.lastSyncAt == null || now - state.lastSyncAt > STALE_THRESHOLD_MS)
 
     Box(

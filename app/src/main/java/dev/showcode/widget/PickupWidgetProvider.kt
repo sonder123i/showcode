@@ -17,6 +17,7 @@ import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.Urgency
 import dev.showcode.core.countdownOf
 import dev.showcode.core.deadlineOf
+import dev.showcode.core.nextCrossingAt
 import dev.showcode.core.badgeOwnerId
 import dev.showcode.core.groupByPoint
 import dev.showcode.core.resolvePointKey
@@ -100,8 +101,9 @@ class PickupWidgetProvider : AppWidgetProvider() {
             val boundKey = prefs.widgetBinding(widgetId)?.let { resolvePointKey(it, data.aliases) }
             val boundGroup = boundKey?.let { key -> groups.firstOrNull { it.key == key } }
 
-            // stale-freshness：陈旧的码比没有码更危险
-            val stale = data.lastSyncAt == null || now - data.lastSyncAt > STALE_MS
+            // stale-freshness：陈旧的码比没有码更危险。还没读完库时不报——
+            // 那时候已经有「正在读取…」在说了，两条互相矛盾的文案比一条都没有更糟。
+            val stale = data.loaded && (data.lastSyncAt == null || now - data.lastSyncAt > STALE_MS)
             views.setViewVisibility(R.id.widget_stale, if (stale) View.VISIBLE else View.GONE)
 
             if (showBadge && data.unrecognized.isNotEmpty()) {
@@ -124,6 +126,19 @@ class PickupWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_more, View.GONE)
 
             when {
+                /* 还没读完库。组件是用户不打开 App 也会看到的表面，
+                   冷启动那一瞬骗他「没有快递」，他今天可能就真的不去取。
+                   这一支必须在最前面：绑定点那条（形态 D）同样会被空数据误判成「你的点清空了」。 */
+                !data.loaded -> {
+                    views.setViewVisibility(R.id.widget_empty, View.VISIBLE)
+                    views.setTextViewText(R.id.widget_empty_text, context.getString(R.string.widget_loading))
+                    views.setViewVisibility(R.id.widget_empty_cta, View.GONE)
+                    views.setOnClickPendingIntent(
+                        R.id.widget_empty,
+                        pending(context, widgetId, SLOT_EMPTY, WidgetNav.ROUTE_HOME, null),
+                    )
+                }
+
                 // 形态 D：绑定点已清空。不能空白（以为坏了）也不能移除（下次还要用）
                 boundKey != null && boundGroup == null -> {
                     views.setViewVisibility(R.id.widget_bound_empty, View.VISIBLE)
@@ -257,20 +272,34 @@ class PickupWidgetProvider : AppWidgetProvider() {
         }
 
         /**
-         * 只在「有组件且存在临期件」时挂 60 秒重复闹钟：倒计时要随时间变化，
-         * 而没有数字在动的时候空转闹钟是白耗电。非精确重复，系统可以合并唤醒。
+         * 三档唤醒，全部由「有没有数字在动」决定，不空转耗电：
+         * - 有临期件：60 秒重复 tick，倒计时要跟着走；
+         * - 没有临期件但有未来的跨界时刻：一次性闹钟醒在那一刻。
+         *   以前这一档什么都没有——「安全 → 临期」没有任何唤醒被安排，
+         *   桌面要等到下一次 30 分钟系统周期才跟上，而临期提醒正是这个 App 的差异化；
+         * - 两件都没有：取消。
+         *
+         * 用 `setAndAllowWhileIdle` 而不是精确闹钟：不需要 `SCHEDULE_EXACT_ALARM` 权限，
+         * 也不该在国产 ROM 上承诺精确。醒来后 `updateAll` 会重算并再挂下一次。
          */
         private fun scheduleTick(context: Context, hasWidgets: Boolean) {
             val repository = context.app.repository
+            val data = repository.data.value
+            val thresholds = repository.thresholds.value
             val now = System.currentTimeMillis()
-            val need = hasWidgets && repository.data.value.parcels.any {
-                !it.picked && urgencyOf(it, now, repository.thresholds.value) == Urgency.DUE_SOON
-            }
             val alarm = context.getSystemService(AlarmManager::class.java) ?: return
-            if (need) {
-                alarm.setInexactRepeating(AlarmManager.RTC, now + TICK_MS, TICK_MS, tickPending(context))
-            } else {
-                alarm.cancel(tickPending(context))
+            val tick = tickPending(context)
+            val countingDown = hasWidgets && data.parcels.any {
+                !it.picked && urgencyOf(it, now, thresholds) == Urgency.DUE_SOON
+            }
+            val crossing = if (hasWidgets) nextCrossingAt(data.parcels, now, thresholds) else null
+            when {
+                countingDown -> alarm.setInexactRepeating(AlarmManager.RTC, now + TICK_MS, TICK_MS, tick)
+                crossing != null -> {
+                    alarm.cancel(tick)
+                    alarm.setAndAllowWhileIdle(AlarmManager.RTC, crossing, tick)
+                }
+                else -> alarm.cancel(tick)
             }
         }
 
