@@ -11,21 +11,30 @@ import androidx.core.content.ContextCompat
 import dev.showcode.R
 import dev.showcode.core.DAY_MS
 import dev.showcode.core.DEFAULT_CLOSING_MINUTE
+import dev.showcode.core.ExistingParcel
 import dev.showcode.core.HealthReport
+import dev.showcode.core.MessageSkip
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
+import dev.showcode.core.ParcelAction
 import dev.showcode.core.PointAlias
 import dev.showcode.core.resolvePointKey
 import dev.showcode.core.PointKind
 import dev.showcode.core.Source
+import dev.showcode.core.UnrecognizedAction
+import dev.showcode.core.UnrecognizedState
 import dev.showcode.core.UrgencyThresholds
+import dev.showcode.core.bodyFingerprint
 import dev.showcode.core.healthReport
-import dev.showcode.core.pointKey
+import dev.showcode.core.messageFingerprint
+import dev.showcode.core.muteKey
 import dev.showcode.core.parse.IncomingMessage
+import dev.showcode.core.parse.MessageDomain
 import dev.showcode.core.parse.ParseOutcome
 import dev.showcode.core.parse.PickupCodeParser
 import dev.showcode.core.parse.ParsedParcel
-import dev.showcode.core.parse.UnrecognizedReason
+import dev.showcode.core.planIngest
+import dev.showcode.core.pointKey
 import java.util.Calendar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,16 +47,27 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** 一次刷新的结果。报「刚刚同步」而不报同步到了什么，等于让用户靠猜。 */
+data class SyncResult(val added: Int, val updated: Int, val at: Long)
+
 data class AppData(
     /** false = 还没读过库。首页的三种空态语义完全不同，不能把「加载中」当成「还没有快递」。 */
     val loaded: Boolean = false,
     val parcels: List<Parcel> = emptyList(),
+    /** 只含 state=NEW 的。用户忽略过、或已经手动提取过的不在这里——那正是修复的重点。 */
     val unrecognized: List<UnrecognizedMessage> = emptyList(),
     /** 取件点合并登记，键是源点的 pointKey。分组时在读取侧解析，parcel 行不被改写。 */
     val aliases: Map<String, PointAlias> = emptyMap(),
     /** 用户已经否认过的「可能是同一个点」对，见 [dev.showcode.core.pairKey]。 */
     val dismissals: Set<String> = emptySet(),
+    /** 被「不再显示此类」收掉的发件人。设置页要能列出来，否则用户屏蔽错了没有反悔的地方。 */
+    val mutedSenders: List<String> = emptyList(),
     val lastSyncAt: Long? = null,
+    val syncing: Boolean = false,
+    /** null = 这次启动还没刷过。 */
+    val lastSyncResult: SyncResult? = null,
+    /** 读短信库失败。失败时**不**盖 lastSyncAt，所以首页的红条不会消失。 */
+    val lastSyncFailed: Boolean = false,
     val monthlyPicked: Int = 0,
     val lastPickupAt: Long? = null,
 )
@@ -55,6 +75,10 @@ data class AppData(
 /**
  * 全部数据都在本机（brief 约束：用户数据永不出本机）。
  * 写操作走单线程 IO dispatcher，所以不需要事务锁；读永远是内存里的一份快照。
+ *
+ * 这里**不做任何判断**。一条消息进来该不该动库、动哪一行，全部在
+ * [dev.showcode.core.planIngest] 里，因为那层以前不可测，才让「已取复活」和
+ * 「忽略复活」在仓库里活了很久。
  */
 class ParcelRepository(private val context: Context, private val db: ShowCodeDb) {
 
@@ -153,37 +177,64 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     }
 
     /**
-     * 回填最近 [days] 天的收件箱。
+     * 回填收件箱。
      * 没有这一步，用户装完 App 会看到空首页，而手机上明明躺着三个待取件——
      * Story 2 AC1 要的是「什么都不做码就出现」。
+     *
+     * 从 [days] 天窗口起步，之后按 [KEY_LAST_INGESTED] 游标增量走，
+     * 但**故意往回多留 [BACKFILL_OVERLAP_MS]**：短信到达顺序不保证，
+     * 只按游标往前走会把迟到的一条永久漏掉。重叠部分由账本挡着，不产生任何写。
      */
     fun backfillSms(days: Int = 14): Job = scope.launch {
         if (!hasSmsPermission()) return@launch
-        val since = System.currentTimeMillis() - days * DAY_MS
-        runCatching {
-            context.contentResolver.query(
-                Telephony.Sms.Inbox.CONTENT_URI,
-                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
-                "${Telephony.Sms.DATE} >= ?",
-                arrayOf(since.toString()),
-                "${Telephony.Sms.DATE} DESC",
-            )?.use { c ->
-                val addr = c.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-                val body = c.getColumnIndexOrThrow(Telephony.Sms.BODY)
-                val date = c.getColumnIndexOrThrow(Telephony.Sms.DATE)
-                while (c.moveToNext()) {
-                    process(
-                        IncomingMessage(
-                            sender = c.getString(addr) ?: "",
-                            body = c.getString(body) ?: "",
-                            receivedAt = c.getLong(date),
-                            channel = Source.SMS,
+        _data.update { it.copy(syncing = true, lastSyncFailed = false) }
+        val cursor = db.metaGet(KEY_LAST_INGESTED)?.toLongOrNull() ?: 0L
+        val windowStart = System.currentTimeMillis() - days * DAY_MS
+        val since = maxOf(windowStart, cursor - BACKFILL_OVERLAP_MS)
+        var newest = cursor
+        var added = 0
+        var updated = 0
+        val queryOk = runCatching {
+            db.inTransaction {
+                context.contentResolver.query(
+                    Telephony.Sms.Inbox.CONTENT_URI,
+                    arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
+                    "${Telephony.Sms.DATE} >= ?",
+                    arrayOf(since.toString()),
+                    "${Telephony.Sms.DATE} DESC",
+                )?.use { c ->
+                    val addr = c.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+                    val body = c.getColumnIndexOrThrow(Telephony.Sms.BODY)
+                    val date = c.getColumnIndexOrThrow(Telephony.Sms.DATE)
+                    while (c.moveToNext()) {
+                        val at = c.getLong(date)
+                        if (at > newest) newest = at
+                        val tally = process(
+                            IncomingMessage(
+                                sender = c.getString(addr) ?: "",
+                                body = c.getString(body) ?: "",
+                                receivedAt = at,
+                                channel = Source.SMS,
+                            )
                         )
-                    )
+                        added += tally.first
+                        updated += tally.second
+                    }
                 }
             }
+            true
+        }.getOrDefault(false)
+
+        if (queryOk) {
+            if (newest > cursor) db.metaPut(KEY_LAST_INGESTED, newest.toString())
+            db.pruneUnrecognized(System.currentTimeMillis(), DECIDED_TTL_MS, NEW_UNRECOGNIZED_CAP)
+            stampSync()
+            _data.update { it.copy(syncing = false, lastSyncResult = SyncResult(added, updated, System.currentTimeMillis())) }
+        } else {
+            // 失败时绝不盖时间戳。旧版无条件 stampSync()，于是权限被厂商悄悄收回之后，
+            // 首页那句「可能不是最新」的红条再也不出现——App 在谎报数据是新鲜的。
+            _data.update { it.copy(syncing = false, lastSyncFailed = true) }
         }
-        stampSync()
         reload()
     }
 
@@ -195,7 +246,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
      * 与自动收录走同一张表、同一套保守归一化，只是来源标成 MANUAL；
      * 时效依据给驿站默认关门时刻——手动导入的文本里通常没有营业时间。
      *
-     * @return 是否真的写进去了。以前这里直接 `insertParcel` 而不先查 `findUnpicked`，
+     * @return 是否真的写进去了。以前这里直接 `insertParcel` 而不先查已有行，
      *         于是同一个码同一个点再输一次会撞部分唯一索引；`insert()` 撞约束只返回 -1 不抛，
      *         界面照样跳到首页像是存好了——**码其实没进库**。
      */
@@ -205,6 +256,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         lockerNo: String?,
         raw: String,
         owner: Owner = Owner.SELF,
+        resolvesUnrecognizedOf: String? = null,
     ): Boolean = withContext(Dispatchers.IO) {
         val key = pointKey(pointName)
         val values = ContentValues().apply {
@@ -219,18 +271,23 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             put("received_at", System.currentTimeMillis())
             putNull("free_until_at")
             put("closes_at_minute", DEFAULT_CLOSING_MINUTE[PointKind.STATION])
-            put("picked", 0)
             put("raw", raw)
         }
         // 已有同码同点的未取件：更新那一条（补上的柜号、归属都要生效），而不是再插一条。
-        val existing = db.findUnpicked(code, key)
+        val existing = db.findParcelForUpdate(code, key)?.takeIf { !it.picked }
         val stored = if (existing != null) {
-            db.updateParcel(existing, values)
+            db.updateParcel(existing.id, values)
             true
         } else {
+            values.put("picked", 0)
             db.insertParcel(values) > 0
         }
         if (stored) {
+            // 提取成功就是把这条未识别**解决**掉，不是把它删掉。删掉的话下一次刷新
+            // 同一条短信又被读进来，用户会看到自己刚处理完的那条原样回来。
+            resolvesUnrecognizedOf?.let { body ->
+                db.resolveUnrecognizedByBody(body, System.currentTimeMillis())
+            }
             stampSync()
             reload()
         }
@@ -243,26 +300,97 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     fun hasNotificationAccess(): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
-    fun clearUnrecognized(id: Long): Job = scope.launch {
-        db.deleteUnrecognized(id)
+    /** 忽略 = 表态。以前它是 DELETE，所以它的作用刚好等于零。 */
+    fun dismissUnrecognized(id: Long): Job = scope.launch {
+        db.setUnrecognizedState(listOf(id), UnrecognizedState.DISMISSED, System.currentTimeMillis())
         reload()
     }
 
-    private fun process(message: IncomingMessage) {
-        when (val outcome = PickupCodeParser.parse(message)) {
-            ParseOutcome.Ignored -> Unit
-            is ParseOutcome.Parsed -> outcome.parcels.forEach { upsert(it, message) }
-            is ParseOutcome.Rejected -> recordUnrecognized(message, outcome.reason)
+    /** 只写名单，不动任何一条现有消息：可见性在读取侧按名单过滤，所以「恢复」是无损的。 */
+    fun muteSender(sender: String): Job = scope.launch {
+        val now = System.currentTimeMillis()
+        db.muteSender(muteKey(sender), now)
+        reload()
+    }
+
+    fun unmuteSender(key: String): Job = scope.launch {
+        db.unmuteSender(key)
+        reload()
+    }
+
+    /**
+     * 处理一条消息，返回 (新增行数, 更新行数)。
+     * 判断全在 [planIngest]，这里只负责取事实和执行。
+     */
+    private fun process(message: IncomingMessage): Pair<Int, Int> {
+        val fingerprint = messageFingerprint(message.channel, message.sender, message.body)
+        val outcome = PickupCodeParser.parse(message)
+        val plan = planIngest(
+            message = message,
+            outcome = outcome,
+            fingerprint = fingerprint,
+            alreadySeen = db.isMessageSeen(fingerprint),
+            senderMuted = db.isSenderMuted(muteKey(message.sender)),
+            existingParcels = existingFor(outcome),
+            unrecognizedState = if (outcome is ParseOutcome.Rejected) {
+                db.unrecognizedState(bodyFingerprint(message.body))
+            } else {
+                null
+            },
+        )
+        if (plan.skip != MessageSkip.NONE) return 0 to 0
+
+        var added = 0
+        var updated = 0
+        for (action in plan.parcels) {
+            when (action) {
+                is ParcelAction.Insert -> {
+                    if (db.insertParcel(parcelValues(action.parsed, message, action.pointKey, unpicked = true)) > 0) added++
+                }
+                is ParcelAction.Update -> {
+                    db.updateParcel(action.id, parcelValues(action.parsed, message, action.pointKey, unpicked = false))
+                    updated++
+                }
+                // 这条消息说的件已经被取走了。什么都不做，也不记账——
+                // 不记账是因为它没动库，下一次刷新重跑到这里结论仍然一样。
+                is ParcelAction.AlreadyPicked -> Unit
+            }
+        }
+        when (val write = plan.unrecognized) {
+            is UnrecognizedAction.Insert -> db.insertUnrecognized(
+                ContentValues().apply {
+                    put("sender", write.sender)
+                    put("body", write.body)
+                    put("body_fp", write.bodyKey)
+                    put("reason", write.reason.name)
+                    put("domain", write.domain.name)
+                    put("state", UnrecognizedState.NEW.name)
+                    put("received_at", write.receivedAt)
+                }
+            )
+            UnrecognizedAction.Suppressed, null -> Unit
+        }
+        if (plan.worthLedgering) db.markMessageSeen(fingerprint, System.currentTimeMillis(), summarize(outcome))
+        return added to updated
+    }
+
+    /** 把裁决要用的「库里已有哪些同码同点的行」取出来。取数归 Repository，判断归 core。 */
+    private fun existingFor(outcome: ParseOutcome): Map<Pair<String, String>, ExistingParcel> {
+        if (outcome !is ParseOutcome.Parsed) return emptyMap()
+        return buildMap {
+            outcome.parcels.forEach { parsed ->
+                val key = pointKey(parsed.pointName)
+                db.findParcelForUpdate(parsed.code, key)?.let { put(parsed.code to key, it) }
+            }
         }
     }
 
-    private fun upsert(parsed: ParsedParcel, message: IncomingMessage) {
-        val key = PickupCodeParser.pointKeyOf(parsed)
-        val values = ContentValues().apply {
+    private fun parcelValues(parsed: ParsedParcel, message: IncomingMessage, pointKey: String, unpicked: Boolean) =
+        ContentValues().apply {
             put("code", parsed.code)
             put("locker_no", parsed.lockerNo)
             put("carrier", parsed.carrier)
-            put("point_key", key)
+            put("point_key", pointKey)
             put("point_name", parsed.pointName)
             put("point_kind", parsed.pointKind.name)
             put("owner", message.owner.name)
@@ -275,27 +403,13 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
                 putNull("closes_at_minute")
             }
             put("raw", message.body)
+            if (unpicked) put("picked", 0)
         }
-        // 同一件被短信和通知各报一次是常态：按 (code, point_key) 去重，保留原 id 与已取状态。
-        val existing = db.findUnpicked(parsed.code, key)
-        if (existing == null) {
-            values.put("picked", 0)
-            db.insertParcel(values)
-        } else {
-            db.updateParcel(existing, values)
-        }
-    }
 
-    private fun recordUnrecognized(message: IncomingMessage, reason: UnrecognizedReason) {
-        if (db.hasUnrecognized(message.sender, message.body)) return
-        db.insertUnrecognized(
-            ContentValues().apply {
-                put("sender", message.sender)
-                put("body", message.body)
-                put("reason", reason.name)
-                put("received_at", message.receivedAt)
-            }
-        )
+    private fun summarize(outcome: ParseOutcome): String = when (outcome) {
+        ParseOutcome.Ignored -> "IGNORED"
+        is ParseOutcome.Parsed -> "PARCEL:${outcome.parcels.size}"
+        is ParseOutcome.Rejected -> "REJECTED:${outcome.reason.name}"
     }
 
     /**
@@ -335,13 +449,20 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
 
     private fun reload() {
         val now = System.currentTimeMillis()
+        val muted = db.allMutedSenders().toSet()
+        val previous = _data.value
         _data.value = AppData(
             loaded = true,
             parcels = db.allParcels(),
-            unrecognized = db.allUnrecognized(),
+            // 被屏蔽发件人的那些仍然在库里，只是不显示——所以「恢复」能原样拿回来。
+            unrecognized = db.allUnrecognized().filterNot { muteKey(it.sender) in muted },
             aliases = db.allAliases().associateBy { it.aliasKey },
             dismissals = db.allDismissals(),
+            mutedSenders = muted.toList(),
             lastSyncAt = db.metaGet(KEY_LAST_SYNC)?.toLongOrNull(),
+            syncing = false,
+            lastSyncResult = previous.lastSyncResult,
+            lastSyncFailed = previous.lastSyncFailed,
             monthlyPicked = db.countPickedSince(startOfCurrentMonth(now)),
             lastPickupAt = db.lastPickupAt(),
         )
@@ -359,5 +480,19 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
 
     private companion object {
         const val KEY_LAST_SYNC = "last_sync_at"
+        const val KEY_LAST_INGESTED = "last_ingested_at"
+
+        /** 增量回填往回多读这么多，好接住迟到/乱序的短信。重叠部分由账本挡。 */
+        const val BACKFILL_OVERLAP_MS = 2 * DAY_MS
+
+        /** 表态满这么久的未识别行不再留。 */
+        const val DECIDED_TTL_MS = 30 * DAY_MS
+
+        /** 待看的未识别上限。超了按时间丢最旧的——列表的意义是「现在去看」，不是档案。 */
+        const val NEW_UNRECOGNIZED_CAP = 50
     }
 }
+
+/** 未识别角标该数几条。外卖那类不进角标：它永远等不到识别成功，挂着只会让人忽略整条列表。 */
+fun unrecognizedBadgeCount(messages: List<UnrecognizedMessage>): Int =
+    messages.count { it.domain == MessageDomain.PARCEL }

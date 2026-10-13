@@ -36,6 +36,7 @@ import dev.showcode.ui.points.MergePreviewScreen
 import dev.showcode.ui.points.PointDetailScreen
 import kotlinx.coroutines.delay
 import dev.showcode.data.DemoData
+import dev.showcode.data.unrecognizedBadgeCount
 import dev.showcode.ui.home.HomeEmpty
 import dev.showcode.ui.home.HomeScreen
 import dev.showcode.ui.home.HomeUiState
@@ -78,7 +79,7 @@ fun ShowCodeRoot() {
     var focusParcelId by rememberSaveable { mutableStateOf<Long?>(null) }
     var demo by rememberSaveable { mutableStateOf(false) }
     var manualPrefill by rememberSaveable { mutableStateOf("") }
-    var manualSourceId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var manualSourceBody by rememberSaveable { mutableStateOf<String?>(null) }
     var manualReturn by rememberSaveable { mutableStateOf(Route.HOME) }
     var onboardStep by rememberSaveable { mutableStateOf(OnboardStep.WELCOME) }
     var detailKey by rememberSaveable { mutableStateOf("") }
@@ -311,7 +312,10 @@ fun ShowCodeRoot() {
         },
         monthlyPicked = appData.monthlyPicked,
         lastSyncAt = appData.lastSyncAt,
-        unrecognizedCount = appData.unrecognized.size,
+        syncing = appData.syncing,
+        lastSyncResult = appData.lastSyncResult,
+        lastSyncFailed = appData.lastSyncFailed,
+        unrecognizedCount = unrecognizedBadgeCount(appData.unrecognized),
         recentlyPicked = remember(appData.parcels, now) {
             appData.parcels
                 .filter { it.picked && (it.pickedAt ?: 0L) > now - DAY_MS }
@@ -344,7 +348,7 @@ fun ShowCodeRoot() {
             onOpenUnrecognized = { route = Route.UNRECOGNIZED },
             onManualImport = {
                 manualPrefill = ""
-                manualSourceId = null
+                manualSourceBody = null
                 manualReturn = Route.HOME
                 route = Route.MANUAL_IMPORT
             },
@@ -418,7 +422,7 @@ fun ShowCodeRoot() {
             report = healthReport,
             smsGranted = smsGranted,
             notificationEnabled = notificationGranted,
-            unrecognizedCount = appData.unrecognized.size,
+            unrecognizedCount = unrecognizedBadgeCount(appData.unrecognized),
             onOpenUnrecognized = {
                 unrecognizedReturn = Route.SETTINGS
                 route = Route.UNRECOGNIZED
@@ -439,25 +443,27 @@ fun ShowCodeRoot() {
 
         Route.UNRECOGNIZED -> UnrecognizedScreen(
             messages = appData.unrecognized,
+            mutedSenders = appData.mutedSenders,
             now = now,
             onBack = { route = unrecognizedReturn },
             onExtract = { message ->
                 manualPrefill = message.body
-                manualSourceId = message.id
+                manualSourceBody = message.body
                 manualReturn = Route.UNRECOGNIZED
                 route = Route.MANUAL_IMPORT
             },
-            onDismiss = { message -> repository.clearUnrecognized(message.id) },
+            onDismiss = { message -> repository.dismissUnrecognized(message.id) },
+            onMuteSender = { message -> repository.muteSender(message.sender) },
+            onUnmuteSender = { key -> repository.unmuteSender(key) },
         )
 
         Route.MANUAL_IMPORT -> ManualImportScreen(
             prefillRaw = manualPrefill,
             onBack = { route = manualReturn },
             onSave = { code, name, locker, raw, owner ->
-                val stored = repository.manualAdd(code, name, locker, raw, owner)
+                val stored = repository.manualAdd(code, name, locker, raw, owner, resolvesUnrecognizedOf = manualSourceBody)
                 if (stored) {
-                    manualSourceId?.let { repository.clearUnrecognized(it) }
-                    manualSourceId = null
+                    manualSourceBody = null
                     manualPrefill = ""
                     // 从引导里手动导入成功 = 用户已经拿到价值，引导可以收尾了
                     if (manualReturn == Route.ONBOARDING) repository.prefs.onboardingDone = true
@@ -512,7 +518,7 @@ fun ShowCodeRoot() {
             onPinWidget = { requestPinWidget() },
             onManualImport = {
                 manualPrefill = ""
-                manualSourceId = null
+                manualSourceBody = null
                 manualReturn = Route.ONBOARDING
                 route = Route.MANUAL_IMPORT
             },

@@ -12,6 +12,7 @@ import android.widget.RemoteViews
 import dev.showcode.MainActivity
 import dev.showcode.R
 import dev.showcode.app
+import dev.showcode.data.unrecognizedBadgeCount
 import dev.showcode.core.MINUTE_MS
 import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.Urgency
@@ -106,9 +107,10 @@ class PickupWidgetProvider : AppWidgetProvider() {
             val stale = data.loaded && (data.lastSyncAt == null || now - data.lastSyncAt > STALE_MS)
             views.setViewVisibility(R.id.widget_stale, if (stale) View.VISIBLE else View.GONE)
 
-            if (showBadge && data.unrecognized.isNotEmpty()) {
+            val unrecognizedBadge = unrecognizedBadgeCount(data.unrecognized)
+            if (showBadge && unrecognizedBadge > 0) {
                 views.setViewVisibility(R.id.widget_badge, View.VISIBLE)
-                views.setTextViewText(R.id.widget_badge, context.getString(R.string.widget_badge, data.unrecognized.size))
+                views.setTextViewText(R.id.widget_badge, context.getString(R.string.widget_badge, unrecognizedBadge))
                 views.setOnClickPendingIntent(
                     R.id.widget_badge,
                     pending(context, widgetId, SLOT_BADGE, WidgetNav.ROUTE_UNRECOGNIZED, null),

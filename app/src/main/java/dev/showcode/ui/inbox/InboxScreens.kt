@@ -45,6 +45,7 @@ import dev.showcode.R
 import dev.showcode.core.Owner
 import dev.showcode.core.Source
 import dev.showcode.core.parse.IncomingMessage
+import dev.showcode.core.parse.MessageDomain
 import dev.showcode.core.parse.ParseOutcome
 import dev.showcode.core.parse.PickupCodeParser
 import dev.showcode.core.parse.UnrecognizedReason
@@ -73,12 +74,18 @@ import kotlinx.coroutines.launch
 @Composable
 fun UnrecognizedScreen(
     messages: List<UnrecognizedMessage>,
+    mutedSenders: List<String>,
     now: Long,
     onBack: () -> Unit,
     onExtract: (UnrecognizedMessage) -> Unit,
     onDismiss: (UnrecognizedMessage) -> Unit,
+    onMuteSender: (UnrecognizedMessage) -> Unit,
+    onUnmuteSender: (String) -> Unit,
 ) {
     val noSender = stringResource(R.string.unrecognized_no_sender)
+    val parcel = messages.filter { it.domain == MessageDomain.PARCEL }
+    val food = messages.filter { it.domain == MessageDomain.FOOD }
+    var foodOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -87,7 +94,7 @@ fun UnrecognizedScreen(
     ) {
         ScreenTopBar(title = stringResource(R.string.unrecognized_title), onBack = onBack)
 
-        if (messages.isEmpty()) {
+        if (messages.isEmpty() && mutedSenders.isEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -120,24 +127,121 @@ fun UnrecognizedScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                item {
-                    Text(
-                        text = stringResource(R.string.home_unrecognized_hint),
-                        style = ShowCodeText.Caption,
-                        color = InkMuted,
-                    )
+                if (parcel.isEmpty() && food.isNotEmpty()) {
+                    // 只剩外卖那些的时候不能再说「所有取件短信都识别成功」——
+                    // 那是这句承诺最不该被说出口的场合。
+                    item {
+                        Text(
+                            text = stringResource(R.string.unrecognized_no_parcel_left),
+                            style = ShowCodeText.Section,
+                            color = Ink,
+                        )
+                    }
+                } else if (parcel.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = stringResource(R.string.home_unrecognized_hint),
+                            style = ShowCodeText.Caption,
+                            color = InkMuted,
+                        )
+                    }
                 }
-                items(messages, key = { it.id }) { message ->
+                items(parcel, key = { it.id }) { message ->
                     UnrecognizedRow(
                         message = message,
                         now = now,
                         fallbackSender = noSender,
                         onExtract = { onExtract(message) },
                         onDismiss = { onDismiss(message) },
+                        onMuteSender = { onMuteSender(message) },
                     )
+                }
+                if (food.isNotEmpty()) {
+                    item(key = "food-header") {
+                        SectionHeader(
+                            title = stringResource(R.string.unrecognized_food_section, food.size),
+                            expanded = foodOpen,
+                        ) { foodOpen = !foodOpen }
+                    }
+                    if (foodOpen) {
+                        item(key = "food-hint") {
+                            Text(
+                                text = stringResource(R.string.unrecognized_food_hint),
+                                style = ShowCodeText.Caption,
+                                color = InkMuted,
+                            )
+                        }
+                        items(food, key = { it.id }) { message ->
+                            UnrecognizedRow(
+                                message = message,
+                                now = now,
+                                fallbackSender = noSender,
+                                onExtract = { onExtract(message) },
+                                onDismiss = { onDismiss(message) },
+                                onMuteSender = { onMuteSender(message) },
+                            )
+                        }
+                    }
+                }
+                if (mutedSenders.isNotEmpty()) {
+                    item(key = "muted-header") {
+                        Text(
+                            text = stringResource(R.string.unrecognized_muted_title),
+                            style = ShowCodeText.Caption,
+                            color = InkMuted,
+                        )
+                    }
+                    items(mutedSenders, key = { "mute-$it" }) { key ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceCard, ShowCodeShapes.Sm)
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = key,
+                                modifier = Modifier.weight(1f),
+                                style = ShowCodeText.Meta,
+                                color = InkSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = stringResource(R.string.unrecognized_unmute),
+                                modifier = Modifier.clickable { onUnmuteSender(key) }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                style = ShowCodeText.Action,
+                                color = Accent,
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, expanded: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            style = ShowCodeText.Section,
+            color = Ink,
+        )
+        Text(
+            text = stringResource(if (expanded) R.string.unrecognized_collapse else R.string.unrecognized_expand),
+            style = ShowCodeText.Action,
+            color = Accent,
+        )
     }
 }
 
@@ -148,6 +252,7 @@ private fun UnrecognizedRow(
     fallbackSender: String,
     onExtract: () -> Unit,
     onDismiss: () -> Unit,
+    onMuteSender: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -190,6 +295,12 @@ private fun UnrecognizedRow(
             Text(
                 text = stringResource(R.string.unrecognized_ignore),
                 modifier = Modifier.clickable(onClick = onDismiss),
+                style = ShowCodeText.Meta,
+                color = InkMuted,
+            )
+            Text(
+                text = stringResource(R.string.unrecognized_mute_sender),
+                modifier = Modifier.clickable(onClick = onMuteSender),
                 style = ShowCodeText.Meta,
                 color = InkMuted,
             )

@@ -27,11 +27,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.showcode.R
+import dev.showcode.data.SyncResult
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.theme.Accent
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkSecondary
+import dev.showcode.ui.theme.UrgencyDueSoon
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.withTabular
 import dev.showcode.ui.theme.SurfaceFloating
@@ -54,16 +56,32 @@ val REFRESH_PILL_CLEARANCE = REFRESH_PILL_HEIGHT + REFRESH_PILL_BOTTOM + 16.dp
  * 它不隐藏、不折叠、不随滚动消失——首页的失效是静默的（权限掉了不会弹通知），
  * 所以入口必须是常驻的。文字用 tabular-nums，因为「3分钟前」会逐分钟变，
  * 数字宽度不齐会让整条胶囊左右晃。
+ *
+ * 三段话按优先级抢同一个位置：同步中 > 刚同步完的结果 > 上次同步时间。
+ * 结果只露 [RESULT_VISIBLE_MS]，因为胶囊是常驻件，长期挂着一个数字会变成噪音。
  */
+private const val RESULT_VISIBLE_MS = 8_000L
+
 @Composable
 fun RefreshPill(
     lastSyncAt: Long?,
     now: Long,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    syncing: Boolean = false,
+    result: SyncResult? = null,
+    failed: Boolean = false,
 ) {
     val neverSynced = stringResource(R.string.home_never_synced)
-    val whenText = lastSyncAt?.let { relativeTimeText(it, now) } ?: neverSynced
+    val freshResult = result?.takeIf { now - it.at <= RESULT_VISIBLE_MS }
+    val whenText = when {
+        syncing -> stringResource(R.string.home_syncing)
+        failed -> stringResource(R.string.home_sync_failed)
+        freshResult != null && freshResult.added > 0 ->
+            stringResource(R.string.home_sync_added, freshResult.added)
+        freshResult != null -> stringResource(R.string.home_sync_none)
+        else -> lastSyncAt?.let { relativeTimeText(it, now) } ?: neverSynced
+    }
 
     Row(
         modifier = modifier
@@ -74,7 +92,7 @@ fun RefreshPill(
             .clip(CircleShape)
             .background(SurfaceFloating)
             .border(1.dp, Hairline, CircleShape)
-            .clickable(onClick = onRefresh)
+            .clickable(enabled = !syncing, onClick = onRefresh)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -82,17 +100,17 @@ fun RefreshPill(
             Icons.Filled.Refresh,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = Accent,
+            tint = if (failed) UrgencyDueSoon else Accent,
         )
         Spacer(Modifier.width(10.dp))
         Text(
             text = whenText,
             style = ShowCodeText.Action.withTabular(),
-            color = InkSecondary,
+            color = if (failed) UrgencyDueSoon else InkSecondary,
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            text = stringResource(R.string.refresh_action),
+            text = stringResource(if (failed) R.string.home_stale_retry else R.string.refresh_action),
             style = ShowCodeText.Action,
             color = Ink,
         )

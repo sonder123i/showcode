@@ -136,9 +136,6 @@ object PickupCodeParser {
         )
     }
 
-    /** 由 ParsedParcel 生成入库用的取件点标识（保守归一化，见 core.pointKey）。 */
-    fun pointKeyOf(parsed: ParsedParcel): String = pointKey(parsed.pointName)
-
     // ── 取件码 ────────────────────────────────────────
     /**
      * 命中结果。[strong] = 锚定词本身就带取件语义，可以越过负向锚直接进门；

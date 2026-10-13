@@ -53,6 +53,7 @@ import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.SuspectPair
 import dev.showcode.core.Urgency
 import dev.showcode.core.urgencyOf
+import dev.showcode.data.SyncResult
 import dev.showcode.ui.closingLabel
 import dev.showcode.ui.URGENCY_DUE_SOON_ICON
 import dev.showcode.ui.pointIconOf
@@ -95,6 +96,12 @@ data class HomeUiState(
     val empty: HomeEmpty,
     val monthlyPicked: Int,
     val lastSyncAt: Long?,
+    /** 正在读收件箱。胶囊要当场说出来，否则用户以为没点上会连着点。 */
+    val syncing: Boolean = false,
+    /** 最近一次刷新的结果。只在结束后的一小段时间里显示。 */
+    val lastSyncResult: SyncResult? = null,
+    /** 读短信库失败。这时 lastSyncAt 故意不更新，所以红条必须立刻出现而不是等两小时。 */
+    val lastSyncFailed: Boolean = false,
     /** 首页只放入口行与计数；完整列表住在未识别收容页（story-3 AC3）。 */
     val unrecognizedCount: Int,
     /** 最近标记为已取的件。误触超过 3 秒撤销窗口之后，这里是唯一的补救出口。 */
@@ -146,8 +153,9 @@ fun HomeScreen(
 ) {
     /* 陈旧提示对任何一条收录通道都成立。以前它只被短信权限门住，
        于是「拒了短信、只开通知监听」这个完全合法的配置下，用户永远看不到「可能不是最新」。 */
-    val isStale = (state.smsPermissionGranted || state.notificationAccessGranted) &&
-        (state.lastSyncAt == null || now - state.lastSyncAt > STALE_THRESHOLD_MS)
+    val isStale = state.lastSyncFailed ||
+        ((state.smsPermissionGranted || state.notificationAccessGranted) &&
+            (state.lastSyncAt == null || now - state.lastSyncAt > STALE_THRESHOLD_MS))
 
     Box(
         modifier = Modifier
@@ -185,7 +193,12 @@ fun HomeScreen(
 
             // error-stale-data：不会被滚动隐藏——它挂在 LazyColumn 外面
             if (isStale) {
-                StaleBar(lastSyncAt = state.lastSyncAt, now = now, onRefresh = onRefresh)
+                StaleBar(
+                    failed = state.lastSyncFailed,
+                    lastSyncAt = state.lastSyncAt,
+                    now = now,
+                    onRefresh = onRefresh,
+                )
             }
 
             /* 合并后的 5 秒撤销（AC2 的「立刻有一个明显的撤销入口」）。
@@ -305,6 +318,9 @@ fun HomeScreen(
                 lastSyncAt = state.lastSyncAt,
                 now = now,
                 onRefresh = onRefresh,
+                syncing = state.syncing,
+                result = state.lastSyncResult,
+                failed = state.lastSyncFailed,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -369,7 +385,7 @@ private fun HealthBar(
 }
 
 @Composable
-private fun StaleBar(lastSyncAt: Long?, now: Long, onRefresh: () -> Unit) {
+private fun StaleBar(failed: Boolean, lastSyncAt: Long?, now: Long, onRefresh: () -> Unit) {
     val neverSynced = stringResource(R.string.home_never_synced)
     val whenText = lastSyncAt?.let { relativeTimeText(it, now) } ?: neverSynced
     Row(
@@ -382,13 +398,14 @@ private fun StaleBar(lastSyncAt: Long?, now: Long, onRefresh: () -> Unit) {
         Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = UrgencyDueSoon)
         Spacer(Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.home_stale, whenText),
+            text = if (failed) stringResource(R.string.home_stale_failed)
+            else stringResource(R.string.home_stale, whenText),
             modifier = Modifier.weight(1f),
             style = ShowCodeText.Meta,
             color = Ink,
         )
         Text(
-            text = stringResource(R.string.refresh_action),
+            text = stringResource(if (failed) R.string.home_stale_retry else R.string.refresh_action),
             modifier = Modifier
                 .clickable(onClick = onRefresh)
                 .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
