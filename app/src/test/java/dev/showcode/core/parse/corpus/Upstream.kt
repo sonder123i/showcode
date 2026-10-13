@@ -143,5 +143,77 @@ object Upstream {
                 closesAtMinute = 17 * 60 + 30,
             ),
         ),
+        CorpusCase(
+            id = "real-2026-10-13-jitu-dao-qu",
+            origin = "用户真机样本 2026-10-13 · 「凭码**到**X**取**尾号…」：动词是介词「到」，" +
+                "不在那 12 个到达类动词里。**现有 35 条语料一条都没有这种句式**——" +
+                "类别词回吃这条规则在旧语料上零收益，只有这条新样本能证明它值这个改动",
+            body = "【极兔速递】凭3-3-10382到示例学院多多驿站取尾号8539包裹",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "3-3-10382",
+                pointName = "示例学院多多驿站",
+                kind = PointKind.STATION,
+                forbiddenCodes = listOf("8539"),
+                forbiddenInPointName = listOf("尾号", "包裹", "取"),
+            ),
+        ),
+        CorpusCase(
+            id = "real-2026-10-13-sto-code-at-tail",
+            origin = "用户真机样本 2026-10-13 · 码在句尾、前面只有「取件」二字（锚词表里只有「取件码」），" +
+                "15 位运单号是诱饵。点名现在靠回吃能出，**码还抽不出来**——" +
+                "真值没有争议，是解析器治不好，所以标存疑占位，不许进棘轮分母假装通过",
+            body = "【申通快递】您的包裹777411959127370已在示例学院多多驿站滞留1天未取，请尽快取件5-4-23010",
+            authoritative = false,
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "5-4-23010",
+                pointName = "示例学院多多驿站",
+                kind = PointKind.STATION,
+                forbiddenCodes = listOf("777411959127370", "8539"),
+            ),
+        ),
+        CorpusCase(
+            id = "up-16",
+            origin = "issue #16 · 「凭取件码X至火星1号丰巢柜取件」+ 一条短链。" +
+                "在位者是被链接里的字母 token 搞坏的；我们这边闭集补上「品牌+柜」之后点名能出，" +
+                "而链接那两个 token 必须一个都不许变成件",
+            body = "【丰巢】凭取件码11451419至火星1号丰巢柜取件。快递员及畅存规则p.fcbox.com/bIqF6",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "11451419",
+                pointName = "火星1号丰巢柜",
+                kind = PointKind.LOCKER,
+                freeUntilHours = 18L,
+                forbiddenCodes = listOf("bIqF6", "fcbox", "com"),
+            ),
+        ),
+        CorpusCase(
+            id = "up-18",
+            origin = "issue #18 · 「凭39-5-11463到快递服务中心取件」：码是确定的，" +
+                "但正文里**没有任何门店标识**。「服务中心」因此被明确排除在类别词闭集之外——" +
+                "收了就是替用户猜全校到底有几个点。这一条是天花板那一档，只考核码有没有被带走",
+            body = "【近邻宝】凭39-5-11463到快递服务中心取件",
+            expect = Expect(
+                tier = Tier.REJECTED,
+                reason = UnrecognizedReason.POINT_NAME_UNCONFIRMED,
+                hintCodes = listOf("39-5-11463"),
+            ),
+        ),
+        CorpusCase(
+            id = "up-48",
+            origin = "issue #48 · 「已到 + 一整段相对位置」：抽出来的是「邮局斜对面示例大酒店隔壁」，" +
+                "不是店名。**判它可用**：措辞变化最多把同一个点分裂成两张卡，而首页的合并" +
+                "（预览 + 5 秒撤销 + 别名登记）就是为这件事准备的；反过来判脏会让件掉进未识别列表，" +
+                "用户根本不会发现——那是无痕蒸发，比分裂严重。尾号 0627 必须不许成码",
+            body = "【快宝驿站】您尾号0627包裹已到邮局斜对面示例大酒店隔壁，请凭取货码13-72来取",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "13-72",
+                pointName = "邮局斜对面示例大酒店隔壁",
+                kind = PointKind.STATION,
+                forbiddenCodes = listOf("0627"),
+            ),
+        ),
     )
 }

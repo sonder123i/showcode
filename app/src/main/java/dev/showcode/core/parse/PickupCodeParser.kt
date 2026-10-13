@@ -283,6 +283,60 @@ object PickupCodeParser {
      */
     private val POINT_NAME_PIPE = Regex("[|｜]\\s*([^|｜\\n，,。；;！!？?]{2,40})")
 
+    /*
+     * ── 类别词向前回吃 ─────────────────────────────────────────
+     * 「名字前面是什么动词」是个**开集**：POINT_NAME 那 12 个到达类动词补到第五轮，
+     * 仍然漏掉两种真人写法——「凭码**到**X**取**尾号…」（介词，不是到达）和
+     * 「已**在**X**滞留**1天未取」（滞留，方向相反）。每家文案组都能造一个新说法，补不完。
+     *
+     * 「名字后面是什么类别词」是**闭集**：全国就驿站 / 代收点 / 自提点 / 超市 / 便利店 / 门店
+     * 这么几种叫法。所以改成定位类别词、从它**向前回吃**到最近的边界（标点、数字位分隔词、
+     * 动词），一条规则同时覆盖「到X取」「已在X滞留」「已到达X」「请前往X领取」。
+     *
+     * 故意不收单字「柜」：「到9号柜取件」里的「9号柜」是格口不是点位，收了就会造出一张
+     * 假卡。要柜就得是带限定的完整类别词。
+     *
+     * 「丰巢柜 / 智慧柜 / 菜鸟柜」收，且不破坏上面那条：裸写的「丰巢柜」仍然被 GENERIC_NAME
+     * 否掉（品牌 + 柜 = 通用名），只有前面真的带具体标识时才成名——issue #16 的
+     * 「至**火星1号**丰巢柜取件」就是这一类。
+     *
+     * ⚠️ 明确**不收**「服务中心」：issue #18「凭39-5-11463到快递服务中心取件」里没有任何门店
+     * 标识，收了就是把「全校可能只有一个、也可能有五个」这件事替用户猜掉。那条按设计
+     * 走 POINT_NAME_UNCONFIRMED，码照样带进未识别页。
+     */
+    private val CATEGORY_WORDS =
+        "代收点|自提点|取件点|便民点|快递柜|自提柜|智能柜|丰巢柜|智慧柜|菜鸟柜|生活超市|便利店|小卖部|文具店|服务点|驿站|超市|门店|商店"
+
+    /**
+     * 回吃的停止边界：标点、空白，以及任何不可能出现在门店名**中间**的动词/虚词。
+     *
+     * 「入」在这里是必须的，而且是语料抓出来的：少了它，「快件已放**入**丰巢柜」会回吃成
+     * 「放入丰巢柜」——那确实不含门店信息，却因为前缀多了两个字而**躲过** GENERIC_NAME
+     * （那个判据只认「品牌 + 类别词」这种干净形状）。边界表少一个字，通用名闸门就整个失效。
+     */
+    private val NAME_EDGE = "到在取领放投送滞留未请的已为了从往去于和与及等将系至到达入"
+
+    /** 一个可以出现在门店名**内部**的字符：非标点、非空白、非边界字。 */
+    private val NAME_CHAR = "[^，,。；;、！!？?：:（）()【】|｜\"'“”‘’\\s" + NAME_EDGE + "]"
+
+    /**
+     * ⚠️ 两头都要卡住，只卡左边会造出假卡（实测两条误收，都有语料守着）：
+     *   「…咨询**驿站**工作人员」→ 类别词在句子中间，右边那个「工」不是边界，所以「咨询驿站」不算名字；
+     *   「【示例驿站】…」→ 那是品牌签名，不是点位。所以右括号/右引号**故意不列进尾边界**——
+     *     一个类别词如果以右括号收尾，说明整段是被包起来的签名或占位符。
+     * 同理左边的负向前后查找挡掉「【…驿站」「"…驿站」这种被括号起头的候选。
+     *
+     * ⚠️ 类别词**前面那一个字符**也必须走同一个边界类。早先这里写成
+     * `[^边界]*[0-9A-Za-z\u4e00-\u9fa5]驿站`——边界只挡在可空前缀上，紧邻类别词的那个必填位
+     * 没挡，于是「已放入丰巢柜」照样抽出「入丰巢柜」（语料 fmt-generic-… 当场报误收）。
+     * 合并成 `NAME_CHAR{1,}` 之后才真正挡住。
+     */
+    private val POINT_NAME_BY_CATEGORY = Regex(
+        "(?<![【（(「\"'“”‘’])" +
+            "(" + NAME_CHAR + "{1,}(?:" + CATEGORY_WORDS + "))" +
+            "(?=[，,。；;、！!？?：:\\s" + NAME_EDGE + "]|$)"
+    )
+
     private fun extractPointName(body: String): PointNameHit {
         val fromVerb = POINT_NAME.find(body)?.groupValues?.get(1)
             ?.replace(NAME_PREFIX_NOISE, "")
@@ -293,7 +347,15 @@ object PickupCodeParser {
         // 因为粘贴式文本里真正的门店名只出现在竖线后面。
         val fromPipe = POINT_NAME_PIPE.find(body)?.groupValues?.get(1)?.trim()
 
-        for (candidate in listOf(fromVerb, fromPipe)) {
+        // 回吃要的是「第一个含具体门店的」，不是「第一个」：
+        // 【菜鸟驿站】这种品牌方前缀里就有类别词，它是通用名，跳过它才能看见正文里的真门店。
+        val fromCategory = POINT_NAME_BY_CATEGORY.findAll(body)
+            .map { it.groupValues[1].trim() }
+            .firstOrNull {
+                it.length >= 4 && !GENERIC_NAME.matches(it) && !PLACEHOLDER_MARKS.containsMatchIn(it)
+            }
+
+        for (candidate in listOf(fromVerb, fromPipe, fromCategory)) {
             if (candidate != null && candidate.length >= 2 &&
                 !PLACEHOLDER_MARKS.containsMatchIn(candidate) &&
                 !GENERIC_NAME.matches(candidate)
