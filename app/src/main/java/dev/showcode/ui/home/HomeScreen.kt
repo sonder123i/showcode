@@ -536,7 +536,8 @@ private fun CardParcelRow(parcel: Parcel, now: Long) {
 @Composable
 private fun SamplePointCard(group: PickupPointGroup, now: Long, onClick: () -> Unit) {
     Box {
-        PointCard(group = group, now = now, onClick = onClick, modifier = Modifier.alpha(0.5f))
+        // 先画水印再画卡：PointCard 只有描边没有底色，所以压到底下照样看得见，
+        // 却不会再糊掉取件码数字——和现场模式那条水印同一个层级理由。
         Text(
             text = stringResource(R.string.sample_badge),
             modifier = Modifier
@@ -547,6 +548,7 @@ private fun SamplePointCard(group: PickupPointGroup, now: Long, onClick: () -> U
             color = Color.Black.copy(alpha = 0.08f),
             letterSpacing = 0.15.em,
         )
+        PointCard(group = group, now = now, onClick = onClick, modifier = Modifier.alpha(0.5f))
     }
 }
 

@@ -141,6 +141,10 @@ fun OnsiteScreen(
             .fillMaxSize()
             .background(OnsiteSurface)
     ) {
+        // 水印必须在内容底下：它是 60sp ExtraBold，压在「长按可复制」这类灰字上会把字糊掉。
+        // 外层 Box 已经铺了不透明白底，所以放在第一个子节点就同时满足「看得见」和「不压字」。
+        if (isDemo) DemoWatermark()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -227,8 +231,6 @@ fun OnsiteScreen(
                 })
             }
         }
-
-        if (isDemo) DemoWatermark()
     }
 }
 
