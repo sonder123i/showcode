@@ -37,11 +37,17 @@ import androidx.compose.ui.unit.sp
 import dev.showcode.R
 import dev.showcode.core.HealthReport
 import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentTint
 import dev.showcode.ui.theme.Hairline
-import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkMuted
+import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
-import dev.showcode.ui.theme.SurfaceInset
+import dev.showcode.ui.theme.ShowCodeShapes
+import dev.showcode.ui.theme.ShowCodeText
+import dev.showcode.ui.theme.SurfaceCard
 import dev.showcode.ui.theme.UrgencyDueSoon
+import dev.showcode.ui.theme.UrgencyDueSoonTint
 import dev.showcode.ui.theme.UrgencySafe
 
 enum class OnboardStep { WELCOME, SMS, NOTIFICATION, WIDGET, READY }
@@ -115,11 +121,11 @@ private fun Welcome(onEnterDemo: () -> Unit, onSetup: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 12.dp)
         ) {
-            Text(text = "📦", fontSize = 40.sp)
+            Text(text = "📦", style = ShowCodeText.Display)
             Spacer(Modifier.height(8.dp))
-            Text(text = stringResource(R.string.app_name), fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = OnsiteInk)
+            Text(text = stringResource(R.string.app_name), style = ShowCodeText.Count, color = Ink)
             Spacer(Modifier.height(10.dp))
-            Text(text = stringResource(R.string.ob_welcome_sub), fontSize = 17.sp, color = OnsiteInk.copy(alpha = 0.7f))
+            Text(text = stringResource(R.string.ob_welcome_sub), style = ShowCodeText.Meta, color = InkSecondary)
             Spacer(Modifier.height(18.dp))
             ValueRow(icon = "📩", text = stringResource(R.string.ob_value_1))
             ValueRow(icon = "📍", text = stringResource(R.string.ob_value_2))
@@ -139,8 +145,8 @@ private fun Welcome(onEnterDemo: () -> Unit, onSetup: () -> Unit) {
             Text(
                 text = stringResource(R.string.ob_footer),
                 modifier = Modifier.fillMaxWidth(),
-                fontSize = 11.sp,
-                color = OnsiteInk.copy(alpha = 0.45f),
+                style = ShowCodeText.Micro,
+                color = InkMuted,
                 textAlign = TextAlign.Center,
             )
         }
@@ -153,9 +159,9 @@ private fun ValueRow(icon: String, text: String) {
         modifier = Modifier.padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = icon, fontSize = 20.sp, modifier = Modifier.width(30.dp), textAlign = TextAlign.Center)
+        Text(text = icon, style = ShowCodeText.Headline, modifier = Modifier.width(30.dp), textAlign = TextAlign.Center)
         Spacer(Modifier.width(10.dp))
-        Text(text = text, fontSize = 15.sp, color = OnsiteInk)
+        Text(text = text, style = ShowCodeText.Body, color = Ink)
     }
 }
 
@@ -165,15 +171,15 @@ private fun PrivacyPromise() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceInset, RoundedCornerShape(12.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
             .padding(14.dp),
     ) {
         Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(20.dp), tint = UrgencySafe)
         Spacer(Modifier.width(10.dp))
         Column {
-            Text(text = stringResource(R.string.ob_privacy_title), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = OnsiteInk)
+            Text(text = stringResource(R.string.ob_privacy_title), style = ShowCodeText.Action, color = Ink)
             Spacer(Modifier.height(2.dp))
-            Text(text = stringResource(R.string.ob_privacy_body), fontSize = 12.sp, color = OnsiteInk.copy(alpha = 0.75f))
+            Text(text = stringResource(R.string.ob_privacy_body), style = ShowCodeText.Caption, color = InkSecondary)
         }
     }
 }
@@ -185,13 +191,13 @@ private fun StepBar(step: OnboardStep, onSkip: () -> Unit) {
             Text(
                 text = stringResource(R.string.ob_step, step.ordinal, TOTAL_STEPS),
                 modifier = Modifier.weight(1f),
-                fontSize = 12.sp,
-                color = OnsiteInk.copy(alpha = 0.55f),
+                style = ShowCodeText.Caption,
+                color = InkMuted,
             )
             Text(
                 text = stringResource(R.string.ob_skip),
                 modifier = Modifier.clickable(onClick = onSkip),
-                fontSize = 12.sp,
+                style = ShowCodeText.Caption,
                 color = Accent,
             )
         }
@@ -200,13 +206,13 @@ private fun StepBar(step: OnboardStep, onSkip: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(4.dp)
-                .background(SurfaceInset, RoundedCornerShape(2.dp))
+                .background(SurfaceCard, ShowCodeShapes.Pill)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction = step.ordinal.toFloat() / TOTAL_STEPS)
                     .height(4.dp)
-                    .background(OnsiteInk, RoundedCornerShape(2.dp))
+                    .background(Ink, ShowCodeShapes.Pill)
             )
         }
     }
@@ -222,9 +228,9 @@ private fun SmsStep(denied: Boolean, onAllow: () -> Unit, onDecline: () -> Unit,
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 16.dp)
         ) {
-            Text(text = stringResource(R.string.ob_sms_title), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = OnsiteInk)
+            Text(text = stringResource(R.string.ob_sms_title), style = ShowCodeText.Headline, color = Ink)
             Spacer(Modifier.height(10.dp))
-            Text(text = stringResource(R.string.ob_sms_body), fontSize = 14.sp, color = OnsiteInk.copy(alpha = 0.75f))
+            Text(text = stringResource(R.string.ob_sms_body), style = ShowCodeText.Body, color = InkSecondary)
             Spacer(Modifier.height(20.dp))
             // 价值对比：不是「需要权限」，而是「有它 / 没它」的差别
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -263,14 +269,14 @@ private fun CompareCard(title: String, desc: String, highlighted: Boolean, modif
             .border(
                 width = if (highlighted) 2.dp else 1.dp,
                 color = if (highlighted) Accent else Hairline,
-                shape = RoundedCornerShape(12.dp),
+                shape = ShowCodeShapes.Md,
             )
-            .background(if (highlighted) SurfaceInset else OnsiteSurface, RoundedCornerShape(12.dp))
+            .background(if (highlighted) AccentTint else SurfaceCard, ShowCodeShapes.Md)
             .padding(12.dp)
     ) {
-        Text(text = title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = OnsiteInk.copy(alpha = 0.6f))
+        Text(text = title, style = ShowCodeText.Caption, color = InkMuted)
         Spacer(Modifier.height(6.dp))
-        Text(text = desc, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = OnsiteInk)
+        Text(text = desc, style = ShowCodeText.Item, color = Ink)
     }
 }
 
@@ -284,18 +290,18 @@ private fun NotificationStep(onEnable: () -> Unit, onNext: () -> Unit, onSkip: (
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 16.dp)
         ) {
-            Text(text = stringResource(R.string.ob_notif_title), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = OnsiteInk)
+            Text(text = stringResource(R.string.ob_notif_title), style = ShowCodeText.Headline, color = Ink)
             Spacer(Modifier.height(10.dp))
-            Text(text = stringResource(R.string.ob_notif_body), fontSize = 14.sp, color = OnsiteInk.copy(alpha = 0.75f))
+            Text(text = stringResource(R.string.ob_notif_body), style = ShowCodeText.Body, color = InkSecondary)
             Spacer(Modifier.height(16.dp))
-            Text(text = stringResource(R.string.ob_notif_list_header), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = OnsiteInk.copy(alpha = 0.5f))
+            Text(text = stringResource(R.string.ob_notif_list_header), style = ShowCodeText.Caption, color = InkMuted)
             Spacer(Modifier.height(8.dp))
             SourceRow(stringResource(R.string.ob_notif_src_1))
             SourceRow(stringResource(R.string.ob_notif_src_2))
             SourceRow(stringResource(R.string.ob_notif_src_3))
             SourceRow(stringResource(R.string.ob_notif_src_4))
             Spacer(Modifier.height(16.dp))
-            Text(text = stringResource(R.string.ob_notif_note), fontSize = 12.sp, color = OnsiteInk.copy(alpha = 0.6f))
+            Text(text = stringResource(R.string.ob_notif_note), style = ShowCodeText.Caption, color = InkMuted)
             Spacer(Modifier.height(16.dp))
             PrivacyPromise()
         }
@@ -317,7 +323,7 @@ private fun SourceRow(text: String) {
     ) {
         Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(14.dp), tint = UrgencyDueSoon)
         Spacer(Modifier.width(8.dp))
-        Text(text = text, fontSize = 13.sp, color = OnsiteInk.copy(alpha = 0.8f))
+        Text(text = text, style = ShowCodeText.Meta, color = Ink)
     }
 }
 
@@ -331,9 +337,9 @@ private fun WidgetStep(onDone: () -> Unit, onSkip: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 16.dp)
         ) {
-            Text(text = stringResource(R.string.ob_widget_title), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = OnsiteInk)
+            Text(text = stringResource(R.string.ob_widget_title), style = ShowCodeText.Headline, color = Ink)
             Spacer(Modifier.height(10.dp))
-            Text(text = stringResource(R.string.ob_widget_body), fontSize = 14.sp, color = OnsiteInk.copy(alpha = 0.75f))
+            Text(text = stringResource(R.string.ob_widget_body), style = ShowCodeText.Body, color = InkSecondary)
             Spacer(Modifier.height(18.dp))
             NumberedStep(number = 1, text = stringResource(R.string.ob_widget_step_1))
             NumberedStep(number = 2, text = stringResource(R.string.ob_widget_step_2))
@@ -358,13 +364,13 @@ private fun NumberedStep(number: Int, text: String) {
         Box(
             modifier = Modifier
                 .size(26.dp)
-                .background(Accent, RoundedCornerShape(13.dp)),
+                .background(Accent, ShowCodeShapes.Md),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = number.toString(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = OnsiteSurface)
+            Text(text = number.toString(), style = ShowCodeText.Action, color = OnsiteSurface)
         }
         Spacer(Modifier.width(12.dp))
-        Text(text = text, fontSize = 15.sp, color = OnsiteInk)
+        Text(text = text, style = ShowCodeText.Body, color = Ink)
     }
 }
 
@@ -388,12 +394,12 @@ private fun ReadyStep(
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(44.dp), tint = UrgencySafe)
                 Spacer(Modifier.height(8.dp))
-                Text(text = stringResource(R.string.ob_ready_title), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = OnsiteInk)
+                Text(text = stringResource(R.string.ob_ready_title), style = ShowCodeText.Headline, color = Ink)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = stringResource(R.string.ob_ready_body),
-                    fontSize = 14.sp,
-                    color = OnsiteInk.copy(alpha = 0.6f),
+                    style = ShowCodeText.Body,
+                    color = InkMuted,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -402,13 +408,13 @@ private fun ReadyStep(
                 InfoAlert(text = stringResource(R.string.ob_ready_partial, report.issues.size))
             }
             Spacer(Modifier.height(16.dp))
-            Text(text = stringResource(R.string.ob_ready_health), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = OnsiteInk.copy(alpha = 0.5f))
+            Text(text = stringResource(R.string.ob_ready_health), style = ShowCodeText.Caption, color = InkMuted)
             Spacer(Modifier.height(8.dp))
             CheckRow(title = stringResource(R.string.health_sms), ok = smsGranted)
             CheckRow(title = stringResource(R.string.health_notification), ok = notificationEnabled)
             CheckRow(title = stringResource(R.string.ob_widget_title), ok = widgetAdded)
             Spacer(Modifier.height(16.dp))
-            Text(text = stringResource(R.string.ob_ready_note), fontSize = 11.sp, color = OnsiteInk.copy(alpha = 0.45f))
+            Text(text = stringResource(R.string.ob_ready_note), style = ShowCodeText.Micro, color = InkMuted)
         }
         Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp, top = 8.dp)) {
             PrimaryButton(text = stringResource(R.string.ob_ready_cta), onClick = onFinish)
@@ -426,15 +432,14 @@ private fun CheckRow(title: String, ok: Boolean) {
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = title, modifier = Modifier.weight(1f), fontSize = 14.sp, color = OnsiteInk)
+        Text(text = title, modifier = Modifier.weight(1f), style = ShowCodeText.Body, color = Ink)
         Text(
             text = stringResource(if (ok) R.string.health_on else R.string.health_off),
             modifier = Modifier
-                .background((if (ok) UrgencySafe else OnsiteInk.copy(alpha = 0.3f)).copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                .background((if (ok) UrgencySafe else InkMuted).copy(alpha = 0.12f), ShowCodeShapes.Sm)
                 .padding(horizontal = 8.dp, vertical = 3.dp),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (ok) UrgencySafe else OnsiteInk.copy(alpha = 0.5f),
+            style = ShowCodeText.Micro,
+            color = if (ok) UrgencySafe else InkMuted,
         )
     }
 }
@@ -444,13 +449,14 @@ private fun InfoAlert(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(UrgencyDueSoon.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
-            .border(1.dp, UrgencyDueSoon, RoundedCornerShape(12.dp))
+            .background(UrgencyDueSoonTint, ShowCodeShapes.Md)
+            .background(UrgencyDueSoonTint, ShowCodeShapes.Md)
+            .border(1.dp, UrgencyDueSoon, ShowCodeShapes.Md)
             .padding(12.dp),
     ) {
         Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = UrgencyDueSoon)
         Spacer(Modifier.width(10.dp))
-        Text(text = text, fontSize = 13.sp, color = OnsiteInk)
+        Text(text = text, style = ShowCodeText.Meta, color = Ink)
     }
 }
 
@@ -460,11 +466,11 @@ private fun PrimaryButton(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .background(OnsiteInk, RoundedCornerShape(14.dp))
+            .background(Ink, ShowCodeShapes.Md)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = OnsiteSurface)
+        Text(text = text, style = ShowCodeText.Section, color = OnsiteSurface)
     }
 }
 
@@ -477,6 +483,6 @@ private fun GhostButton(text: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, fontSize = 15.sp, color = OnsiteInk.copy(alpha = 0.7f))
+        Text(text = text, style = ShowCodeText.Body, color = InkSecondary)
     }
 }

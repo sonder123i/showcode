@@ -10,10 +10,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.annotation.DrawableRes
 import dev.showcode.R
 import dev.showcode.core.Countdown
 import dev.showcode.core.MINUTE_MS
 import dev.showcode.core.Parcel
+import dev.showcode.core.Owner
 import dev.showcode.core.PointKind
 import dev.showcode.core.Urgency
 import dev.showcode.core.countdownOf
@@ -134,3 +136,33 @@ fun rememberTickingNow(intervalMs: Long): Long {
     }
     return now
 }
+
+/*
+ * ── 实体图标 ────────────────────────────────────────────────────
+ * 首页改之前整屏只有 7 个图标、21 处引用，取件点是什么类型、这一堆里有没有别人的件、
+ * 急到什么程度——全靠文字承担。扫视时文字是最慢的通道，所以给这三类实体各配一个图形锚点。
+ *
+ * 图标是自绘的 24dp 描边矢量（res/drawable/ic_*.xml），**没有引 material-icons-extended**：
+ * README 里「刻意少依赖，为了让贡献者能把项目跑起来」是有意写下的取舍，不为五个图标破例。
+ *
+ * 只给管理模式用。现场模式那一屏的契约是纯黑 on 纯白 + 三态，不引图标。
+ */
+
+/** 取件点类型的图形锚点。文字标签继续保留——颜色与图形之外还要有文字（人群适配策略）。 */
+@DrawableRes
+fun pointIconOf(kind: PointKind): Int = when (kind) {
+    PointKind.LOCKER -> R.drawable.ic_point_locker
+    PointKind.STATION -> R.drawable.ic_point_station
+    PointKind.SELFPICK -> R.drawable.ic_point_selfpick
+}
+
+/**
+ * 三态里只有「临期」档原先没有任何图形，而它恰恰是最需要被一眼认出的那一档。
+ * 安全用已有的勾、过期风险用已有的告警三角，所以这里只导出中间这一档。
+ */
+@DrawableRes
+val URGENCY_DUE_SOON_ICON: Int = R.drawable.ic_urgency_clock
+
+/** 代取件是复数的人形，不是带勾的人；自己的件不需要图形锚点，所以只有这一个方向有图标。 */
+@DrawableRes
+val FAMILY_ICON: Int = R.drawable.ic_owner_family

@@ -30,7 +30,10 @@ import dev.showcode.R
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.theme.Accent
 import dev.showcode.ui.theme.Hairline
-import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkSecondary
+import dev.showcode.ui.theme.ShowCodeText
+import dev.showcode.ui.theme.withTabular
 import dev.showcode.ui.theme.SurfaceFloating
 import dev.showcode.ui.theme.TabularNumbers
 
@@ -84,17 +87,14 @@ fun RefreshPill(
         Spacer(Modifier.width(10.dp))
         Text(
             text = whenText,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = OnsiteInk.copy(alpha = 0.7f),
-            style = TabularNumbers,
+            style = ShowCodeText.Action.withTabular(),
+            color = InkSecondary,
         )
         Spacer(Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.refresh_action),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = OnsiteInk,
+            style = ShowCodeText.Action,
+            color = Ink,
         )
     }
 }

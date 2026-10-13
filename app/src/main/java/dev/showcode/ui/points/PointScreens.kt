@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,11 +45,18 @@ import dev.showcode.core.resolvePointKey
 import dev.showcode.core.urgencyOf
 import dev.showcode.ui.inbox.ScreenTopBar
 import dev.showcode.ui.relativeTimeText
+import dev.showcode.ui.FAMILY_ICON
 import dev.showcode.ui.urgencyColor
 import dev.showcode.ui.urgencyLabel
-import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.AccentTint
+import dev.showcode.ui.theme.Canvas
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkMuted
+import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
-import dev.showcode.ui.theme.SurfaceInset
+import dev.showcode.ui.theme.ShowCodeShapes
+import dev.showcode.ui.theme.ShowCodeText
+import dev.showcode.ui.theme.SurfaceCard
 
 /**
  * story-6 的三个表面：疑似重复轻提示、合并预览确认、取件点详情（含合并历史与拆开）。
@@ -61,25 +71,24 @@ fun SuspectHintCard(pair: SuspectPair, onYes: () -> Unit, onNo: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceInset, RoundedCornerShape(14.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
             .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(R.string.merge_suspect, pair.first.name, pair.second.name),
             modifier = Modifier.weight(1f),
-            fontSize = 13.sp,
-            color = OnsiteInk.copy(alpha = 0.78f),
+            style = ShowCodeText.Meta,
+            color = Ink,
         )
         Spacer(Modifier.width(6.dp))
         TextButton(onClick = onNo) {
-            Text(stringResource(R.string.merge_suspect_no), fontSize = 13.sp)
+            Text(stringResource(R.string.merge_suspect_no), style = ShowCodeText.Meta)
         }
         TextButton(onClick = onYes) {
             Text(
                 text = stringResource(R.string.merge_suspect_yes),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
+                style = ShowCodeText.Action,
             )
         }
     }
@@ -127,23 +136,22 @@ fun MergePreviewScreen(
                         preview.target.count,
                         preview.total,
                     ),
-                    fontSize = 15.sp,
-                    color = OnsiteInk,
+                    style = ShowCodeText.Body,
+                    color = Ink,
                 )
                 Spacer(Modifier.height(14.dp))
                 NameSamples(preview)
                 Spacer(Modifier.height(14.dp))
                 Text(
                     text = stringResource(R.string.merge_preview_reassure),
-                    fontSize = 13.sp,
-                    color = OnsiteInk.copy(alpha = 0.7f),
+                    style = ShowCodeText.Meta,
+                    color = InkSecondary,
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = stringResource(R.string.merge_preview_keep),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = OnsiteInk.copy(alpha = 0.6f),
+                    style = ShowCodeText.Action,
+                    color = InkMuted,
                 )
                 KeepOption(
                     label = preview.target.name,
@@ -162,19 +170,19 @@ fun MergePreviewScreen(
             Button(
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = ShowCodeShapes.Md,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = OnsiteInk,
+                    containerColor = Ink,
                     contentColor = OnsiteSurface,
                 ),
             ) {
-                Text(stringResource(R.string.merge_confirm), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.merge_confirm), style = ShowCodeText.Section, fontWeight = FontWeight.Bold)
             }
             TextButton(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 20.dp),
             ) {
-                Text(stringResource(R.string.action_cancel), fontSize = 15.sp, color = OnsiteInk.copy(alpha = 0.65f))
+                Text(stringResource(R.string.action_cancel), style = ShowCodeText.Body, color = InkMuted)
             }
         }
     }
@@ -185,21 +193,20 @@ private fun NameSamples(preview: MergePreview) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceInset, RoundedCornerShape(12.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
             .padding(12.dp),
     ) {
         Text(
             text = stringResource(R.string.merge_preview_names),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = OnsiteInk.copy(alpha = 0.55f),
+            style = ShowCodeText.Caption,
+            color = InkMuted,
         )
         Spacer(Modifier.height(6.dp))
         preview.source.nameSamples.forEach { SampleRow(it) }
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 6.dp),
             thickness = 1.dp,
-            color = OnsiteInk.copy(alpha = 0.08f),
+            color = InkMuted,
         )
         preview.target.nameSamples.forEach { SampleRow(it) }
     }
@@ -209,8 +216,8 @@ private fun NameSamples(preview: MergePreview) {
 private fun SampleRow(name: String) {
     Text(
         text = name,
-        fontSize = 14.sp,
-        color = OnsiteInk.copy(alpha = 0.85f),
+        style = ShowCodeText.Body,
+        color = Ink,
         modifier = Modifier.padding(vertical = 1.dp),
     )
 }
@@ -226,11 +233,11 @@ private fun KeepOption(label: String, count: Int, selected: Boolean, onSelect: (
     ) {
         RadioButton(selected = selected, onClick = onSelect)
         Spacer(Modifier.width(4.dp))
-        Text(text = label, fontSize = 15.sp, color = OnsiteInk)
+        Text(text = label, style = ShowCodeText.Body, color = Ink)
         Text(
             text = stringResource(R.string.merge_side_count, count),
-            fontSize = 13.sp,
-            color = OnsiteInk.copy(alpha = 0.5f),
+            style = ShowCodeText.Meta,
+            color = InkMuted,
         )
     }
 }
@@ -241,15 +248,14 @@ fun MergeUndoBar(keptName: String, onUndo: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(OnsiteInk, RoundedCornerShape(14.dp))
+            .background(Ink, ShowCodeShapes.Md)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(R.string.merge_done, keptName),
             modifier = Modifier.weight(1f),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = ShowCodeText.Item,
             color = OnsiteSurface,
         )
         Text(
@@ -257,8 +263,7 @@ fun MergeUndoBar(keptName: String, onUndo: () -> Unit) {
             modifier = Modifier
                 .clickable(onClick = onUndo)
                 .padding(horizontal = 8.dp, vertical = 4.dp),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.ExtraBold,
+            style = ShowCodeText.Item,
             color = OnsiteSurface,
         )
     }
@@ -269,21 +274,40 @@ fun MergeUndoBar(keptName: String, onUndo: () -> Unit) {
  * 点卡片直进现场模式那个 1 步承诺不能被管理功能污染。
  */
 @Composable
-private fun OwnerChip(label: String, highlighted: Boolean, onClick: () -> Unit) {
+private fun OwnerChip(
+    label: String,
+    highlighted: Boolean,
+    @DrawableRes icon: Int? = null,
+    onClick: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            // 代取件是别人转来的码，归属这一档必须有图形：它在管理面里是唯一
+            // 「这件不是我的」的信号，光靠两个字在扫视时太慢。
+            Icon(
+                painter = painterResource(id = icon),
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+                tint = if (highlighted) Ink else InkMuted,
+            )
+            Spacer(Modifier.width(5.dp))
+        }
     Text(
         text = label,
         modifier = Modifier
+            .background(if (highlighted) AccentTint else Canvas, ShowCodeShapes.Md)
             .border(
                 width = 1.dp,
-                color = if (highlighted) OnsiteInk else OnsiteInk.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(8.dp),
+                color = if (highlighted) Ink else InkMuted,
+                shape = ShowCodeShapes.Sm,
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 3.dp),
-        fontSize = 12.sp,
+        style = ShowCodeText.Caption,
         fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal,
-        color = OnsiteInk.copy(alpha = if (highlighted) 1f else 0.55f),
+        color = if (highlighted) Ink else InkMuted,
     )
+    }
 }
 
 @Composable
@@ -313,16 +337,15 @@ fun PointDetailScreen(
             if (group == null) {
                 Text(
                     text = stringResource(R.string.detail_gone),
-                    fontSize = 14.sp,
-                    color = OnsiteInk.copy(alpha = 0.6f),
+                    style = ShowCodeText.Body,
+                    color = InkMuted,
                     modifier = Modifier.padding(vertical = 20.dp),
                 )
             } else {
                 Text(
                     text = stringResource(R.string.detail_pending, group.items.size),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = OnsiteInk.copy(alpha = 0.55f),
+                    style = ShowCodeText.Action,
+                    color = InkMuted,
                     modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
                 )
                 group.items.forEach { parcel ->
@@ -336,14 +359,12 @@ fun PointDetailScreen(
                         Text(
                             text = parcel.code + (parcel.lockerNo?.let { "  $it" } ?: ""),
                             modifier = Modifier.weight(1f),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = OnsiteInk,
+                            style = ShowCodeText.Section,
+                            color = Ink,
                         )
                         Text(
                             text = urgencyLabel(urgencyOf(parcel, now)),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = ShowCodeText.Action,
                             color = urgencyColor(urgencyOf(parcel, now)),
                         )
                         /* 归属切换放在管理面，不放现场：站在柜机前不应该
@@ -354,6 +375,7 @@ fun PointDetailScreen(
                                 if (parcel.owner == Owner.FAMILY) R.string.detail_owner_family
                                 else R.string.detail_owner_mine
                             ),
+                            icon = if (parcel.owner == Owner.FAMILY) FAMILY_ICON else null,
                             highlighted = parcel.owner == Owner.FAMILY,
                             onClick = {
                                 onSetOwner(
@@ -366,26 +388,25 @@ fun PointDetailScreen(
                 }
                 Text(
                     text = stringResource(R.string.detail_owner_hint),
-                    fontSize = 12.sp,
-                    color = OnsiteInk.copy(alpha = 0.5f),
+                    style = ShowCodeText.Caption,
+                    color = InkMuted,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
             Spacer(Modifier.height(20.dp))
-            HorizontalDivider(thickness = 1.dp, color = OnsiteInk.copy(alpha = 0.08f))
+            HorizontalDivider(thickness = 1.dp, color = InkMuted)
 
             Text(
                 text = stringResource(R.string.detail_history),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = OnsiteInk.copy(alpha = 0.55f),
+                style = ShowCodeText.Action,
+                color = InkMuted,
                 modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
             )
             if (history.isEmpty()) {
                 Text(
                     text = stringResource(R.string.detail_history_empty),
-                    fontSize = 14.sp,
-                    color = OnsiteInk.copy(alpha = 0.45f),
+                    style = ShowCodeText.Body,
+                    color = InkMuted,
                     modifier = Modifier.padding(vertical = 6.dp),
                 )
             } else {
@@ -397,41 +418,40 @@ fun PointDetailScreen(
                         Text(
                             text = stringResource(R.string.detail_history_row, alias.aliasName),
                             modifier = Modifier.weight(1f),
-                            fontSize = 14.sp,
-                            color = OnsiteInk,
+                            style = ShowCodeText.Body,
+                            color = Ink,
                         )
                         Text(
                             text = relativeTimeText(alias.createdAt, now),
-                            fontSize = 12.sp,
-                            color = OnsiteInk.copy(alpha = 0.45f),
+                            style = ShowCodeText.Caption,
+                            color = InkMuted,
                         )
                         Spacer(Modifier.width(8.dp))
                         TextButton(onClick = { onSplit(alias) }) {
-                            Text(stringResource(R.string.detail_split), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.detail_split), style = ShowCodeText.Item, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
                 Text(
                     text = stringResource(R.string.detail_split_hint),
-                    fontSize = 12.sp,
-                    color = OnsiteInk.copy(alpha = 0.6f),
+                    style = ShowCodeText.Caption,
+                    color = InkMuted,
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                 )
             }
 
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(thickness = 1.dp, color = OnsiteInk.copy(alpha = 0.08f))
+            HorizontalDivider(thickness = 1.dp, color = InkMuted)
             Text(
                 text = stringResource(R.string.detail_others),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = OnsiteInk.copy(alpha = 0.55f),
+                style = ShowCodeText.Action,
+                color = InkMuted,
                 modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
             )
             Text(
                 text = stringResource(R.string.detail_others_hint),
-                fontSize = 12.sp,
-                color = OnsiteInk.copy(alpha = 0.5f),
+                style = ShowCodeText.Caption,
+                color = InkMuted,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
             // 轻提示只报字面重叠的一对，宁可漏报；所以合并也要能按名字自己找到入口，
@@ -443,15 +463,15 @@ fun PointDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(text = other.name, modifier = Modifier.weight(1f), fontSize = 15.sp, color = OnsiteInk)
+                        Text(text = other.name, modifier = Modifier.weight(1f), style = ShowCodeText.Body, color = Ink)
                         Text(
                             text = stringResource(R.string.merge_side_count, other.items.size),
-                            fontSize = 13.sp,
-                            color = OnsiteInk.copy(alpha = 0.5f),
+                            style = ShowCodeText.Meta,
+                            color = InkMuted,
                         )
                         Spacer(Modifier.width(6.dp))
                         TextButton(onClick = { onMergeOtherIntoThis(other) }) {
-                            Text(stringResource(R.string.detail_merge_into), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.detail_merge_into), style = ShowCodeText.Item, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

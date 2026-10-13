@@ -50,9 +50,12 @@ import dev.showcode.core.urgencyOf
 import dev.showcode.data.Prefs
 import dev.showcode.ui.theme.Accent
 import dev.showcode.ui.theme.Hairline
-import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.OnsiteSurface
-import dev.showcode.ui.theme.SurfaceInset
+import dev.showcode.ui.theme.ShowCodeShapes
+import dev.showcode.ui.theme.ShowCodeText
+import dev.showcode.ui.theme.SurfaceCard
 import dev.showcode.ui.theme.UrgencyAtRisk
 import dev.showcode.ui.theme.UrgencyDueSoon
 import dev.showcode.ui.theme.UrgencySafe
@@ -105,9 +108,8 @@ fun SettingsScreen(
             }
             Text(
                 text = stringResource(R.string.settings_title),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = OnsiteInk,
+                style = ShowCodeText.Headline,
+                color = Ink,
             )
         }
 
@@ -143,19 +145,22 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+                        .background(SurfaceCard, ShowCodeShapes.Md)
+                        .background(SurfaceCard, ShowCodeShapes.Md)
+                        .background(SurfaceCard, ShowCodeShapes.Md)
+                        .background(SurfaceCard, ShowCodeShapes.Md)
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
                         .padding(16.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.settings_family_label),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = OnsiteInk,
+                        style = ShowCodeText.Item,
+                        color = Ink,
                     )
                     Text(
                         text = stringResource(R.string.settings_family_label_hint, familyLabel),
-                        fontSize = 13.sp,
-                        color = OnsiteInk.copy(alpha = 0.6f),
+                        style = ShowCodeText.Meta,
+                        color = InkMuted,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                     OutlinedTextField(
@@ -172,7 +177,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
                         .clickable(onClick = onOpenUnrecognized)
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -180,14 +185,13 @@ fun SettingsScreen(
                     Text(
                         text = stringResource(R.string.unrecognized_title),
                         modifier = Modifier.weight(1f),
-                        fontSize = 14.sp,
-                        color = OnsiteInk,
+                        style = ShowCodeText.Body,
+                        color = Ink,
                     )
                     Text(
                         text = unrecognizedCount.toString(),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (unrecognizedCount > 0) UrgencyDueSoon else OnsiteInk.copy(alpha = 0.4f),
+                        style = ShowCodeText.Item,
+                        color = if (unrecognizedCount > 0) UrgencyDueSoon else InkMuted,
                     )
                 }
             }
@@ -212,9 +216,8 @@ private fun SectionTitle(text: String) {
     Text(
         text = text,
         modifier = Modifier.padding(top = 8.dp),
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Bold,
-        color = OnsiteInk.copy(alpha = 0.5f),
+        style = ShowCodeText.Action,
+        color = InkMuted,
     )
 }
 
@@ -231,7 +234,7 @@ private fun ThresholdCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+            .border(1.dp, Hairline, ShowCodeShapes.Md)
             .padding(16.dp)
     ) {
         DiscreteSlider(
@@ -254,10 +257,10 @@ private fun ThresholdCard(
             text = previewText,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SurfaceInset, RoundedCornerShape(10.dp))
+                .background(SurfaceCard, ShowCodeShapes.Md)
                 .padding(12.dp),
-            fontSize = 13.sp,
-            color = if (previewIsWarning) UrgencyDueSoon else OnsiteInk.copy(alpha = 0.6f),
+            style = ShowCodeText.Meta,
+            color = if (previewIsWarning) UrgencyDueSoon else InkMuted,
         )
 
         Spacer(Modifier.height(10.dp))
@@ -266,8 +269,7 @@ private fun ThresholdCard(
             modifier = Modifier
                 .clickable(onClick = onRestoreDefaults)
                 .padding(vertical = 4.dp),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
+            style = ShowCodeText.Action,
             color = Accent,
         )
     }
@@ -277,7 +279,7 @@ private fun ThresholdCard(
 @Composable
 private fun DiscreteSlider(label: String, options: List<Int>, current: Int, onSelect: (Int) -> Unit) {
     val index = options.indexOf(current).coerceAtLeast(0)
-    Text(text = label, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = OnsiteInk)
+    Text(text = label, style = ShowCodeText.Item, color = Ink)
     Slider(
         value = index.toFloat(),
         onValueChange = { onSelect(options[it.roundToInt().coerceIn(0, options.lastIndex)]) },
@@ -298,7 +300,7 @@ private fun HealthTable(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+            .border(1.dp, Hairline, ShowCodeShapes.Md)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -308,8 +310,7 @@ private fun HealthTable(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.settings_health_all_good),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = ShowCodeText.Item,
                     color = UrgencySafe,
                 )
             }
@@ -375,16 +376,15 @@ private fun HealthRow(
             Text(
                 text = title,
                 modifier = Modifier.weight(1f),
-                fontSize = 14.sp,
-                color = OnsiteInk,
+                style = ShowCodeText.Body,
+                color = Ink,
             )
             Text(
                 text = statusText,
                 modifier = Modifier
-                    .background(color = tint.copy(alpha = 0.12f), shape = RoundedCornerShape(6.dp))
+                    .background(color = tint.copy(alpha = 0.12f), shape = ShowCodeShapes.Sm)
                     .padding(horizontal = 8.dp, vertical = 3.dp),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
+                style = ShowCodeText.Micro,
                 color = tint,
             )
             if (showFix) {
@@ -394,15 +394,14 @@ private fun HealthRow(
                     modifier = Modifier
                         .clickable(onClick = onFix)
                         .padding(vertical = 4.dp),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = ShowCodeText.Action,
                     color = Accent,
                 )
             }
         }
         if (hint != null) {
             Spacer(Modifier.height(4.dp))
-            Text(text = hint, fontSize = 12.sp, color = OnsiteInk.copy(alpha = 0.6f))
+            Text(text = hint, style = ShowCodeText.Caption, color = InkMuted)
         }
     }
 }

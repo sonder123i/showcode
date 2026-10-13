@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -53,19 +54,31 @@ import dev.showcode.core.SuspectPair
 import dev.showcode.core.Urgency
 import dev.showcode.core.urgencyOf
 import dev.showcode.ui.closingLabel
+import dev.showcode.ui.URGENCY_DUE_SOON_ICON
+import dev.showcode.ui.pointIconOf
 import dev.showcode.ui.pointKindLabel
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.theme.Accent
-import dev.showcode.ui.points.MergeUndoBar
-import dev.showcode.ui.points.SuspectHintCard
+import dev.showcode.ui.theme.BorderDueSoon
 import dev.showcode.ui.theme.Hairline
-import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkMuted
+import dev.showcode.ui.theme.InkWatermark
+import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
-import dev.showcode.ui.theme.SurfaceInset
+import dev.showcode.ui.theme.ShowCodeShapes
+import dev.showcode.ui.theme.ShowCodeText
+import dev.showcode.ui.theme.withTabular
+import dev.showcode.ui.theme.SurfaceCard
 import dev.showcode.ui.theme.TabularNumbers
 import dev.showcode.ui.theme.UrgencyAtRisk
+import dev.showcode.ui.theme.UrgencyAtRiskTint
 import dev.showcode.ui.theme.UrgencyDueSoon
+import dev.showcode.ui.theme.UrgencyDueSoonTint
 import dev.showcode.ui.theme.UrgencySafe
+import dev.showcode.ui.theme.UrgencySafeTint
+import dev.showcode.ui.points.MergeUndoBar
+import dev.showcode.ui.points.SuspectHintCard
 import dev.showcode.ui.urgencyColor
 import dev.showcode.ui.urgencyLabel
 
@@ -154,15 +167,14 @@ fun HomeScreen(
                 Text(
                     text = stringResource(R.string.home_title),
                     modifier = Modifier.weight(1f),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = OnsiteInk,
+                    style = ShowCodeText.Headline,
+                    color = Ink,
                 )
                 IconButton(onClick = onOpenSettings, modifier = Modifier.size(44.dp)) {
                     Icon(
                         Icons.Filled.Settings,
                         contentDescription = stringResource(R.string.settings_title),
-                        tint = OnsiteInk.copy(alpha = 0.7f),
+                        tint = InkSecondary,
                     )
                 }
             }
@@ -199,8 +211,8 @@ fun HomeScreen(
                     item {
                         Text(
                             text = stringResource(R.string.home_empty_first_time_hint),
-                            fontSize = 12.sp,
-                            color = OnsiteInk.copy(alpha = 0.55f),
+                            style = ShowCodeText.Caption,
+                            color = InkMuted,
                             textAlign = TextAlign.Center,
                         )
                     }
@@ -278,8 +290,8 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .clickable(onClick = onManualImport)
                             .padding(vertical = 10.dp),
-                        fontSize = 14.sp,
-                        color = OnsiteInk.copy(alpha = 0.6f),
+                        style = ShowCodeText.Body,
+                        color = InkMuted,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -327,7 +339,7 @@ private fun HealthBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(UrgencyAtRisk.copy(alpha = 0.10f))
+            .background(UrgencyAtRiskTint)
             .clickable(onClick = onView)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -335,12 +347,12 @@ private fun HealthBar(
         Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(18.dp), tint = UrgencyAtRisk)
         Spacer(Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = text, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = OnsiteInk)
+            Text(text = text, style = ShowCodeText.Action, color = Ink)
             if (report.restCount > 0) {
                 Text(
                     text = stringResource(R.string.health_bar_more, report.restCount),
-                    fontSize = 11.sp,
-                    color = OnsiteInk.copy(alpha = 0.6f),
+                    style = ShowCodeText.Micro,
+                    color = InkMuted,
                 )
             }
         }
@@ -350,8 +362,7 @@ private fun HealthBar(
             modifier = Modifier
                 .clickable(onClick = onFix)
                 .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
+            style = ShowCodeText.Action,
             color = UrgencyAtRisk,
         )
     }
@@ -364,7 +375,7 @@ private fun StaleBar(lastSyncAt: Long?, now: Long, onRefresh: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(UrgencyDueSoon.copy(alpha = 0.12f))
+            .background(UrgencyDueSoonTint)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -373,17 +384,16 @@ private fun StaleBar(lastSyncAt: Long?, now: Long, onRefresh: () -> Unit) {
         Text(
             text = stringResource(R.string.home_stale, whenText),
             modifier = Modifier.weight(1f),
-            fontSize = 13.sp,
-            color = OnsiteInk,
+            style = ShowCodeText.Meta,
+            color = Ink,
         )
         Text(
             text = stringResource(R.string.refresh_action),
             modifier = Modifier
                 .clickable(onClick = onRefresh)
                 .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = OnsiteInk,
+            style = ShowCodeText.Action,
+            color = Ink,
         )
     }
 }
@@ -406,7 +416,8 @@ private fun PointCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
+            .border(1.dp, Hairline, ShowCodeShapes.Md)
             .clickable(onClick = onClick)
             .padding(14.dp)
     ) {
@@ -415,34 +426,51 @@ private fun PointCard(
             modifier = Modifier
                 .width(10.dp)
                 .height(40.dp)
-                .background(urgencyColor(group.worst), RoundedCornerShape(5.dp))
+                .background(urgencyColor(group.worst), ShowCodeShapes.Pill)
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 类型锚点：柜机要念格口、驿站要等关门，现场要做的动作不同，
+                // 而这三类取件点在短信里长得几乎一样（都叫「XX驿站」「XX店」）。先给一个图形。
+                Icon(
+                    painter = painterResource(id = pointIconOf(group.kind)),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = InkSecondary,
+                )
+                Spacer(Modifier.width(8.dp))
                 // boundary-long-text：首页截断，现场模式完整显示——这是两个模式的真实分歧
                 Text(
                     text = group.name,
                     modifier = Modifier.weight(1f),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = OnsiteInk,
+                    style = ShowCodeText.Section,
+                    color = Ink,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (group.worst == Urgency.DUE_SOON) {
+                    // 临期档以前一个图形都没有，而它恰恰是最需要被一眼认出的那一档。
+                    // 安全用已有的勾、过期风险用已有的告警三角，不在这里重复造。
+                    Icon(
+                        painter = painterResource(id = URGENCY_DUE_SOON_ICON),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = UrgencyDueSoon,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = group.items.size.toString(),
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = OnsiteInk,
-                    style = TabularNumbers,
+                    style = ShowCodeText.Count,
+                    color = Ink,
                 )
                 Text(
                     text = stringResource(R.string.home_count_unit),
                     modifier = Modifier.padding(start = 2.dp, bottom = 3.dp),
-                    fontSize = 12.sp,
-                    color = OnsiteInk.copy(alpha = 0.5f),
+                    style = ShowCodeText.Caption,
+                    color = InkMuted,
                 )
                 /* 管理入口必须另给一个角：点卡片直进现场模式那个 1 步承诺
                    不能被「合并取件点」这种操作污染。 */
@@ -454,7 +482,7 @@ private fun PointCard(
                         Icon(
                             imageVector = Icons.Filled.MoreVert,
                             contentDescription = stringResource(R.string.home_manage),
-                            tint = OnsiteInk.copy(alpha = 0.45f),
+                            tint = InkMuted,
                         )
                     }
                 }
@@ -463,8 +491,8 @@ private fun PointCard(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                fontSize = 12.sp,
-                color = if (group.worst == Urgency.SAFE) OnsiteInk.copy(alpha = 0.6f) else urgencyColor(group.worst),
+                style = ShowCodeText.Caption,
+                color = if (group.worst == Urgency.SAFE) InkMuted else urgencyColor(group.worst),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -484,9 +512,8 @@ private fun PointCard(
                 ) {
                     Text(
                         text = stringResource(R.string.home_card_overflow, rest),
-                        fontSize = 12.sp,
-                        color = OnsiteInk.copy(alpha = 0.45f),
-                        style = TabularNumbers,
+                        style = ShowCodeText.Caption.withTabular(),
+                        color = InkMuted,
                     )
                 }
             }
@@ -510,22 +537,18 @@ private fun CardParcelRow(parcel: Parcel, now: Long) {
     ) {
         Text(
             text = parcel.code,
-            fontSize = if (hasLocker) 17.sp else 19.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            style = TabularNumbers,
-            color = OnsiteInk,
+            style = if (hasLocker) ShowCodeText.Code else ShowCodeText.CodeLarge,
+            color = Ink,
         )
         if (hasLocker) {
             Spacer(Modifier.width(8.dp))
-            Text(text = parcel.lockerNo.orEmpty(), fontSize = 12.sp, color = OnsiteInk.copy(alpha = 0.5f))
+            Text(text = parcel.lockerNo.orEmpty(), style = ShowCodeText.Caption, color = InkMuted)
         }
         if (urgency != Urgency.SAFE) {
             Spacer(Modifier.weight(1f))
             Text(
                 text = urgencyLabel(urgency),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
+                style = ShowCodeText.Micro,
                 color = urgencyColor(urgency),
             )
         }
@@ -543,10 +566,8 @@ private fun SamplePointCard(group: PickupPointGroup, now: Long, onClick: () -> U
             modifier = Modifier
                 .align(Alignment.Center)
                 .rotate(-24f),
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.Black.copy(alpha = 0.08f),
-            letterSpacing = 0.15.em,
+            style = ShowCodeText.Watermark,
+            color = InkWatermark,
         )
         PointCard(group = group, now = now, onClick = onClick, modifier = Modifier.alpha(0.5f))
     }
@@ -566,8 +587,8 @@ private fun FirstTimeHeader(onOpenDemo: () -> Unit) {
     ) {
         Text(
             text = stringResource(R.string.home_empty_first_time_title),
-            fontSize = 15.sp,
-            color = OnsiteInk.copy(alpha = 0.7f),
+            style = ShowCodeText.Body,
+            color = InkSecondary,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(12.dp))
@@ -575,14 +596,13 @@ private fun FirstTimeHeader(onOpenDemo: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
-                .background(OnsiteInk, RoundedCornerShape(14.dp))
+                .background(Ink, ShowCodeShapes.Md)
                 .clickable(onClick = onOpenDemo),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = stringResource(R.string.home_empty_first_time_cta),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                style = ShowCodeText.Section,
                 color = OnsiteSurface,
             )
         }
@@ -596,7 +616,7 @@ private fun AllDoneCard(monthlyPicked: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(UrgencySafe.copy(alpha = 0.07f), RoundedCornerShape(14.dp))
+            .background(UrgencySafeTint, ShowCodeShapes.Md)
             .padding(vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -604,8 +624,7 @@ private fun AllDoneCard(monthlyPicked: Int) {
         Spacer(Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.home_empty_collection, monthlyPicked),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
+            style = ShowCodeText.Item,
             color = UrgencySafe,
             textAlign = TextAlign.Center,
         )
@@ -622,13 +641,14 @@ private fun RecentlyPickedSection(parcels: List<Parcel>, onRestore: (Parcel) -> 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
+            .border(1.dp, Hairline, ShowCodeShapes.Md)
             .padding(14.dp)
     ) {
         Text(
             text = stringResource(R.string.home_recently_picked_title),
-            fontSize = 12.sp,
-            color = OnsiteInk.copy(alpha = 0.55f),
+            style = ShowCodeText.Caption,
+            color = InkMuted,
         )
         Spacer(Modifier.height(6.dp))
         parcels.forEach { parcel ->
@@ -640,18 +660,15 @@ private fun RecentlyPickedSection(parcels: List<Parcel>, onRestore: (Parcel) -> 
             ) {
                 Text(
                     text = parcel.code,
-                    fontSize = 15.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    style = TabularNumbers,
-                    color = OnsiteInk.copy(alpha = 0.6f),
+                    style = ShowCodeText.CodeSmall,
+                    color = InkMuted,
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = parcel.pointName,
                     modifier = Modifier.weight(1f),
-                    fontSize = 12.sp,
-                    color = OnsiteInk.copy(alpha = 0.45f),
+                    style = ShowCodeText.Caption,
+                    color = InkMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -660,8 +677,7 @@ private fun RecentlyPickedSection(parcels: List<Parcel>, onRestore: (Parcel) -> 
                     modifier = Modifier
                         .clickable { onRestore(parcel) }
                         .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = ShowCodeText.Action,
                     color = Accent,
                 )
             }
@@ -675,7 +691,8 @@ private fun UnrecognizedLinkRow(count: Int, onOpen: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, UrgencyDueSoon.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+            .background(UrgencyDueSoonTint, ShowCodeShapes.Md)
+            .border(1.dp, BorderDueSoon, ShowCodeShapes.Md)
             .clickable(onClick = onOpen)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -685,14 +702,12 @@ private fun UnrecognizedLinkRow(count: Int, onOpen: () -> Unit) {
         Text(
             text = stringResource(R.string.home_unrecognized, count),
             modifier = Modifier.weight(1f),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = OnsiteInk,
+            style = ShowCodeText.Item,
+            color = Ink,
         )
         Text(
             text = stringResource(R.string.home_unrecognized_action),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
+            style = ShowCodeText.Action,
             color = Accent,
         )
     }
@@ -707,15 +722,15 @@ private fun WidgetHintBanner(onPin: () -> Unit, onDismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceInset, RoundedCornerShape(14.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
             .padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(R.string.home_widget_hint),
             modifier = Modifier.weight(1f),
-            fontSize = 13.sp,
-            color = OnsiteInk.copy(alpha = 0.75f),
+            style = ShowCodeText.Meta,
+            color = InkSecondary,
         )
         Spacer(Modifier.width(8.dp))
         Text(
@@ -723,8 +738,7 @@ private fun WidgetHintBanner(onPin: () -> Unit, onDismiss: () -> Unit) {
             modifier = Modifier
                 .clickable(onClick = onPin)
                 .padding(horizontal = 8.dp, vertical = 4.dp),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
+            style = ShowCodeText.Action,
             color = Accent,
         )
         Text(
@@ -732,8 +746,8 @@ private fun WidgetHintBanner(onPin: () -> Unit, onDismiss: () -> Unit) {
             modifier = Modifier
                 .clickable(onClick = onDismiss)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
-            fontSize = 13.sp,
-            color = OnsiteInk.copy(alpha = 0.4f),
+            style = ShowCodeText.Meta,
+            color = InkMuted,
         )
     }
 }
@@ -747,12 +761,12 @@ private fun EnableIngestCard(title: String, body: String, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceInset, RoundedCornerShape(14.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
             .clickable(onClick = onClick)
             .padding(14.dp)
     ) {
-        Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Accent)
+        Text(text = title, style = ShowCodeText.Item, color = Accent)
         Spacer(Modifier.height(4.dp))
-        Text(text = body, fontSize = 12.sp, color = OnsiteInk.copy(alpha = 0.6f))
+        Text(text = body, style = ShowCodeText.Caption, color = InkMuted)
     }
 }

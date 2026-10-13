@@ -51,10 +51,16 @@ import dev.showcode.core.parse.UnrecognizedReason
 import dev.showcode.data.UnrecognizedMessage
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentTint
+import dev.showcode.ui.theme.Canvas
 import dev.showcode.ui.theme.Hairline
-import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkMuted
+import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
-import dev.showcode.ui.theme.SurfaceInset
+import dev.showcode.ui.theme.ShowCodeShapes
+import dev.showcode.ui.theme.ShowCodeText
+import dev.showcode.ui.theme.SurfaceCard
 import dev.showcode.ui.theme.UrgencyDueSoon
 import dev.showcode.ui.theme.UrgencySafe
 import kotlinx.coroutines.launch
@@ -98,15 +104,14 @@ fun UnrecognizedScreen(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = stringResource(R.string.unrecognized_empty),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = OnsiteInk,
+                    style = ShowCodeText.Section,
+                    color = Ink,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = stringResource(R.string.unrecognized_empty_hint),
-                    fontSize = 13.sp,
-                    color = OnsiteInk.copy(alpha = 0.55f),
+                    style = ShowCodeText.Meta,
+                    color = InkMuted,
                 )
             }
         } else {
@@ -118,8 +123,8 @@ fun UnrecognizedScreen(
                 item {
                     Text(
                         text = stringResource(R.string.home_unrecognized_hint),
-                        fontSize = 12.sp,
-                        color = OnsiteInk.copy(alpha = 0.6f),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
                     )
                 }
                 items(messages, key = { it.id }) { message ->
@@ -147,31 +152,31 @@ private fun UnrecognizedRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+            .background(SurfaceCard, ShowCodeShapes.Md)
+            .border(1.dp, Hairline, ShowCodeShapes.Md)
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = message.sender.ifBlank { fallbackSender },
                 modifier = Modifier.weight(1f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = OnsiteInk,
+                style = ShowCodeText.Item,
+                color = Ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = relativeTimeText(message.receivedAt, now),
-                fontSize = 11.sp,
-                color = OnsiteInk.copy(alpha = 0.45f),
+                style = ShowCodeText.Micro,
+                color = InkMuted,
             )
         }
         Spacer(Modifier.height(6.dp))
-        Text(text = message.body, fontSize = 13.sp, color = OnsiteInk.copy(alpha = 0.75f))
+        Text(text = message.body, style = ShowCodeText.Meta, color = InkSecondary)
         Spacer(Modifier.height(6.dp))
         Text(
             text = unrecognizedReasonText(message.reason),
-            fontSize = 12.sp,
+            style = ShowCodeText.Caption,
             color = UrgencyDueSoon,
         )
         Spacer(Modifier.height(10.dp))
@@ -179,15 +184,14 @@ private fun UnrecognizedRow(
             Text(
                 text = stringResource(R.string.unrecognized_extract),
                 modifier = Modifier.clickable(onClick = onExtract),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
+                style = ShowCodeText.Action,
                 color = Accent,
             )
             Text(
                 text = stringResource(R.string.unrecognized_ignore),
                 modifier = Modifier.clickable(onClick = onDismiss),
-                fontSize = 13.sp,
-                color = OnsiteInk.copy(alpha = 0.5f),
+                style = ShowCodeText.Meta,
+                color = InkMuted,
             )
         }
     }
@@ -282,8 +286,7 @@ fun ManualImportScreen(
                                 error = context.getString(R.string.manual_import_auto_failed)
                         }
                     },
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = ShowCodeText.Item,
                     color = Accent,
                 )
             }
@@ -293,8 +296,8 @@ fun ManualImportScreen(
                     // 重新变成看不见的——那正是这一整批在修的缺陷。
                     Text(
                         text = stringResource(R.string.manual_import_extra, extras.size),
-                        fontSize = 12.sp,
-                        color = OnsiteInk.copy(alpha = 0.6f),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
                     )
                     Row(
                         modifier = Modifier.padding(top = 6.dp),
@@ -304,15 +307,14 @@ fun ManualImportScreen(
                             Text(
                                 text = extra,
                                 modifier = Modifier
-                                    .background(SurfaceInset, RoundedCornerShape(8.dp))
+                                    .background(SurfaceCard, ShowCodeShapes.Sm)
                                     .clickable {
                                         code = extra
                                         extras = extras - extra
                                     }
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = OnsiteInk,
+                                style = ShowCodeText.Item,
+                                color = Ink,
                             )
                         }
                     }
@@ -349,9 +351,8 @@ fun ManualImportScreen(
                 Column {
                     Text(
                         text = stringResource(R.string.owner_field),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = OnsiteInk.copy(alpha = 0.6f),
+                        style = ShowCodeText.Action,
+                        color = InkMuted,
                     )
                     Spacer(Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -374,9 +375,9 @@ fun ManualImportScreen(
                         text = it,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(SurfaceInset, RoundedCornerShape(10.dp))
+                            .background(SurfaceCard, ShowCodeShapes.Md)
                             .padding(12.dp),
-                        fontSize = 13.sp,
+                        style = ShowCodeText.Meta,
                         color = UrgencyDueSoon,
                     )
                 }
@@ -386,7 +387,7 @@ fun ManualImportScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
-                        .background(OnsiteInk, RoundedCornerShape(14.dp))
+                        .background(Ink, ShowCodeShapes.Md)
                         .clickable {
                             val trimmedCode = code.trim()
                             val trimmedName = pointName.trim()
@@ -411,8 +412,7 @@ fun ManualImportScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.manual_import_save),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = ShowCodeText.Section,
                         color = OnsiteSurface,
                     )
                 }
@@ -426,16 +426,17 @@ private fun OwnerChoice(label: String, selected: Boolean, onSelect: () -> Unit) 
     Text(
         text = label,
         modifier = Modifier
+            .background(if (selected) AccentTint else Canvas, ShowCodeShapes.Md)
             .border(
                 width = if (selected) 2.dp else 1.dp,
-                color = if (selected) OnsiteInk else OnsiteInk.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(12.dp),
+                color = if (selected) Ink else InkMuted,
+                shape = ShowCodeShapes.Md,
             )
             .clickable(onClick = onSelect)
             .padding(horizontal = 16.dp, vertical = 10.dp),
-        fontSize = 15.sp,
+        style = ShowCodeText.Item,
         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-        color = OnsiteInk,
+        color = Ink,
     )
 }
 
@@ -455,9 +456,8 @@ internal fun ScreenTopBar(title: String, onBack: () -> Unit) {
             modifier = Modifier
                 .weight(1f)
                 .padding(end = 16.dp),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = OnsiteInk,
+            style = ShowCodeText.Headline,
+            color = Ink,
         )
     }
 }

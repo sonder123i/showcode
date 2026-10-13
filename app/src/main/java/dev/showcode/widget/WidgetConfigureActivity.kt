@@ -42,11 +42,16 @@ import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.groupByPoint
 import dev.showcode.ui.rememberTickingNow
 import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentTint
+import dev.showcode.ui.theme.Canvas
 import dev.showcode.ui.theme.Hairline
-import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.OnsiteSurface
-import dev.showcode.ui.theme.SurfaceInset
+import dev.showcode.ui.theme.ShowCodeShapes
+import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.ShowCodeTheme
+import dev.showcode.ui.theme.SurfaceCard
 
 /**
  * 添加组件时的配置页（方案丙：绑定点是一等公民，但不强制）。
@@ -103,9 +108,8 @@ private fun ConfigureScreen(onPick: (String?, String?) -> Unit) {
         Text(
             text = stringResource(R.string.widget_configure_title),
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = OnsiteInk,
+            style = ShowCodeText.Headline,
+            color = Ink,
         )
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -137,28 +141,28 @@ private fun OptionRow(title: String, hint: String, highlighted: Boolean, onClick
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (highlighted) AccentTint else Canvas, ShowCodeShapes.Md)
             .border(
                 width = if (highlighted) 2.dp else 1.dp,
                 color = if (highlighted) Accent else Hairline,
-                shape = RoundedCornerShape(14.dp),
+                shape = ShowCodeShapes.Md,
             )
             .clickable(onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = OnsiteInk)
+            Text(text = title, style = ShowCodeText.Item, color = Ink)
             Spacer(Modifier.height(2.dp))
-            Text(text = hint, fontSize = 12.sp, color = OnsiteInk.copy(alpha = 0.55f))
+            Text(text = hint, style = ShowCodeText.Caption, color = InkMuted)
         }
         Spacer(Modifier.width(8.dp))
         Text(
             text = stringResource(R.string.widget_configure_add),
             modifier = Modifier
-                .background(SurfaceInset, RoundedCornerShape(8.dp))
+                .background(SurfaceCard, ShowCodeShapes.Sm)
                 .padding(horizontal = 10.dp, vertical = 6.dp),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
+            style = ShowCodeText.Action,
             color = Accent,
         )
     }
