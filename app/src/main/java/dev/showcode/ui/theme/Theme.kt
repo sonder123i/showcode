@@ -26,6 +26,26 @@ private val ShowCodeColors = lightColorScheme(
     outline = Hairline,
     outlineVariant = Hairline,
     error = UrgencyAtRisk,
+    /* M3 的基线 tone 面板整体带淡紫偏色，而本 App 只有黑白 + 三态色。
+       这些 role 不显式写就会漏进组件默认色：设置页滑杆的未填充段实测是 #E8DEF8，
+       正是 secondaryContainer 的默认值（2026-10-13 从截图采样 3146 个像素确认）。
+       一律压到已有的两个中性色上，不为没人消费的 role 新开色阶。
+       errorContainer 不列——它是红系，和三态色同族，不是漏进来的紫。 */
+    secondaryContainer = SurfaceFloating,
+    onSecondaryContainer = OnsiteInk,
+    tertiary = Accent,
+    onTertiary = OnsiteSurface,
+    tertiaryContainer = SurfaceFloating,
+    onTertiaryContainer = OnsiteInk,
+    surfaceContainerLowest = OnsiteSurface,
+    surfaceContainerLow = SurfaceFloating,
+    surfaceContainer = SurfaceFloating,
+    surfaceContainerHigh = SurfaceFloating,
+    surfaceContainerHighest = SurfaceFloating,
+    surfaceBright = OnsiteSurface,
+    surfaceDim = SurfaceFloating,
+    inverseSurface = OnsiteInk,
+    inverseOnSurface = OnsiteSurface,
 )
 
 /**
