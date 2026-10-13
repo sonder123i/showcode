@@ -63,16 +63,43 @@
 
 到 [Releases](../../releases) 下载 `showcode-<版本>.apk`。minSdk 26（Android 8.0），targetSdk 36。
 
-打 `v*` 标签时 CI 会自动签名、按版本号命名，并附上 `SHA256SUMS.txt`。
-**装之前对一下哈希**：这个 App 完全不联网，你没有任何别的办法确认下到的包就是官方构建的那一个。
+### 装之前对两道校验，它们证明的不是一回事
+
+**第一道：文件有没有在下发路上被换掉。**
 
 ```bash
 sha256sum -c SHA256SUMS.txt   # 和 Release 页面里那份对上一致再装
 ```
 
+这份清单和 APK 出自同一个仓库，能伪造仓库的人也能伪造它——它挡的是传输损坏和镜像篡改，挡不了冒充发布者。
+
+**第二道：这个包是谁签的。** 只有签名证书指纹能回答，而指纹必须能在 APK 之外的地方对上才算数，所以写在这里：
+
+```
+e18262c9d03e18f111a87774d0887953adc686b2650c4f5035372686ecc674d3
+```
+
+```bash
+apksigner verify --print-certs showcode-<版本>.apk
+# 看 Signer #1 certificate SHA-256 digest 是否等于上面那串
+```
+
+Android 的签名密钥**无法轮换**：换了钥匙的老用户只能卸载重装、丢掉本地数据。
+所以对得上＝同一个维护者；**对不上就不是"新版本"，是另一个人发的包**，别装。
+
+发布包由仓库外的一把密钥签名。仓库里有打 `v*` 标签就自动签名、按版本号命名、附校验和并建 Release 的 CI，
+但它需要维护者把密钥配进 Actions secrets 才会启用，目前没配——所以现阶段的 Release 是本机签名后上传的，
+两道校验的算法不变。
+
+### 商店
+
 尚未上架任何应用商店（包括 F-Droid）。仓库里已经按 F-Droid 的格式放好了
-`fastlane/metadata/android/{zh-CN,en-US}/`（标题、简介、详细说明、截图、每版更新说明），
-提交时缺的只有一个 512×512 的图标——现有启动图标是自适应矢量，F-Droid 的机器人不吃这个。
+`fastlane/metadata/android/{zh-CN,en-US}/`（标题、简介、详细说明、截图、每版更新说明，
+以及 512×512 的 `images/icon.png`，由 `ic_launcher` 的矢量源按 66dp 安全区重绘）。
+
+⚠️ 图标放在 `images/` 下是跟着本仓库现有截图树的约定走的。F-Droid 究竟读
+`<locale>/images/icon.png` 还是 `<locale>/icon.png`，我见到的两份文档口径不一致，提交前请以
+`fdroidserver` 源码为准，别把这句当结论。
 
 ## 自己构建
 
