@@ -25,6 +25,11 @@ jobs:
       - name: 单元测试与调试包
         run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
+      # 视觉棘轮：和 core/parse/corpus 那条识别棘轮同一个道理，地板只许更好。
+      # 不跑在 CI 里的话，本地量完下次被人改回去是没人知道的。
+      - name: 视觉系统棘轮
+        run: python3 tools/visual-audit.py --ci
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
