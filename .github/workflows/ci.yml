@@ -103,10 +103,22 @@ jobs:
           # 找不到就退回 GitHub 自动生成的 notes，而不是让发布卡在这一步。
           CODE=$(sed -n 's/^[[:space:]]*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -1)
           NOTES="fastlane/metadata/android/zh-CN/changelogs/$CODE.txt"
-          if [ -f "$NOTES" ]; then
-            gh release create "$GITHUB_REF_NAME" --title "亮码 ${GITHUB_REF_NAME#v}" \
+          TITLE="亮码 ${GITHUB_REF_NAME#v}"
+          # 这个标签可能已经有一个 Release 了——维护者在本机签好上传过一次。
+          # 那时覆盖而不是报错：配好 Secrets 之后重跑同一个标签，就能收敛成 CI 构建的包。
+          # （APK 和 SHA256SUMS.txt 一起换，所以 sha256sum -c 仍然自洽；签名钥匙没变，
+          #   README 里那个证书指纹也仍然对得上。）
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            if [ -f "$NOTES" ]; then
+              gh release edit "$GITHUB_REF_NAME" --title "$TITLE" --notes-file "$NOTES"
+            else
+              gh release edit "$GITHUB_REF_NAME" --title "$TITLE"
+            fi
+            gh release upload "$GITHUB_REF_NAME" "$APK" SHA256SUMS.txt --clobber
+          elif [ -f "$NOTES" ]; then
+            gh release create "$GITHUB_REF_NAME" --title "$TITLE" \
               --notes-file "$NOTES" "$APK" SHA256SUMS.txt
           else
-            gh release create "$GITHUB_REF_NAME" --title "亮码 ${GITHUB_REF_NAME#v}" \
+            gh release create "$GITHUB_REF_NAME" --title "$TITLE" \
               --generate-notes "$APK" SHA256SUMS.txt
           fi
