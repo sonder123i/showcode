@@ -308,16 +308,31 @@ object PickupCodeParser {
         "代收点|自提点|取件点|便民点|快递柜|自提柜|智能柜|丰巢柜|智慧柜|菜鸟柜|生活超市|便利店|小卖部|文具店|服务点|驿站|超市|门店|商店"
 
     /**
-     * 回吃的停止边界：标点、空白，以及任何不可能出现在门店名**中间**的动词/虚词。
+     * 前向停止字符：**只放不可能出现在门店名中间的虚词**。
      *
-     * 「入」在这里是必须的，而且是语料抓出来的：少了它，「快件已放**入**丰巢柜」会回吃成
-     * 「放入丰巢柜」——那确实不含门店信息，却因为前缀多了两个字而**躲过** GENERIC_NAME
-     * （那个判据只认「品牌 + 类别词」这种干净形状）。边界表少一个字，通用名闸门就整个失效。
+     * ⚠️ 这里刻意不收 放 / 入 / 送 / 投 / 达 / 取 这类单字。上一版收了，代价是
+     * 「解放路12号兔喜生活超市」被从中间切成「路12号兔喜生活超市」——**单字边界天然会切进
+     * 中文地名**（解放路、到达厅、育才路…），而地名恰恰是门店名的主要成分。
+     * 动词一律降到词组层处理，见 [NAME_NOISE_PREFIX]。
      */
-    private val NAME_EDGE = "到在取领放投送滞留未请的已为了从往去于和与及等将系至到达入"
+    private val NAME_STOP = "的已请为了从往去于和与及等将系在到至"
 
-    /** 一个可以出现在门店名**内部**的字符：非标点、非空白、非边界字。 */
-    private val NAME_CHAR = "[^，,。；;、！!？?：:（）()【】|｜\"'“”‘’\\s" + NAME_EDGE + "]"
+    /** 类别词**后面**允许出现的边界：这一侧要宽，因为动词都长在这里。 */
+    private val NAME_TAIL = NAME_STOP + "取领放投送滞留未入达收存点柜"
+
+    /** 一个可以出现在门店名内部的字符。 */
+    private val NAME_CHAR = "[^，,。；;、！!？?：:（）()【】|｜\"'“”‘’\\s" + NAME_STOP + "]"
+
+    /**
+     * 词组级噪声前缀。边界单字拿掉之后，「已放入丰巢柜」会回吃成「放入丰巢柜」，
+     * 而 GENERIC_NAME 只认「品牌+类别词」的干净形状、放它过去——所以在判通用名之前
+     * 先把动词前缀剥掉：「放入丰巢柜」→「丰巢柜」→ 通用名闸门正常拒掉。
+     * 「解放路…」不受影响：锚在串首，「解」不在表里。
+     */
+    private val NAME_NOISE_PREFIX = Regex(
+        "^(?:已|先|再次|统一|分别)*(?:放入|投放|投递|投入|送入|存入|投进|放进|到达|已到|送至|送到|" +
+            "前往|放到|放在|到|在|至|入)"
+    )
 
     /**
      * ⚠️ 两头都要卡住，只卡左边会造出假卡（实测两条误收，都有语料守着）：
@@ -326,15 +341,14 @@ object PickupCodeParser {
      *     一个类别词如果以右括号收尾，说明整段是被包起来的签名或占位符。
      * 同理左边的负向前后查找挡掉「【…驿站」「"…驿站」这种被括号起头的候选。
      *
-     * ⚠️ 类别词**前面那一个字符**也必须走同一个边界类。早先这里写成
-     * `[^边界]*[0-9A-Za-z\u4e00-\u9fa5]驿站`——边界只挡在可空前缀上，紧邻类别词的那个必填位
-     * 没挡，于是「已放入丰巢柜」照样抽出「入丰巢柜」（语料 fmt-generic-… 当场报误收）。
-     * 合并成 `NAME_CHAR{1,}` 之后才真正挡住。
+     * ⚠️ 类别词**前面每一个字符**都必须过同一个非边界类。早先写成
+     * `[^边界]*[0-9A-Za-z\u4e00-\u9fa5]驿站`，边界只挡在可空前缀上，紧邻类别词的必填位没挡，
+     * 于是「已放入丰巢柜」照样抽出「入丰巢柜」（语料当场报误收）。合并成 `NAME_CHAR{1,}` 才算对。
      */
     private val POINT_NAME_BY_CATEGORY = Regex(
         "(?<![【（(「\"'“”‘’])" +
             "(" + NAME_CHAR + "{1,}(?:" + CATEGORY_WORDS + "))" +
-            "(?=[，,。；;、！!？?：:\\s" + NAME_EDGE + "]|$)"
+            "(?=[，,。；;、！!？?：:\\s" + NAME_TAIL + "]|$)"
     )
 
     private fun extractPointName(body: String): PointNameHit {
@@ -350,12 +364,31 @@ object PickupCodeParser {
         // 回吃要的是「第一个含具体门店的」，不是「第一个」：
         // 【菜鸟驿站】这种品牌方前缀里就有类别词，它是通用名，跳过它才能看见正文里的真门店。
         val fromCategory = POINT_NAME_BY_CATEGORY.findAll(body)
-            .map { it.groupValues[1].trim() }
-            .firstOrNull {
+            .map { it.groupValues[1].replace(NAME_NOISE_PREFIX, "").trim() }
+            .filter {
                 it.length >= 4 && !GENERIC_NAME.matches(it) && !PLACEHOLDER_MARKS.containsMatchIn(it)
             }
+            .distinct()
+            .toList()
 
-        for (candidate in listOf(fromVerb, fromPipe, fromCategory)) {
+        /*
+         * ⚠️ 一条消息里出现**两个不同**的点位短语，说明它讲的不是一个点，此时不许替它定名。
+         * 对抗样本实测出来的洞：「A件到向阳小区驿站，B件到育才路驿站，取件码1-1-111、2-2-222」
+         * 以前只取第一个候选，于是第二件被**静默挂到第一个点上**——用户站在 A 点看着 B 点的码，
+         * 而且毫不怀疑。这正是 POINT_NAME_UNCONFIRMED 存在的理由要防的那一类灾难。
+         *
+         * 判据和「唯一幸存者」同构：**歧义就不猜**。
+         * ⚠️ 但只在动词与竖线两条路径都没给出名字时才生效，两处例外各有原因：
+         *   - 动词路径已经替我们选过边了，「已到达X，顺带提到旁边的Y」不该被偶然提及拖回确认；
+         *   - 竖线那种粘贴格式**天然含两个类别词**——「韵达快递超市代收点 | 富里红波精品超市」
+         *     是同一个点写了两遍（左半截是品牌+类别，右半截才是门店），不是两个点。
+         *     上一版没留这一格，把 up-29-a 从进门直接打回未识别，进门率 100→94％。
+         */
+        if (fromVerb == null && fromPipe.isNullOrEmpty() && fromCategory.size >= 2) {
+            return unconfirmed(body)
+        }
+
+        for (candidate in listOf(fromVerb, fromPipe, fromCategory.firstOrNull())) {
             if (candidate != null && candidate.length >= 2 &&
                 !PLACEHOLDER_MARKS.containsMatchIn(candidate) &&
                 !GENERIC_NAME.matches(candidate)
@@ -363,10 +396,15 @@ object PickupCodeParser {
                 return PointNameHit(candidate, confirmed = true)
             }
         }
+        return unconfirmed(body)
+    }
 
-        // 走到这里就是消息里根本没有携带「是哪个点」的信息。以前会退成「菜鸟驿站」「丰巢快递柜」
-        // 直接成卡，那会把不同小区合成一张——用户站在 A 点看着 B 点的码且毫不怀疑。
-        // 现在这个名字只用来把消息解释给人看，件本身送未识别等确认（POINT_NAME_UNCONFIRMED）。
+    /**
+     * 走到这里就是消息里根本没有携带「是哪个点」的信息。以前会退成「菜鸟驿站」「丰巢快递柜」
+     * 直接成卡，那会把不同小区合成一张——用户站在 A 点看着 B 点的码且毫不怀疑。
+     * 现在这个名字只用来把消息解释给人看，件本身送未识别等确认（POINT_NAME_UNCONFIRMED）。
+     */
+    private fun unconfirmed(body: String): PointNameHit {
         val tag = BRAND_TAG.find(body)?.groupValues?.get(1)
         val brand = BRAND_FALLBACK.find(tag ?: body)?.value
         val guess = when {

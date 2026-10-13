@@ -215,5 +215,32 @@ object Upstream {
                 forbiddenCodes = listOf("0627"),
             ),
         ),
+        CorpusCase(
+            id = "adv-two-points",
+            origin = "对抗样本（我自己造的题，不是真短信）· 一条消息两个点。" +
+                "以前 extractPointName 只返回一个名字，于是第二件被**静默挂到第一个点上**——" +
+                "用户站在 A 点看着 B 点的码且毫不怀疑，这是 POINT_NAME_UNCONFIRMED 要防的灾难类。" +
+                "判据与「唯一幸存者」同构：出现两个不同点位短语就放弃定名，两个码都得带走",
+            body = "【驿站】A件到向阳小区驿站，B件到育才路驿站，取件码1-1-111、2-2-222",
+            expect = Expect(
+                tier = Tier.REJECTED,
+                reason = UnrecognizedReason.POINT_NAME_UNCONFIRMED,
+                hintCodes = listOf("1-1-111", "2-2-222"),
+            ),
+        ),
+        CorpusCase(
+            id = "adv-address-shop",
+            origin = "对抗样本（我自己造的题）· 边界表曾经收单字「放」，于是「**解放路**12号" +
+                "兔喜生活超市」被从地名中间切成「路12号…」。教训：**单字边界天然会切进中文地名**，" +
+                "动词只能按词组剥。地址前缀保留是故意的——它对同一个点稳定，" +
+                "而分裂比丢件可恢复",
+            body = "取件码 8-9-0765，地址：解放路12号兔喜生活超市",
+            expect = Expect(
+                tier = Tier.PARSED,
+                code = "8-9-0765",
+                pointName = "解放路12号兔喜生活超市",
+                kind = PointKind.SELFPICK,
+            ),
+        ),
     )
 }
