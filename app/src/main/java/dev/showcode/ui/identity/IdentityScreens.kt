@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ import dev.showcode.R
 import dev.showcode.core.ClipboardIntake
 import dev.showcode.core.ClipboardVerdict
 import dev.showcode.core.IdentityCode
+import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.IdentityReject
 import dev.showcode.core.qr.MAX_VERSION
@@ -376,6 +378,23 @@ fun IdentityEditScreen(
                         style = ShowCodeText.Meta,
                         color = Ink,
                     )
+                    // 已知那几家排在这儿：绝大多数人就是这两家，让他们在几百行里搜「菜鸟」
+                    // 是把三秒的事做成三十秒。**只列真装着的**——一颗点了只会失败的按钮比没有更坏。
+                    val quick = remember(apps) {
+                        apps.filter { it.packageName in DeepLinkLadder.knownPackages }
+                    }
+                    if (quick.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            quick.forEach { option ->
+                                Choice(
+                                    label = stringResource(presetLabel(option.packageName)),
+                                    selected = app?.packageName == option.packageName,
+                                    onSelect = { app = option },
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text(
@@ -558,6 +577,20 @@ private fun AppPicker(apps: List<InstalledApp>, onPick: (InstalledApp) -> Unit, 
             )
         }
     }
+}
+
+/**
+ * 快捷项的显示名走字符串资源，不写进 core：core 那份表是**判据**（哪家有直达链），
+ * 而「淘宝」两个字是文案。把两处合在一起的代价是改名要动判据层。
+ *
+ * 这里不直接用 `InstalledApp.label`（那是 PackageManager 给的名字，会随语言和厂商变，
+ * 有时是「手机淘宝」有时是「淘宝」）——这一格是预置项，名字该由我们定。
+ */
+@StringRes
+private fun presetLabel(packageName: String): Int = when (packageName) {
+    DeepLinkLadder.TAOBAO -> R.string.preset_taobao
+    DeepLinkLadder.PINDUODUO -> R.string.preset_pinduoduo
+    else -> R.string.preset_generic
 }
 
 private fun rejectText(reject: String): Int = when (reject) {

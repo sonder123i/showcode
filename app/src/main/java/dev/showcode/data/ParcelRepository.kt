@@ -3,8 +3,10 @@ package dev.showcode.data
 import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.Telephony
 import androidx.core.app.NotificationManagerCompat
@@ -12,11 +14,12 @@ import androidx.core.content.ContextCompat
 import dev.showcode.R
 import dev.showcode.core.DAY_MS
 import dev.showcode.core.DEFAULT_CLOSING_MINUTE
+import dev.showcode.core.Attempt
+import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.ExistingParcel
 import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.HealthReport
-import dev.showcode.core.LaunchFacts
 import dev.showcode.core.LaunchOutcome
 import dev.showcode.core.launchOutcome
 import dev.showcode.core.MessageSkip
@@ -672,23 +675,41 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
      * issue #39 报的正是「点了没反应」，维护者给的解法却是系统里的一个开关
      * （小米：应用设置→其他权限→链式启动管理）。**「装了但被拦住」和「没装」是两件事**，
      * 合成一句「打不开」就等于把唯一有用的那条线索弄丢了。
+     *
+     * 走的是 [DeepLinkLadder] 那三级。判据（哪算没装、哪算被拦）不在这里做，
+     * 这里只负责按顺序试、并把每一级的结果如实记下来。
      */
     fun openOfficialApp(packageName: String?): LaunchOutcome {
         val pkg = NotifyApps.normalizePackage(packageName)
-        val facts = if (pkg == null) {
-            LaunchFacts(hasPackage = false, resolvable = false, started = false)
-        } else {
-            val intent = runCatching { context.packageManager.getLaunchIntentForPackage(pkg) }.getOrNull()
-            LaunchFacts(
-                hasPackage = true,
-                resolvable = intent != null,
-                started = intent != null && runCatching {
-                    context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }.isSuccess,
-            )
+        if (pkg == null) return launchOutcome(hasPackage = false, attempts = emptyList())
+        val attempts = mutableListOf<Attempt>()
+        for (uri in DeepLinkLadder.deepLinksFor(pkg)) attempts += startView(uri)
+        attempts += runCatching {
+            val intent = context.packageManager.getLaunchIntentForPackage(pkg)
+                ?: return@runCatching Attempt.NO_HANDLER
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            Attempt.OPENED
+        }.getOrElse { classifyStartFailure(it) }
+        DeepLinkLadder.webFallbackFor(pkg)?.let { url ->
+            if (attempts.none { it == Attempt.OPENED }) attempts += startView(url)
         }
-        return launchOutcome(facts)
+        return launchOutcome(hasPackage = true, attempts = attempts)
     }
+
+    /** 一个 VIEW intent，带或不带 scheme 都能用这一条试。 */
+    private fun startView(uri: String): Attempt = runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        Attempt.OPENED
+    }.getOrElse { classifyStartFailure(it) }
+
+    /**
+     * 只有 `ActivityNotFoundException` 能说明「这台机器上没有能接它的东西」。
+     * 其余异常（安全策略、后台启动限制、ROM 拦截）都说明**有**，只是不让——那是另一句话。
+     */
+    private fun classifyStartFailure(error: Throwable): Attempt =
+        if (error is ActivityNotFoundException) Attempt.NO_HANDLER else Attempt.REFUSED
 
     // ---------- 按 App 的通知开关 ----------
 

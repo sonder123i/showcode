@@ -26,24 +26,3 @@ sealed interface LaunchOutcome {
     /** 这张码没选过官方 App，或者包名是空的——按钮本来就不该出现在这一屏。 */
     data object NoTarget : LaunchOutcome
 }
-
-/**
- * `startActivity` 之前能查到的事实。data 层只负责取这三样，**解释留给 [launchOutcome]**：
- * 判据要能不问 Android 就被回答，否则这一格一行单测都写不出来。
- */
-data class LaunchFacts(
-    val hasPackage: Boolean,
-    val resolvable: Boolean,
-    val started: Boolean,
-)
-
-/**
- * 由事实推结局。顺序是刻意的，因为三档的文案互相不可替代：
- * 「没装」和「装了但被系统拦住」是两件事，把后者说成前者会让人去装一个已经装好的 App。
- */
-fun launchOutcome(facts: LaunchFacts): LaunchOutcome = when {
-    !facts.hasPackage -> LaunchOutcome.NoTarget
-    !facts.resolvable -> LaunchOutcome.NotInstalled
-    !facts.started -> LaunchOutcome.Blocked
-    else -> LaunchOutcome.Opened
-}

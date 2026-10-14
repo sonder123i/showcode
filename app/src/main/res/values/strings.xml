@@ -343,6 +343,9 @@
     <string name="identity_app_none">还没选官方 App</string>
     <string name="identity_app_chosen">官方 App：%1$s</string>
     <string name="identity_app_pick">从这台手机的 App 里选</string>
+    <string name="preset_taobao">淘宝</string>
+    <string name="preset_pinduoduo">拼多多</string>
+    <string name="preset_generic">官方 App</string>
     <string name="identity_app_clear">取消</string>
     <string name="identity_app_hint">选上之后，出示那一屏会多一颗「打开它」的按钮——码扫不过时的那条退路。</string>
     <string name="identity_app_picker_title">选一个 App</string>
