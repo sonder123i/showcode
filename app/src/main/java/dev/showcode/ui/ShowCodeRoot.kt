@@ -375,6 +375,9 @@ fun ShowCodeRoot() {
         lastSyncResult = appData.lastSyncResult,
         lastSyncFailed = appData.lastSyncFailed,
         unrecognizedCount = unrecognizedBadgeCount(appData.unrecognized),
+        /* 检索那句「你可能已经取过了」的依据。和下面的 recentlyPicked 不是一回事：
+           那栏只留最近 5 件、一天以内（误触补救出口），而一个月前取走的那件也值得被认出来。 */
+        pickedParcels = remember(appData.parcels) { appData.parcels.filter { it.picked } },
         recentlyPicked = remember(appData.parcels, now) {
             appData.parcels
                 .filter { it.picked && (it.pickedAt ?: 0L) > now - DAY_MS }

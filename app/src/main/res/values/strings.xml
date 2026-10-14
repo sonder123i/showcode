@@ -238,6 +238,18 @@
     <string name="detail_others_hint">知道哪个点和它是同一个地方？把它并进来，App 不会自己合。</string>
     <string name="detail_merge_into">并过来</string>
     <string name="home_manage">管理这个取件点</string>
+
+    <!-- 首页检索：搜的是「还得去拿的那些」，不是档案 -->
+    <string name="home_search">搜索</string>
+    <string name="home_search_close">收起搜索</string>
+    <string name="home_search_hint">取件码、取件点、快递公司或柜号</string>
+    <string name="home_search_clear">清空</string>
+    <string name="home_window_all">全部</string>
+    <string name="home_window_urgent">急件</string>
+    <string name="home_window_today">今天到</string>
+    <string name="home_search_miss">没有和「%1$s」对得上的待取件。已经取走的不在这儿——这一屏搜的是还得去拿的那些。</string>
+    <string name="home_search_miss_picked">没有和「%1$s」对得上的待取件，但有 %2$d 件已取走的和它对得上——多半就是你找的那串。</string>
+    <string name="home_search_miss_window">这一档里没有待取的件。</string>
     <string name="owner_mine">我的件</string>
     <string name="owner_family">帮人取</string>
     <string name="owner_field">这是谁的件？</string>

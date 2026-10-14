@@ -1,5 +1,6 @@
 package dev.showcode.ui.home
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,13 +24,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -51,7 +59,9 @@ import dev.showcode.core.HealthReport
 import dev.showcode.core.Parcel
 import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.SuspectPair
+import dev.showcode.core.SearchWindow
 import dev.showcode.core.Urgency
+import dev.showcode.core.searchParcels
 import dev.showcode.core.urgencyOf
 import dev.showcode.data.SyncResult
 import dev.showcode.ui.closingLabel
@@ -60,6 +70,7 @@ import dev.showcode.ui.pointIconOf
 import dev.showcode.ui.pointKindLabel
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentTint
 import dev.showcode.ui.theme.BorderDueSoon
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.Ink
@@ -112,6 +123,11 @@ data class HomeUiState(
     val notificationAccessGranted: Boolean,
     /** 疑似重复的一对（story-6 AC4）：只问一句，绝不自动合并。 */
     val suspect: SuspectPair? = null,
+    /**
+     * 已取走的件。检索用它回答空结果的两种：
+     * 「没有这串」和「这串你今天已经取过了」是两句完全不同的话，而前者会让人白跑一趟。
+     */
+    val pickedParcels: List<Parcel> = emptyList(),
 )
 
 /** 数据超过这个时长没同步过就算陈旧。陈旧的码比没有码更危险。 */
@@ -151,6 +167,17 @@ fun HomeScreen(
     mergeUndoName: String?,
     onUndoMerge: () -> Unit,
 ) {
+    /* 检索的三个状态留在这一屏，没有提到 Root：它是「此刻正在找东西」这种临时意图，
+       切去现场模式再回来还挂着搜索框，会让人以为屏上少掉的件被 App 藏起来了。 */
+    var searchOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var window by remember { mutableStateOf(SearchWindow.ALL) }
+
+    // 只选了窗（没打字）也算在筛；光打开搜索框但什么都不选，列表保持原样。
+    val filtering = searchOpen && (query.isNotBlank() || window != SearchWindow.ALL)
+    val result = if (searchOpen) searchParcels(state.groups, state.pickedParcels, query, window, now) else null
+    val shownGroups = result?.groups ?: state.groups
+
     /* 陈旧提示对任何一条收录通道都成立。以前它只被短信权限门住，
        于是「拒了短信、只开通知监听」这个完全合法的配置下，用户永远看不到「可能不是最新」。 */
     val isStale = state.lastSyncFailed ||
@@ -178,6 +205,21 @@ fun HomeScreen(
                     style = ShowCodeText.Headline,
                     color = Ink,
                 )
+                // 一件都没有时不给这颗按钮：那时候搜索框不是路，是一条死路。
+                if (state.groups.isNotEmpty()) {
+                    IconButton(
+                        onClick = { searchOpen = !searchOpen },
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (searchOpen) Icons.Filled.Close else Icons.Filled.Search,
+                            contentDescription = stringResource(
+                                if (searchOpen) R.string.home_search_close else R.string.home_search,
+                            ),
+                            tint = if (searchOpen) Ink else InkSecondary,
+                        )
+                    }
+                }
                 IconButton(onClick = onOpenSettings, modifier = Modifier.size(44.dp)) {
                     Icon(
                         Icons.Filled.Settings,
@@ -205,6 +247,17 @@ fun HomeScreen(
                和权限条一样住在 LazyColumn 外面：一个能被滚走的反悔入口等于没有反悔。 */
             mergeUndoName?.let { MergeUndoBar(keptName = it, onUndo = onUndoMerge) }
 
+            /* 挂在 LazyColumn 外面，和权限条同一个理由：会随列表滚走的控件等于没有。
+               搜索框尤其如此——手指还在打字，框自己往上跑出可视区，用户只会以为 App 卡了。 */
+            if (searchOpen) {
+                SearchRow(
+                    query = query,
+                    window = window,
+                    onQuery = { query = it },
+                    onWindow = { window = it },
+                )
+            }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = REFRESH_PILL_CLEARANCE),
@@ -230,7 +283,7 @@ fun HomeScreen(
                         )
                     }
                 } else {
-                    items(state.groups, key = { it.key }) { group ->
+                    items(shownGroups, key = { it.key }) { group ->
                         val hint = state.suspect
                         /* 提示插在两张卡里更紧急那张的上方：它讲的是「这两张是同一件事」，
                            放在其中任何一张上面都比放在列表尾巴上读得懂。 */
@@ -253,49 +306,77 @@ fun HomeScreen(
                             )
                         }
                     }
-                    if (state.empty == HomeEmpty.ALL_DONE) {
-                        item { AllDoneCard(monthlyPicked = state.monthlyPicked) }
+                    // 空态、补救出口、招揽横幅这些是「没人找东西时」的路；正在筛的时候它们是噪声。
+                    if (!filtering) {
+                        if (state.empty == HomeEmpty.ALL_DONE) {
+                            item { AllDoneCard(monthlyPicked = state.monthlyPicked) }
+                        }
+
+                        // 误触「已取」超过 3 秒撤销窗口之后的唯一补救出口。
+                        // 设计里点名它落在「首页 / 历史」，批 1 还没有历史页，所以落在首页。
+                        if (state.recentlyPicked.isNotEmpty()) {
+                            item { RecentlyPickedSection(parcels = state.recentlyPicked, onRestore = onRestoreParcel) }
+                        }
                     }
 
-                    // 误触「已取」超过 3 秒撤销窗口之后的唯一补救出口。
-                    // 设计里点名它落在「首页 / 历史」，批 1 还没有历史页，所以落在首页。
-                    if (state.recentlyPicked.isNotEmpty()) {
-                        item { RecentlyPickedSection(parcels = state.recentlyPicked, onRestore = onRestoreParcel) }
+                    if (filtering && shownGroups.isEmpty()) {
+                        item {
+                            val picked = result?.pickedMatches ?: 0
+                            Text(
+                                text = when {
+                                    // 「那串你可能已经取过了」只在人真的打了字时才说：
+                                    // 判据那边空白查询就不报已取，这里反过来造一句也是空话。
+                                    picked > 0 -> stringResource(R.string.home_search_miss_picked, query.trim(), picked)
+                                    query.isBlank() -> stringResource(R.string.home_search_miss_window)
+                                    else -> stringResource(R.string.home_search_miss, query.trim())
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SurfaceCard, ShowCodeShapes.Md)
+                                    .padding(16.dp),
+                                style = ShowCodeText.Meta,
+                                color = InkSecondary,
+                            )
+                        }
                     }
                 }
 
                 // 解析失败必须显性化（story-2 的 risk）：首页给入口行，完整列表在收容页。
+                // 这一行**不跟着筛选让位**——「你没搜到」不等于「没有东西没认出来」。
                 if (state.unrecognizedCount > 0) {
                     item { UnrecognizedLinkRow(count = state.unrecognizedCount, onOpen = onOpenUnrecognized) }
                 }
 
-                // story-3 AC5：收到第一个取件点后才提示反向绑定。落点在 App 内横幅而不是组件——
-                // 组件是全产品空间最紧张的表面，它必须永远保住「点名」那一行
-                // （stories.json ac_amendment 的回归教训）。
-                if (state.showWidgetHint) {
-                    item { WidgetHintBanner(onPin = onPinWidget, onDismiss = onDismissWidgetHint) }
-                }
-
-                if (!state.smsPermissionGranted) {
-                    item {
-                        EnableIngestCard(
-                            title = stringResource(R.string.home_enable_ingest),
-                            body = stringResource(R.string.home_enable_ingest_hint),
-                            onClick = onRequestSmsPermission,
-                        )
+                if (!filtering) {
+                    // story-3 AC5：收到第一个取件点后才提示反向绑定。落点在 App 内横幅而不是组件——
+                    // 组件是全产品空间最紧张的表面，它必须永远保住「点名」那一行
+                    // （stories.json ac_amendment 的回归教训）。
+                    if (state.showWidgetHint) {
+                        item { WidgetHintBanner(onPin = onPinWidget, onDismiss = onDismissWidgetHint) }
                     }
-                } else if (!state.notificationAccessGranted) {
-                    item {
-                        EnableIngestCard(
-                            title = stringResource(R.string.home_enable_notification),
-                            body = stringResource(R.string.home_enable_notification_hint),
-                            onClick = onOpenNotificationSettings,
-                        )
+
+                    if (!state.smsPermissionGranted) {
+                        item {
+                            EnableIngestCard(
+                                title = stringResource(R.string.home_enable_ingest),
+                                body = stringResource(R.string.home_enable_ingest_hint),
+                                onClick = onRequestSmsPermission,
+                            )
+                        }
+                    } else if (!state.notificationAccessGranted) {
+                        item {
+                            EnableIngestCard(
+                                title = stringResource(R.string.home_enable_notification),
+                                body = stringResource(R.string.home_enable_notification_hint),
+                                onClick = onOpenNotificationSettings,
+                            )
+                        }
                     }
                 }
 
                 // 手动导入是「拒绝短信权限也能用」的一等退路（edge s1 permission-sms-denied），
-                // 引导结束之后也必须可达，所以常驻在列表末尾。
+                // 引导结束之后也必须常驻在列表末尾，**检索时也不藏**：
+                // 手上有条码而 App 认不出来的那一刻，正是它最值钱的时候。
                 item {
                     Text(
                         text = stringResource(R.string.ob_ready_manual),
@@ -325,6 +406,69 @@ fun HomeScreen(
             )
         }
     }
+}
+
+/**
+ * 搜索那一行：一个输入框 + 三个互斥的时间窗。
+ *
+ * 窗做成一排单选而不是可叠加的开关，因为首页只有一个语义——「现在要去看哪些件」。
+ * 叠成「今天到 且 临期 且 含已取」那种组合器，是档案柜的用法，不是作战面板的。
+ */
+@Composable
+private fun SearchRow(
+    query: String,
+    window: SearchWindow,
+    onQuery: (String) -> Unit,
+    onWindow: (SearchWindow) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQuery,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text(stringResource(R.string.home_search_hint)) },
+            trailingIcon = if (query.isEmpty()) null else {
+                {
+                    IconButton(onClick = { onQuery("") }, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.home_search_clear),
+                            tint = InkMuted,
+                        )
+                    }
+                }
+            },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WindowChip(R.string.home_window_all, window == SearchWindow.ALL) { onWindow(SearchWindow.ALL) }
+            WindowChip(R.string.home_window_urgent, window == SearchWindow.URGENT) { onWindow(SearchWindow.URGENT) }
+            WindowChip(R.string.home_window_today, window == SearchWindow.TODAY) { onWindow(SearchWindow.TODAY) }
+        }
+    }
+}
+
+@Composable
+private fun WindowChip(@StringRes labelRes: Int, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text = stringResource(labelRes),
+        modifier = Modifier
+            .background(if (selected) AccentTint else SurfaceCard, ShowCodeShapes.Sm)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) Ink else Hairline,
+                shape = ShowCodeShapes.Sm,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        style = ShowCodeText.Action,
+        color = if (selected) Ink else InkMuted,
+    )
 }
 
 /**
