@@ -244,4 +244,45 @@
     <string name="detail_owner_hint">点一下切换归属；代取的件在现场模式里单独成组，不会滑进你的码里。</string>
     <string name="settings_family_label">代取件分组的名字</string>
     <string name="settings_family_label_hint">现场模式里那个分组现在叫「%1$s」。改成你家里实际的说法。</string>
+
+    <string name="settings_rules">解析规则</string>
+    <string name="settings_rules_count">%1$d 条</string>
+    <string name="settings_rules_hint">哪些短信 App 认不出来，你自己定一条。只对这台手机生效，不联网、不上传。</string>
+
+    <string name="rules_title">解析规则</string>
+    <string name="rules_hint">内置解析器认不出的写法，可以在这里补一条。规则只在内置一个都没认出来的时候才起作用，所以它不会改坏已经认对的件。最多 %1$d 条。</string>
+    <string name="rules_empty">还没有规则。哪条短信没被认出来，它就在那份「没认出来的取件短信」里，可以从那里直接写一条。</string>
+    <string name="rules_add">＋ 新写一条</string>
+    <string name="rules_on">生效中</string>
+    <string name="rules_off">已关掉</string>
+    <string name="rules_locker">柜号 %1$s</string>
+    <string name="rules_delete">删除</string>
+    <string name="rules_delete_confirm">再点一次确认删除</string>
+
+    <string name="rules_edit_title">写一条规则</string>
+    <string name="rules_edit_hint">把那条没认出来的短信原文贴进来，抄下里面的取件码，填上它到底是哪个点。正则由 App 生成，你不用会写。</string>
+    <string name="rules_field_raw">短信原文</string>
+    <string name="rules_field_code">取件码（照原文抄）</string>
+    <string name="rules_field_point">这个件在哪个点取 *</string>
+    <string name="rules_field_locker">柜号 / 货架号（可选）</string>
+    <string name="rules_field_pattern">正则（可手改）</string>
+    <string name="rules_generate">从原文生成正则</string>
+    <string name="rules_generate_failed">这段原文里码的紧邻前后没有可锚定的词，生成不了。可以在下面那格手写，或者换个措辞更稳定的点。</string>
+    <string name="rules_save">保存</string>
+    <string name="rules_saved">已保存，这条短信以后会认出来。</string>
+    <string name="rules_save_failed">没能写进本机数据库，你填的内容还在这里，可以再试一次。</string>
+
+    <string name="rules_verdict_would_add">会认出来：码 %1$s。存下去以后，这条和同一种写法都会进待取列表。</string>
+    <string name="rules_verdict_no_hit">这段原文里它一次都没命中。正则还要改，先别存。</string>
+    <string name="rules_verdict_bad_shape">命中的是「%1$s」，那不像一个取件码——多半是把锚定的词也一起抓进来了。把码本身用括号圈起来。</string>
+    <string name="rules_verdict_masked">这条短信内置解析器本来就认得（或已经认出了码），所以这条规则永远不会被问到。要治的是别的写法，换一条原文再验。</string>
+    <string name="rules_verdict_no_context">正文读起来不像取件（验证码、营销那一类），语境闸门会把它拦下，规则不会生效。</string>
+    <string name="rules_reject_empty_pattern">正则还是空的，先点「从原文生成」或自己写一条。</string>
+    <string name="rules_reject_too_long">这条正则太长了（上限 %1$d 个字符）。长到这个程度通常是在抄整条短信，不是在补一个写法。</string>
+    <string name="rules_reject_empty_point">要填这个件在哪个点取。少了这一格，规则认出的码会挂到一个猜出来的点上。</string>
+    <string name="rules_reject_point_too_long">取件点名称太长了。</string>
+    <string name="rules_reject_too_many">规则已经到上限了。先关掉或删除几条不用的再写新的——几十条规则人自己也管不动了。</string>
+    <string name="rules_reject_syntax">这条正则的写法本身有问题（括号没配对之类的）。可以先点「从原文生成」拿一条能用的再改。</string>
+
+    <string name="unrecognized_write_rule">写条规则</string>
 </resources>

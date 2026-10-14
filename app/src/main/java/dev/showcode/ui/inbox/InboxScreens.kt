@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -80,6 +82,7 @@ fun UnrecognizedScreen(
     onExtract: (UnrecognizedMessage) -> Unit,
     onDismiss: (UnrecognizedMessage) -> Unit,
     onMuteSender: (UnrecognizedMessage) -> Unit,
+    onWriteRule: (UnrecognizedMessage) -> Unit,
     onUnmuteSender: (String) -> Unit,
 ) {
     val noSender = stringResource(R.string.unrecognized_no_sender)
@@ -154,6 +157,7 @@ fun UnrecognizedScreen(
                         onExtract = { onExtract(message) },
                         onDismiss = { onDismiss(message) },
                         onMuteSender = { onMuteSender(message) },
+                        onWriteRule = { onWriteRule(message) },
                     )
                 }
                 if (food.isNotEmpty()) {
@@ -179,6 +183,7 @@ fun UnrecognizedScreen(
                                 onExtract = { onExtract(message) },
                                 onDismiss = { onDismiss(message) },
                                 onMuteSender = { onMuteSender(message) },
+                                onWriteRule = { onWriteRule(message) },
                             )
                         }
                     }
@@ -245,6 +250,7 @@ private fun SectionHeader(title: String, expanded: Boolean, onClick: () -> Unit)
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun UnrecognizedRow(
     message: UnrecognizedMessage,
@@ -253,6 +259,7 @@ private fun UnrecognizedRow(
     onExtract: () -> Unit,
     onDismiss: () -> Unit,
     onMuteSender: () -> Unit,
+    onWriteRule: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -285,10 +292,22 @@ private fun UnrecognizedRow(
             color = UrgencyDueSoon,
         )
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        // 四个动作在 320dp 宽的屏上会挤过头一个标签被裁掉，所以让它换行而不是压成一排。
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            maxItemsInEachRow = 4,
+        ) {
             Text(
                 text = stringResource(R.string.unrecognized_extract),
                 modifier = Modifier.clickable(onClick = onExtract),
+                style = ShowCodeText.Action,
+                color = Accent,
+            )
+            // 手动提取救的是这一件，写规则救的是**这一类**。两个都是能走通的路，所以同色。
+            Text(
+                text = stringResource(R.string.unrecognized_write_rule),
+                modifier = Modifier.clickable(onClick = onWriteRule),
                 style = ShowCodeText.Action,
                 color = Accent,
             )

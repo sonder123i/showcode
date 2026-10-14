@@ -46,11 +46,13 @@ import dev.showcode.ui.onsite.OnsiteScreen
 import dev.showcode.ui.onsite.TilesScreen
 import dev.showcode.ui.onboarding.OnboardStep
 import dev.showcode.ui.onboarding.OnboardingScreen
+import dev.showcode.ui.rules.RuleEditScreen
+import dev.showcode.ui.rules.RuleListScreen
 import dev.showcode.ui.settings.SettingsScreen
 import dev.showcode.widget.PickupWidgetProvider
 import dev.showcode.widget.WidgetNav
 
-private enum class Route { HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL, MERGE_PREVIEW }
+private enum class Route { HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL, MERGE_PREVIEW, RULES, RULE_EDIT }
 
 /* 合并后撤销条的驻留时长。story-6 的 user_side 写的是「五秒内屏幕下方有个已合并 · 撤销」。 */
 private const val MERGE_UNDO_MS = 5_000L
@@ -88,6 +90,10 @@ fun ShowCodeRoot() {
     var pendingMerge by remember { mutableStateOf<dev.showcode.core.MergePreview?>(null) }
     var mergeReturn by rememberSaveable { mutableStateOf(Route.HOME) }
     var unrecognizedReturn by rememberSaveable { mutableStateOf(Route.HOME) }
+    /* 规则编辑器的原文预填。从没认出来的那条短信进来时带着它的正文——
+       那一屏要治的就是眼前这一条，让用户再抄一遍原文等于没做这个入口。 */
+    var rulePrefillRaw by rememberSaveable { mutableStateOf("") }
+    var ruleReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
     /* 代取件分组的名字。写在这里而不是每次现读 prefs：prefs 不是可观察的，
        用户在设置页改完必须当场反映到现场模式的那个分组标签上。 */
     var familyLabel by remember { mutableStateOf(repository.prefs.familyLabel) }
@@ -288,6 +294,12 @@ fun ShowCodeRoot() {
             }
             Route.SETTINGS -> route = Route.HOME
             Route.UNRECOGNIZED -> route = unrecognizedReturn
+            Route.RULES -> route = ruleReturn
+            // 编辑器写完只清预填，不清规则内容：正写着被返回键打断，回来还能接着写。
+            Route.RULE_EDIT -> {
+                rulePrefillRaw = ""
+                route = Route.RULES
+            }
             Route.MANUAL_IMPORT -> route = manualReturn
             Route.ONBOARDING -> {
                 val steps = OnboardStep.entries
@@ -423,6 +435,11 @@ fun ShowCodeRoot() {
             smsGranted = smsGranted,
             notificationEnabled = notificationGranted,
             unrecognizedCount = unrecognizedBadgeCount(appData.unrecognized),
+            ruleCount = appData.rules.size,
+            onOpenRules = {
+                ruleReturn = Route.SETTINGS
+                route = Route.RULES
+            },
             onOpenUnrecognized = {
                 unrecognizedReturn = Route.SETTINGS
                 route = Route.UNRECOGNIZED
@@ -455,6 +472,32 @@ fun ShowCodeRoot() {
             onDismiss = { message -> repository.dismissUnrecognized(message.id) },
             onMuteSender = { message -> repository.muteSender(message.sender) },
             onUnmuteSender = { key -> repository.unmuteSender(key) },
+            onWriteRule = { message ->
+                rulePrefillRaw = message.body
+                ruleReturn = Route.UNRECOGNIZED
+                route = Route.RULE_EDIT
+            },
+        )
+
+        Route.RULES -> RuleListScreen(
+            rules = appData.rules,
+            onBack = { route = ruleReturn },
+            onAdd = {
+                rulePrefillRaw = ""
+                route = Route.RULE_EDIT
+            },
+            onToggle = { id, enabled -> repository.setRuleEnabled(id, enabled) },
+            onDelete = { id -> repository.deleteParseRule(id) },
+        )
+
+        Route.RULE_EDIT -> RuleEditScreen(
+            prefillRaw = rulePrefillRaw,
+            now = now,
+            onBack = { route = Route.RULES },
+            onCheck = { pattern, pointName, sample ->
+                repository.checkRule(pattern, pointName, sample, appData.rules.size)
+            },
+            onSave = { pattern, pointName, lockerNo -> repository.addParseRule(pattern, pointName, lockerNo) },
         )
 
         Route.MANUAL_IMPORT -> ManualImportScreen(

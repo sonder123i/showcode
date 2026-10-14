@@ -119,6 +119,13 @@ object PickupCodeParser {
         }
     }
 
+    /**
+     * 内置有没有从这段正文里抽出过码。抽出过（哪怕随后送去确认、哪怕整条被进门判据拒掉），
+     * 用户规则就不会再被问到——[ParseRules.check] 要靠这一格回答「这条规则永不生效」，
+     * 而它必须问同一个解析器，不能自己再实现一遍抽码。
+     */
+    internal fun builtInFoundCode(body: String): Boolean = extractCodes(body).isNotEmpty()
+
     private fun parsed(
         message: IncomingMessage,
         body: String,

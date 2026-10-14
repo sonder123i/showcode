@@ -89,6 +89,24 @@ object ParseRules {
     }
 
     /**
+     * 这条规则**真的会生效吗**。保存前那一眼预览要的判据。
+     *
+     * 规则最坏的失效不是报错，是看起来在工作、其实永远命中不了——那样一条规则留在列表里，
+     * 用户会以为那条短信已经治好了。所以这里把失效分开回答，而不是只给一个「保存成功」：
+     * 「内置已经认得出所以这条永不生效」和「正则写错了」在用户看来是同一件事，
+     * 但只有前者需要他删掉规则，后者需要他改。
+     */
+    fun check(pattern: String, pointName: String, sample: IncomingMessage, existingCount: Int = 0): RuleCheck {
+        validate(pattern, pointName, existingCount)?.let { return RuleCheck.Invalid(it) }
+        val matched = matchCode(pattern, sample.body) ?: return RuleCheck.NoHit
+        if (!isCodeShape(matched)) return RuleCheck.NotCodeShape(matched)
+        // 内置只要从正文里抽出过码（哪怕随后送去确认），规则这一支就走不到，见 parse 的判断顺序。
+        if (PickupCodeParser.builtInFoundCode(sample.body)) return RuleCheck.MaskedByBuiltIn
+        if (!MessageGate.admitsRuleHit(sample.body)) return RuleCheck.NoPickupContext
+        return RuleCheck.WouldAdd(matched)
+    }
+
+    /**
      * 这条正则在这段文本上命中了什么串。有捕获组取第 1 组，没有就取整段命中。
      *
      * 这里**不做形状判断**：命中什么就是什么，能不能当一个件由 [apply] 决定。
@@ -221,4 +239,28 @@ object RuleReject {
     const val POINT_NAME_TOO_LONG = "point_name_too_long"
     const val TOO_MANY_RULES = "too_many_rules"
     const val BAD_SYNTAX = "bad_syntax"
+}
+
+/**
+ * [ParseRules.check] 的结论。每一档对应一种**不同的修法**，所以不能压成一个布尔：
+ * 「正则命中不了」要改正则，「内置已经认得出」要删掉这条规则，「保存成功」两个字区分不了这两件事。
+ */
+sealed interface RuleCheck {
+    /** 会补出一个件，[code] 是它认出的那个码。 */
+    data class WouldAdd(val code: String) : RuleCheck
+
+    /** 录入就过不去，[reject] 是 [RuleReject] 里那把键。 */
+    data class Invalid(val reject: String) : RuleCheck
+
+    /** 语法没问题，但这段样本原文里它一次都没命中。 */
+    data object NoHit : RuleCheck
+
+    /** 命中了，可命中的串不是个码（多半是漏了捕获组，把锚定词一起抓进来了）。 */
+    data class NotCodeShape(val matched: String) : RuleCheck
+
+    /** 内置本来就认得出这条，所以这条规则永远不会被问到——该删的不是该改的。 */
+    data object MaskedByBuiltIn : RuleCheck
+
+    /** 正文读起来不像取件（验证码、营销那一类），语境闸门把它拦下了。 */
+    data object NoPickupContext : RuleCheck
 }

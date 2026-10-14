@@ -33,6 +33,7 @@ import dev.showcode.core.parse.MessageDomain
 import dev.showcode.core.parse.ParseOutcome
 import dev.showcode.core.parse.ParseRule
 import dev.showcode.core.parse.ParseRules
+import dev.showcode.core.parse.RuleCheck
 import dev.showcode.core.parse.PickupCodeParser
 import dev.showcode.core.parse.ParsedParcel
 import dev.showcode.core.planIngest
@@ -461,35 +462,42 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     private fun enabledRules(): List<ParseRule> = db.allRules().filter { it.enabled }
 
     /**
-     * 录入前的校验。返回 null 表示可用，否则是 [RuleReject] 里那把键（UI 负责翻成人话）。
-     * [addParseRule] 会再验一遍——写路径不信任调用方。
-     */
-    fun validateRule(pattern: String, pointName: String): String? =
-        ParseRules.validate(pattern, pointName, db.allRules().size)
-
-    /**
-     * 用一段样本原文当场跑一遍完整解析，把结论原样交给 UI。
+     * 保存前那一眼预览：这条规则**真的会生效吗**。
      *
-     * 这条出口是必需的：规则**只在内置一个码都没认出来时**才补位，所以完全存在这样一种规则
-     * ——它字面上命中了那段文本，却因为内置已经抽出了码而永远不会生效。
-     * 规则最坏的失效是看起来在工作、其实永不命中，而这件事在保存之前就能验出来。
+     * 返回值刻意不是 ParseOutcome。规则只在内置一个码都没认出来时才补位，所以完全存在
+     * 这样一种规则——它字面上命中那段文本，却因为内置已经抽出过码而永不生效；
+     * 这两种情况在 ParseOutcome 里都长成一个 Parsed，而修法完全相反：一个该改，一个该删。
+     *
+     * [existingCount] 由调用方从 `AppData.rules` 带进来（core 层拿不到库）。不报它的话，
+     * 规则写到第 21 条的人按「保存」只会得到一句「没能写进本机数据库」——
+     * 而他要的不是重试，是知道该先删掉哪一条。
      */
-    fun previewRule(pattern: String, pointName: String, sample: IncomingMessage): ParseOutcome =
-        PickupCodeParser.parse(sample, listOf(ParseRule(pattern = pattern, pointName = pointName)))
+    fun checkRule(pattern: String, pointName: String, sample: IncomingMessage, existingCount: Int): RuleCheck =
+        ParseRules.check(pattern, pointName, sample, existingCount)
 
     /**
-     * 存一条规则。返回新行 id；`<= 0` 表示没写进去（和 [ShowCodeDb.insertRule] 同一条规矩）。
+     * 存一条规则。返回 false = 没写进去（校验没过，或库里撞了约束）。
+     *
+     * 做成 suspend 而不是 fire-and-forget，是为了和 [manualAdd] 同一条契约：
+     * 失败必须让调用方知道，这样这一屏能把用户已经打好的字留在原地。改一条规则要重打一遍，
+     * 比一句报错难受得多。写路径自己再校验一遍，不信任调用方。
      *
      * 落库之后必须紧接着重判库里那几条未识别——用户写规则是为了治**已经漏掉的那一条**，
      * 如果它只对以后的短信生效，这一屏就白做了一次。两段排在同一条串行 scope 上，
      * 所以重判读到的必然是刚存进去的那条规则。
      */
-    fun addParseRule(pattern: String, pointName: String, lockerNo: String?): Job = scope.launch {
-        val rejection = ParseRules.validate(pattern, pointName, db.allRules().size)
-        if (rejection != null) return@launch
-        val id = db.insertRule(pattern.trim(), pointName.trim(), lockerNo?.trim()?.takeIf { it.isNotEmpty() }, System.currentTimeMillis())
-        if (id > 0) reprocessUnrecognized()
+    suspend fun addParseRule(pattern: String, pointName: String, lockerNo: String?): Boolean {
+        if (ParseRules.validate(pattern, pointName, db.allRules().size) != null) return false
+        val id = db.insertRule(
+            pattern.trim(),
+            pointName.trim(),
+            lockerNo?.trim()?.takeIf { it.isNotEmpty() },
+            System.currentTimeMillis(),
+        )
+        if (id <= 0) return false
+        reprocessUnrecognized()
         reload()
+        return true
     }
 
     /**

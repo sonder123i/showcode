@@ -124,6 +124,68 @@ class ParseRuleTest {
         assertEquals("A12", (outcome as ParseOutcome.Parsed).parcels.single().lockerNo)
     }
 
+    // ---------- 保存前那一眼预览 ----------
+
+    private fun check(pattern: String, body: String, pointName: String = "向阳代收点") =
+        ParseRules.check(pattern, pointName, msg(body))
+
+    @Test
+    fun `预览说生效的那些真的会补出一个件`() {
+        val verdict = check("暗号(\\d{4})", oddBody)
+        assertTrue(verdict is RuleCheck.WouldAdd)
+        assertEquals("8877", (verdict as RuleCheck.WouldAdd).code)
+    }
+
+    @Test
+    fun `内置已经认得出的那条，预览要说这条规则永远问不到`() {
+        // 这一档和「正则写错了」在用户眼里是同一件事（都不生效），修法却相反：一个该删、一个该改。
+        val verdict = check("取件码\\s*([0-9\\-]+)", normalBody)
+        assertEquals(RuleCheck.MaskedByBuiltIn, verdict)
+    }
+
+    @Test
+    fun `码认得出只是点不确定的那些，规则同样用不上`() {
+        // 「取件码 7902，请到柜台领取」走的是确认那一支，规则补位发生在更早的岔路口。
+        assertEquals(RuleCheck.MaskedByBuiltIn, check("取件码\\s*(\\d{4})", "取件码 7902，请到柜台领取"))
+    }
+
+    @Test
+    fun `没有捕获组时命中整段，预览当场指出那不是个码`() {
+        // 存下去的后果是一条永不生效的规则：形状闸门会在解析时把它拒掉，而列表里看不出异样。
+        val verdict = check("暗号[0-9]{4}", oddBody)
+        assertEquals(RuleCheck.NotCodeShape("暗号8877"), verdict)
+    }
+
+    @Test
+    fun `命中不了就说命中不了`() {
+        assertEquals(RuleCheck.NoHit, check("凭暗号(\\d{6})", oddBody))
+    }
+
+    @Test
+    fun `验证码那类正文被语境闸门拦下，预览要说明是被拦不是没命中`() {
+        val verdict = check("验证码\\s*(\\d{6})", "验证码 610920，请勿泄露给他人")
+        assertEquals(RuleCheck.NoPickupContext, verdict)
+    }
+
+    @Test
+    fun `写坏的正则由预览先给出拒收理由`() {
+        assertEquals(RuleCheck.Invalid(RuleReject.EMPTY_PATTERN), check("", oddBody))
+        assertEquals(RuleCheck.Invalid(RuleReject.BAD_SYNTAX), check("([0-9+", oddBody))
+        assertEquals(
+            RuleCheck.Invalid(RuleReject.EMPTY_POINT_NAME),
+            ParseRules.check("暗号(\\d{4})", "  ", msg(oddBody)),
+        )
+    }
+
+    @Test
+    fun `预览也要报条数上限`() {
+        // 不然用户按「保存」只会得到一句「没能写进本机数据库」，而他需要的是「先删掉一条」。
+        assertEquals(
+            RuleCheck.Invalid(RuleReject.TOO_MANY_RULES),
+            ParseRules.check("暗号(\\d{4})", "向阳代收点", msg(oddBody), ParseRules.MAX_RULES),
+        )
+    }
+
     // ---------- 录入校验 ----------
 
     @Test

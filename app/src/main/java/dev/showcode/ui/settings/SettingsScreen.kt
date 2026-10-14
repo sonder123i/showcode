@@ -76,6 +76,9 @@ fun SettingsScreen(
     smsGranted: Boolean,
     notificationEnabled: Boolean,
     unrecognizedCount: Int,
+    /** 已写下的解析规则条数。0 条时入口仍然要给——不然没人知道有这条路。 */
+    ruleCount: Int,
+    onOpenRules: () -> Unit,
     /** 代取件分组的名字（story-7 AC2 要求用户能改）。 */
     familyLabel: String,
     onFamilyLabel: (String) -> Unit,
@@ -192,6 +195,39 @@ fun SettingsScreen(
                         text = unrecognizedCount.toString(),
                         style = ShowCodeText.Item,
                         color = if (unrecognizedCount > 0) UrgencyDueSoon else InkMuted,
+                    )
+                }
+            }
+
+            /* 解析规则同理，0 条也要出现：这一格是给「知道自己漏过一件、却找不到地方处理」的人的，
+               把入口藏在计数后面等于他不漏的时候永远看不见。名字旁边带一句它对谁生效——
+               完全离线这件事必须在文案里说出来，不然用户会以为规则要上传。 */
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
+                        .clickable(onClick = onOpenRules)
+                        .padding(16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.settings_rules),
+                            modifier = Modifier.weight(1f),
+                            style = ShowCodeText.Body,
+                            color = Ink,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_rules_count, ruleCount),
+                            style = ShowCodeText.Item,
+                            color = if (ruleCount > 0) Ink else InkMuted,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_rules_hint),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
                     )
                 }
             }
