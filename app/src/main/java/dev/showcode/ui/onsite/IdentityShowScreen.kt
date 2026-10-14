@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import dev.showcode.R
 import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityCodes
+import dev.showcode.core.IdentityKind
 import dev.showcode.core.LaunchOutcome
 import dev.showcode.core.qr.Qr
 import dev.showcode.ui.copyCode
@@ -73,7 +74,9 @@ fun IdentityShowScreen(
     onOpenApp: () -> Unit,
 ) {
     val context = LocalContext.current
-    val matrix = remember(code.value) { Qr.of(code.value) }
+    // 入口那一类没有码可编：它不是「画不出码」，是「本来就没有码」。两件事不能共用一句报错。
+    val isEntry = code.kind == IdentityKind.ENTRY
+    val matrix = remember(code.value, isEntry) { if (isEntry) null else Qr.of(code.value) }
     val fontScale = LocalDensity.current.fontScale
     /* 动态码默认收起来，点开才画。按码分键：上一张手动开过，换一张不该继承那个决定——
        这张屏的每一次出示都是一次独立的判断。 */
@@ -137,7 +140,17 @@ fun IdentityShowScreen(
                 .padding(20.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (collapsedStale) {
+            if (isEntry) {
+                // 入口没有码可画。这一句的全部作用是**别让人以为这里少显示了什么**，
+                // 并把注意力交给下面那颗按钮。
+                Text(
+                    text = stringResource(R.string.identity_entry_hint),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = OnsiteInk,
+                    textAlign = TextAlign.Center,
+                )
+            } else if (collapsedStale) {
                 // 会话级动态码默认不占满这一屏：它几乎一定已经作废，
                 // 而一张「看起来完整」的废码是这一屏能造成的最坏的误导。
                 // 码值本身仍然在下面那一段（人眼核对靠它，那里走的是现场模式那套字号）。
@@ -198,7 +211,7 @@ fun IdentityShowScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // 码值走现场模式那套防溢出字号，不另写一套：一维码时代的教训就是两套规则会漂移。
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            if (!isEntry) BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val viewportWidthDp = maxWidth.value
                 Text(
                     text = code.value,
@@ -214,12 +227,14 @@ fun IdentityShowScreen(
                     maxLines = 2,
                 )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.identity_copy_hint),
-                fontSize = 12.sp,
-                color = OnsiteInk.copy(alpha = 0.55f),
-            )
+            if (!isEntry) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.identity_copy_hint),
+                    fontSize = 12.sp,
+                    color = OnsiteInk.copy(alpha = 0.55f),
+                )
+            }
 
             code.note?.let { note ->
                 Spacer(Modifier.height(10.dp))

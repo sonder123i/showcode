@@ -18,6 +18,7 @@ import dev.showcode.core.Attempt
 import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.ExistingParcel
 import dev.showcode.core.IdentityCode
+import dev.showcode.core.IdentityKind
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.HealthReport
 import dev.showcode.core.LaunchOutcome
@@ -604,15 +605,29 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     suspend fun addIdentityCode(
         label: String,
         value: String,
+        kind: IdentityKind,
         dynamic: Boolean,
         note: String?,
         appPackage: String?,
     ): Boolean {
-        if (IdentityCodes.validate(label, value, dynamic, db.allIdentityCodes().size) != null) return false
+        if (IdentityCodes.validate(
+                label = label,
+                value = value,
+                kind = kind,
+                dynamic = dynamic,
+                appPackage = appPackage,
+                existingCount = db.allIdentityCodes().size,
+            ) != null
+        ) {
+            return false
+        }
         val id = db.insertIdentityCode(
             label = label.trim(),
+            // ENTRY 存**空串**而不是 NULL：`value` 的 NOT NULL 不能 ALTER 掉，
+            // 而重建表是老库升级里唯一会把用户数据搬丢的一类操作。「没有码」由 kind 说。
             value = value.trim(),
-            dynamic = dynamic,
+            kind = kind,
+            dynamic = dynamic && kind == IdentityKind.CODE,
             note = note?.trim()?.takeIf { it.isNotEmpty() },
             appPackage = appPackage?.trim()?.takeIf { it.isNotEmpty() },
             at = System.currentTimeMillis(),

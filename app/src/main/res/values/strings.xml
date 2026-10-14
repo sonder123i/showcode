@@ -362,6 +362,16 @@
     <string name="identity_reject_empty_value">码上的字符还没填。</string>
     <string name="identity_reject_not_encodable">这段字符画不出能扫的码，见上面那行说明。</string>
     <string name="identity_reject_too_many">已经存到上限了。这一屏是给你随身要扫的那几张用的，不是码的收藏夹。</string>
+    <string name="identity_reject_needs_package">还没选它属于哪家应用。入口这一类全靠那一步跳转，没选就等于没有这条路。</string>
+
+    <string name="identity_kind_question">要存哪一种？</string>
+    <string name="identity_kind_code">一张要扫的码</string>
+    <string name="identity_kind_entry">一个去取件的入口</string>
+    <string name="identity_kind_code_hint">把那页上显示的字符抄（或粘贴）进来，这台手机现算成二维码给你出示。只有它长期不变时才值得这么存。</string>
+    <string name="identity_kind_entry_hint">不存任何码，只留一颗按钮：点这里直接打开那家 App，在那一页现取。每隔几十秒就换一次的码请用这一种——存下来的那一份一定扫不过。</string>
+    <string name="identity_go">去取件</string>
+    <string name="identity_kind_entry_badge">入口</string>
+    <string name="identity_entry_hint">用下面的按钮打开那家 App，在里面现取一张码。</string>
 
     <string name="identity_stale_warning">这张码标着「每次都要现取」。它很可能已经变了——扫不过时别硬试，用下面那颗按钮开官方 App。</string>
     <string name="identity_stale_collapsed">这张码是每次现取的，这里存的那一份多半已经作废。用下面的按钮去官方 App 拿一张新的。</string>

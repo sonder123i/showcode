@@ -42,6 +42,7 @@ import dev.showcode.R
 import dev.showcode.core.ClipboardIntake
 import dev.showcode.core.ClipboardVerdict
 import dev.showcode.core.IdentityCode
+import dev.showcode.core.IdentityKind
 import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.IdentityReject
@@ -168,30 +169,40 @@ private fun IdentityRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // 「会变」不是一个标签，是一个警告：它意味着这张屏上那张码可能已经作废。
+            // 「会变」不是标签，是警告：它意味着这张屏上那张码可能已经作废。
+            // 入口那一类没有会作废的内容——给它标一个「固定」是假的安心。
             Text(
-                text = stringResource(if (code.dynamic) R.string.identity_dynamic else R.string.identity_static),
+                text = stringResource(
+                    when {
+                        code.kind == IdentityKind.ENTRY -> R.string.identity_kind_entry_badge
+                        code.dynamic -> R.string.identity_dynamic
+                        else -> R.string.identity_static
+                    }
+                ),
                 modifier = Modifier
                     .background(
-                        color = if (code.dynamic) UrgencyDueSoon.copy(alpha = 0.12f) else UrgencySafe.copy(alpha = 0.12f),
+                        color = if (code.dynamic) UrgencyDueSoon.copy(alpha = 0.12f) else SurfaceCard,
                         shape = ShowCodeShapes.Sm,
                     )
                     .padding(horizontal = 8.dp, vertical = 3.dp),
                 style = ShowCodeText.Micro,
-                color = if (code.dynamic) UrgencyDueSoon else UrgencySafe,
+                color = if (code.dynamic) UrgencyDueSoon else InkMuted,
             )
         }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = code.value,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onShow),
-            style = ShowCodeText.CodeSmall,
-            color = InkSecondary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // 入口那一行没有码可显示：留一个空行会让人以为它没存上。
+        if (code.kind == IdentityKind.CODE) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = code.value,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onShow),
+                style = ShowCodeText.CodeSmall,
+                color = InkSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         code.note?.let { note ->
             Spacer(Modifier.height(4.dp))
             Text(text = note, style = ShowCodeText.Caption, color = InkMuted)
@@ -199,17 +210,23 @@ private fun IdentityRow(
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(
-                text = stringResource(R.string.identity_show),
+                text = stringResource(
+                    if (code.kind == IdentityKind.CODE) R.string.identity_show else R.string.identity_go
+                ),
                 modifier = Modifier.clickable(onClick = onShow),
                 style = ShowCodeText.Action,
                 color = Accent,
             )
-            Text(
-                text = stringResource(if (code.dynamic) R.string.identity_mark_static else R.string.identity_mark_dynamic),
-                modifier = Modifier.clickable(onClick = onToggleDynamic),
-                style = ShowCodeText.Action,
-                color = InkMuted,
-            )
+            // 「会不会变」是码的属性，不是入口的属性。给入口这一颗，点下去就是把
+            // dynamic 写成 1，而那张屏上没有码可作废——提醒会变成一句没来由的谎。
+            if (code.kind == IdentityKind.CODE) {
+                Text(
+                    text = stringResource(if (code.dynamic) R.string.identity_mark_static else R.string.identity_mark_dynamic),
+                    modifier = Modifier.clickable(onClick = onToggleDynamic),
+                    style = ShowCodeText.Action,
+                    color = InkMuted,
+                )
+            }
             Text(
                 text = stringResource(if (confirming) R.string.identity_delete_confirm else R.string.identity_delete),
                 modifier = Modifier
@@ -234,11 +251,12 @@ fun IdentityEditScreen(
     existingCount: Int,
     apps: List<InstalledApp>,
     onBack: () -> Unit,
-    onSave: suspend (label: String, value: String, dynamic: Boolean, note: String?, appPackage: String?) -> Boolean,
+    onSave: suspend (label: String, value: String, kind: IdentityKind, dynamic: Boolean, note: String?, appPackage: String?) -> Boolean,
 ) {
     var label by rememberSaveable { mutableStateOf("") }
     var value by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
+    var kind by rememberSaveable { mutableStateOf(IdentityKind.CODE) }
     var dynamic by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var app by rememberSaveable { mutableStateOf<InstalledApp?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
@@ -249,8 +267,15 @@ fun IdentityEditScreen(
     val scope = rememberCoroutineScope()
 
     // 判据和写路径同一个（真的编一遍码），实时算，所以「现在还不能存」的原因在保存之前就看得见。
-    val reject = remember(label, value, dynamic, existingCount) {
-        IdentityCodes.validate(label, value, dynamic, existingCount)
+    val reject = remember(label, value, kind, dynamic, app, existingCount) {
+        IdentityCodes.validate(
+            label = label,
+            value = value,
+            kind = kind,
+            dynamic = dynamic,
+            appPackage = app?.packageName,
+            existingCount = existingCount,
+        )
     }
     val matrix = remember(value) { Qr.of(value.trim()) }
 
@@ -289,38 +314,74 @@ fun IdentityEditScreen(
                     singleLine = true,
                 )
             }
+            /* 先问存什么。这一格放在名称之后、其它一切之前，因为它决定后面那几格存不存在：
+               竞品那一格本来就只有跳转（「只是跳转。身份码是动态刷新的」），
+               而我们过去只能存一张码、跳转当附属——主次是反的。 */
             item {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.identity_field_value)) },
-                    minLines = 2,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                )
+                Column {
+                    Text(
+                        text = stringResource(R.string.identity_kind_question),
+                        style = ShowCodeText.Action,
+                        color = InkMuted,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Choice(
+                            label = stringResource(R.string.identity_kind_code),
+                            selected = kind == IdentityKind.CODE,
+                            onSelect = { kind = IdentityKind.CODE },
+                        )
+                        Choice(
+                            label = stringResource(R.string.identity_kind_entry),
+                            selected = kind == IdentityKind.ENTRY,
+                            onSelect = { kind = IdentityKind.ENTRY },
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(
+                            if (kind == IdentityKind.CODE) R.string.identity_kind_code_hint
+                            else R.string.identity_kind_entry_hint
+                        ),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                }
             }
-            item {
-                /* 粘贴优先于打字：身份码来自别的 App 的页面或截图，手打错一位，
-                   得到的是一张**合法、能扫、扫出来是错内容**的码——这种错当场看不出来，
-                   要等到柜机前才发现。所以这一格默认要有一条不用打字的入口。
-                   判据复用 F3 那一条 explicitPaste（按下就是表达意图，只拒空），
-                   而不是在这里再写一套「像不像一条码」的猜测。 */
-                Text(
-                    text = stringResource(R.string.identity_paste),
-                    modifier = Modifier
-                        .clickable {
-                            when (val verdict = ClipboardIntake.explicitPaste(readText(context))) {
-                                is ClipboardVerdict.Fill -> value = verdict.text
-                                is ClipboardVerdict.Skip ->
-                                    notice = context.getString(R.string.identity_paste_empty)
+            if (kind == IdentityKind.CODE) {
+                item {
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { value = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.identity_field_value)) },
+                        minLines = 2,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    )
+                }
+                item {
+                    /* 粘贴优先于打字：身份码来自别的 App 的页面或截图，手打错一位，
+                       得到的是一张**合法、能扫、扫出来是错内容**的码——这种错当场看不出来，
+                       要等到柜机前才发现。所以这一格默认要有一条不用打字的入口。
+                       判据复用 F3 那一条 explicitPaste（按下就是表达意图，只拒空），
+                       而不是在这里再写一套「像不像一条码」的猜测。 */
+                    Text(
+                        text = stringResource(R.string.identity_paste),
+                        modifier = Modifier
+                            .clickable {
+                                when (val verdict = ClipboardIntake.explicitPaste(readText(context))) {
+                                    is ClipboardVerdict.Fill -> value = verdict.text
+                                    is ClipboardVerdict.Skip ->
+                                        notice = context.getString(R.string.identity_paste_empty)
+                                }
                             }
-                        }
-                        .padding(vertical = 6.dp),
-                    style = ShowCodeText.Action,
-                    color = Accent,
-                )
+                            .padding(vertical = 6.dp),
+                        style = ShowCodeText.Action,
+                        color = Accent,
+                    )
+                }
             }
-            if (value.isNotBlank()) {
+            if (kind == IdentityKind.CODE && value.isNotBlank()) {
                 // 码值一进来就先把「能不能画成码」说清楚，因为那是这一屏唯一的失效方式。
                 // 报版本不报字符数：能塞进 15 版的长度取决于内容是数字还是汉字，说数字是误导。
                 item {
@@ -333,32 +394,34 @@ fun IdentityEditScreen(
                     )
                 }
             }
-            item {
-                Column {
-                    Text(
-                        text = stringResource(R.string.identity_dynamic_question),
-                        style = ShowCodeText.Action,
-                        color = InkMuted,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Choice(
-                            label = stringResource(R.string.identity_dynamic_no),
-                            selected = dynamic == false,
-                            onSelect = { dynamic = false },
+            if (kind == IdentityKind.CODE) {
+                item {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.identity_dynamic_question),
+                            style = ShowCodeText.Action,
+                            color = InkMuted,
                         )
-                        Choice(
-                            label = stringResource(R.string.identity_dynamic_yes),
-                            selected = dynamic == true,
-                            onSelect = { dynamic = true },
+                        Spacer(Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Choice(
+                                label = stringResource(R.string.identity_dynamic_no),
+                                selected = dynamic == false,
+                                onSelect = { dynamic = false },
+                            )
+                            Choice(
+                                label = stringResource(R.string.identity_dynamic_yes),
+                                selected = dynamic == true,
+                                onSelect = { dynamic = true },
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.identity_dynamic_question_hint),
+                            style = ShowCodeText.Caption,
+                            color = InkMuted,
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.identity_dynamic_question_hint),
-                        style = ShowCodeText.Caption,
-                        color = InkMuted,
-                    )
                 }
             }
             item {
@@ -461,7 +524,7 @@ fun IdentityEditScreen(
                         .border(1.dp, if (canSave) Ink else Hairline, ShowCodeShapes.Md)
                         .clickable(enabled = canSave) {
                             scope.launch {
-                                val stored = onSave(label, value, dynamic == true, note, app?.packageName)
+                                val stored = onSave(label, value, kind, dynamic == true, note, app?.packageName)
                                 // 以落库的返回为准：失败时字要留在屏上。
                                 if (stored) savedFlag = true
                             }
@@ -595,6 +658,7 @@ private fun presetLabel(packageName: String): Int = when (packageName) {
 
 private fun rejectText(reject: String): Int = when (reject) {
     IdentityReject.NEEDS_DYNAMIC -> R.string.identity_reject_needs_dynamic
+    IdentityReject.NEEDS_PACKAGE -> R.string.identity_reject_needs_package
     IdentityReject.EMPTY_LABEL -> R.string.identity_reject_empty_label
     IdentityReject.LABEL_TOO_LONG -> R.string.identity_reject_label_long
     IdentityReject.EMPTY_VALUE -> R.string.identity_reject_empty_value

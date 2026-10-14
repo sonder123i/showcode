@@ -27,6 +27,7 @@ import dev.showcode.app
 import dev.showcode.core.DAY_MS
 import dev.showcode.core.HealthIssue
 import dev.showcode.core.IdentityCode
+import dev.showcode.core.IdentityKind
 import dev.showcode.core.Owner
 import dev.showcode.core.PointAlias
 import dev.showcode.core.PickupPointGroup
@@ -583,8 +584,8 @@ fun ShowCodeRoot() {
             existingCount = appData.identityCodes.size,
             apps = installedApps,
             onBack = { route = Route.IDENTITY_LIST },
-            onSave = { label, value, dynamic, note, appPackage ->
-                repository.addIdentityCode(label, value, dynamic, note, appPackage)
+            onSave = { label, value, kind, dynamic, note, appPackage ->
+                repository.addIdentityCode(label, value, kind, dynamic, note, appPackage)
             },
         )
 

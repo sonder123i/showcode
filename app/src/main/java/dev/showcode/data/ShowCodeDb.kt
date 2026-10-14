@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import dev.showcode.core.ExistingParcel
 import dev.showcode.core.IdentityCode
+import dev.showcode.core.IdentityKind
 import dev.showcode.core.NotifyApp
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
@@ -147,6 +148,7 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               label TEXT NOT NULL,
               value TEXT NOT NULL,
+              kind TEXT NOT NULL DEFAULT 'CODE',
               dynamic INTEGER NOT NULL DEFAULT 0,
               note TEXT,
               app_pkg TEXT,
@@ -236,6 +238,15 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
                 )
                 """.trimIndent()
             )
+        }
+        if (oldVersion < 7) {
+            // v6 → v7：身份码那一栏多一种「入口」（只跳转、不存码）。
+            //
+            // ⚠️ 为什么是加列而不是把 `value` 的 NOT NULL 去掉：**SQLite 不能 ALTER 掉列约束**。
+            // 走正路只能「建新表 + INSERT SELECT + 删旧表 + 重建索引」，那是老库升级里唯一
+            // 能把用户数据搬丢的一类操作。`kind` 带默认值，ENTRY 存空串——
+            // 「这一行没有码」由 kind 说，不由约束说。
+            addColumnIfMissing(db, "identity_code", "kind", "TEXT NOT NULL DEFAULT 'CODE'")
         }
     }
 
@@ -577,7 +588,7 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     fun allIdentityCodes(): List<IdentityCode> = readableDatabase
         .rawQuery(
-            "SELECT id, label, value, dynamic, note, app_pkg, created_at FROM identity_code" +
+            "SELECT id, label, value, dynamic, note, app_pkg, created_at, kind FROM identity_code" +
                 " ORDER BY created_at DESC",
             null,
         )
@@ -593,6 +604,9 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
                             note = if (c.isNull(4)) null else c.getString(4),
                             appPackage = if (c.isNull(5)) null else c.getString(5),
                             createdAt = c.getLong(6),
+                            // 库里出现没见过的 kind 时退成 CODE：那一行的码值还在，
+                            // 按 CODE 出示顶多多问一句，按 ENTRY 出示会把码藏起来。
+                            kind = enumOrDefault(c.getString(7), IdentityKind.CODE),
                         ),
                     )
                 }
@@ -603,6 +617,7 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun insertIdentityCode(
         label: String,
         value: String,
+        kind: IdentityKind,
         dynamic: Boolean,
         note: String?,
         appPackage: String?,
@@ -613,6 +628,7 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         ContentValues().apply {
             put("label", label)
             put("value", value)
+            put("kind", kind.name)
             put("dynamic", if (dynamic) 1 else 0)
             put("note", note)
             put("app_pkg", appPackage)
@@ -785,6 +801,6 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     private companion object {
         const val NAME = "showcode.db"
-        const val VERSION = 6
+        const val VERSION = 7
     }
 }

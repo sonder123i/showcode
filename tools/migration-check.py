@@ -9,7 +9,8 @@
 
 1. **加了表有没有忘了写迁移。** 只改 `onCreate` 的话新装机器一切正常，
    老机器升级后缺表、第一次读它才炸——这种错在开发机上永远看不见。
-2. **同一张表的两份 DDL 是不是逐字一样**（`onCreate` 一份、迁移里一份）。
+2. **一路升级出来的库，和新装的库，每张表的列是否一模一样**（v7 之后不能再用「两份 DDL 逐字比对」：
+   新列在新装时写在 CREATE 里、在升级时靠一条 ALTER 补，两份文本本来就该不同）。
 3. **迁移链在真 SQLite 上跑不跑得通**，以及 DAO 里每一条读语句打在这张升过级的库上
    是不是还认得那些列名。
 
@@ -82,10 +83,6 @@ def main():
             continue
         check("%s 在迁移里有对应建表语句" % name, name in migrated)
 
-    print("== 同一张表的两份 DDL 不许漂 ==")
-    for name in sorted(set(created) & set(migrated)):
-        check("%s 两份逐字一致" % name, created[name] == migrated[name])
-
     print("== 版本梯子必须覆盖 2..VERSION ==")
     ladder = sorted({int(n) for n in LADDER.findall(upgrade_zone)})
     check("分档 = %s，VERSION = %d" % (ladder, version),
@@ -99,8 +96,20 @@ def main():
         db.execute("CREATE TABLE %s (%s)" % (name, body))
     for ddl in re.findall(r'"(CREATE (?:UNIQUE )?INDEX [^"]+)"', create_zone):
         db.execute(ddl.replace("IF NOT EXISTS ", ""))
-    for name, body in migrated.items():
-        db.execute("CREATE TABLE IF NOT EXISTS %s (%s)" % (name, body))
+    def migrate():
+        for name, body in migrated.items():
+            db.execute("CREATE TABLE IF NOT EXISTS %s (%s)" % (name, body))
+        # v7 那一档不是建表，是给 identity_code **加一列**（走 Kotlin 侧的 addColumnIfMissing）。
+        # 探针必须连它一起跑：不然「DAO 每条读都认得升过级的库」会因为探针没跟上而红，
+        # 而那种红报的是检查器自己，不是产品——一个会乱报的检查器等于没有检查器。
+        for table, column, ddl in re.findall(
+            r'addColumnIfMissing\(db, "(\w+)", "(\w+)", "([^"]+)"\)', text
+        ):
+            have = [r[1] for r in db.execute("PRAGMA table_info(%s)" % table)]
+            if column not in have:
+                db.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, ddl))
+
+    migrate()
     db.commit()
     check("v1 形状起手，一路建到 v%d 没报错" % version, True)
 
@@ -118,8 +127,7 @@ def main():
     snapshot = db.execute("SELECT * FROM parcel ORDER BY id").fetchall()
     for name in baseline:
         before = db.execute("SELECT COUNT(*) FROM %s" % name).fetchone()[0]
-        for n2, b2 in migrated.items():
-            db.execute("CREATE TABLE IF NOT EXISTS %s (%s)" % (n2, b2))
+        migrate()  # 整段重跑一遍：建表带 IF NOT EXISTS，加列靠先查 PRAGMA——两样都必须幂等
         db.commit()
         check("%s 的行数没被重跑迁移改动" % name,
               db.execute("SELECT COUNT(*) FROM %s" % name).fetchone()[0] == before)
@@ -163,6 +171,34 @@ def main():
         check("下一条通知到达，disabled 仍是 1（配置不是缓存）", row[0] == 1, row)
         check("forwards_family 取 MAX，不被后来的 false 冲掉", row[1] == 1, row)
         check("seen_count 只涨到 2", row[2] == 2, row)
+
+    print("== 升级出来的库必须和新装的库长成同一个样子 ==")
+    # 这条替代了原来的「两份 DDL 逐字一致」。逐字比对在 v7 之后必然假红：
+    # `identity_code.kind` 在新装时写在 CREATE 里、在升级时靠一条 ALTER 补，
+    # 两份文本本来就该不一样。真正要守的是**最终形状**——它同样抓得住那一类错：
+    # 谁在建表语句里加了列却忘了配 ALTER，升级库就少一列，这里立刻红。
+    fresh = sqlite3.connect(":memory:")
+    for name, body in created.items():
+        fresh.execute("CREATE TABLE %s (%s)" % (name, body))
+    for ddl in re.findall(r'"(CREATE (?:UNIQUE )?INDEX [^"]+)"', create_zone):
+        fresh.execute(ddl.replace("IF NOT EXISTS ", ""))
+    fresh.commit()
+
+    def shape(connection):
+        tables = [t for (t,) in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        )]
+        return {
+            t: sorted((row[1], row[2].upper()) for row in connection.execute("PRAGMA table_info(%s)" % t))
+            for t in tables
+        }
+
+    upgraded, installed = shape(db), shape(fresh)
+    check("表集合一致", sorted(upgraded) == sorted(installed),
+          "%s vs %s" % (sorted(upgraded), sorted(installed)))
+    for table in sorted(set(upgraded) & set(installed)):
+        check("%s 的列一致" % table, upgraded[table] == installed[table],
+              "升级库 %s / 新装库 %s" % ([c[0] for c in upgraded[table]], [c[0] for c in installed[table]]))
 
     print()
     if fails:

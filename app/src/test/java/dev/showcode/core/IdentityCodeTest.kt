@@ -12,8 +12,30 @@ import org.junit.Test
  */
 class IdentityCodeTest {
 
-    private fun validate(label: String, value: String, count: Int = 0, dynamic: Boolean? = false) =
-        IdentityCodes.validate(label, value, dynamic, count)
+    private fun validate(
+        label: String,
+        value: String,
+        count: Int = 0,
+        dynamic: Boolean? = false,
+        kind: IdentityKind = IdentityKind.CODE,
+        appPackage: String? = null,
+    ) = IdentityCodes.validate(label, value, kind, dynamic, appPackage, count)
+
+    private fun entry(label: String = "去淘宝取件", appPackage: String? = "com.taobao.taobao", value: String = "") =
+        IdentityCodes.validate(label, value, IdentityKind.ENTRY, null, appPackage, 0)
+
+    @Test
+    fun `入口那一类不要求码值也不问会不会变，但必须有那家应用`() {
+        assertNull(entry())
+        // 「没有码」是这一类的正常状态，不是缺字段——所以 EMPTY_VALUE 不该出现。
+        assertNull(entry(value = ""))
+        assertEquals(IdentityReject.NEEDS_PACKAGE, entry(appPackage = null))
+        assertEquals(IdentityReject.NEEDS_PACKAGE, entry(appPackage = "   "))
+        // 它没有会作废的内容，问那一格是拿判据烦人。
+        assertNull(IdentityCodes.validate("去拼多多取件", "", IdentityKind.ENTRY, null, "com.xunmeng.pinduoduo", 0))
+        // 名字这一格两类都要：那是现场认出「是哪一张」的唯一依据。
+        assertEquals(IdentityReject.EMPTY_LABEL, entry(label = "  "))
+    }
 
     @Test
     fun `一条正常的码过得去`() {
