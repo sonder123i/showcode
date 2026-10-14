@@ -29,6 +29,7 @@ import dev.showcode.core.HealthIssue
 import dev.showcode.core.Owner
 import dev.showcode.core.PointAlias
 import dev.showcode.core.PickupPointGroup
+import dev.showcode.core.bodyFingerprint
 import dev.showcode.core.groupByPoint
 import dev.showcode.core.mergePreview
 import dev.showcode.core.suspectDuplicates
@@ -347,6 +348,15 @@ fun ShowCodeRoot() {
         repository.healthReport(now)
     }
 
+    /* 剪贴板自动填的「这条你已经导过了」判据。两批都要：
+       只取待取件的 raw 的话，用户从收容页那条复制原文回来会被再填一次——
+       而那个列表存在的理由恰恰是「这条还没处理完」，不是「这条不存在」。
+       remember 是必需的：指纹是 sha256，几十条正文每次重组重算一遍没有理由。 */
+    val knownBodies = remember(appData.parcels, appData.unrecognized) {
+        appData.parcels.mapTo(mutableSetOf()) { bodyFingerprint(it.raw) } +
+            appData.unrecognized.map { bodyFingerprint(it.body) }
+    }
+
     val homeState = HomeUiState(
         loaded = appData.loaded,
         groups = realGroups,
@@ -578,6 +588,7 @@ fun ShowCodeRoot() {
 
         Route.MANUAL_IMPORT -> ManualImportScreen(
             prefillRaw = manualPrefill,
+            knownBodies = knownBodies,
             onBack = { route = manualReturn },
             onSave = { code, name, locker, raw, owner ->
                 val stored = repository.manualAdd(code, name, locker, raw, owner, resolvesUnrecognizedOf = manualSourceBody)

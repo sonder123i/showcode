@@ -31,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.showcode.R
+import dev.showcode.core.ClipboardIntake
+import dev.showcode.core.ClipboardVerdict
 import dev.showcode.core.Owner
 import dev.showcode.core.Source
 import dev.showcode.core.parse.IncomingMessage
@@ -52,6 +55,7 @@ import dev.showcode.core.parse.ParseOutcome
 import dev.showcode.core.parse.PickupCodeParser
 import dev.showcode.core.parse.UnrecognizedReason
 import dev.showcode.data.UnrecognizedMessage
+import dev.showcode.ui.readText
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.theme.Accent
 import dev.showcode.ui.theme.AccentTint
@@ -344,6 +348,8 @@ private fun unrecognizedReasonText(reason: UnrecognizedReason): String = stringR
 @Composable
 fun ManualImportScreen(
     prefillRaw: String,
+    /** 库里已经见过的正文（待取件的原文 + 还没处理的未识别正文）。自动填靠它决定「这条你已经导过了」。 */
+    knownBodies: Set<String>,
     onBack: () -> Unit,
     onSave: suspend (code: String, pointName: String, lockerNo: String?, raw: String, owner: Owner) -> Boolean,
 ) {
@@ -356,6 +362,15 @@ fun ManualImportScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    /* 进屏自动填一次。判据里「草稿非空就不动」那一档正好也接住了从收容页带着原文进来的场合
+       （那时 raw 已经是那条正文），所以这里不需要再补一个 `if (prefillRaw.isEmpty())`——
+       补了反而是两道判据叠一处，将来改哪一边都不安全。
+       自动这一条**不许出声**：填上了，文本自己会出现在框里；没填上，就什么都不说。 */
+    LaunchedEffect(Unit) {
+        val verdict = ClipboardIntake.autoPrefill(readText(context), draft = raw, knownBodies = knownBodies)
+        if (verdict is ClipboardVerdict.Fill) raw = verdict.text
+    }
 
     Column(
         modifier = Modifier
@@ -377,6 +392,25 @@ fun ManualImportScreen(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.manual_import_raw)) },
                     minLines = 3,
+                )
+            }
+            item {
+                // 显式粘贴：和进屏那一次自动填走的是**不同判据**（这条只拒空），
+                // 也走不同的反馈——这一条读不到必须说，那一条读不到必须安静。
+                Text(
+                    text = stringResource(R.string.manual_import_paste),
+                    modifier = Modifier.clickable {
+                        when (val verdict = ClipboardIntake.explicitPaste(readText(context))) {
+                            is ClipboardVerdict.Fill -> {
+                                raw = verdict.text
+                                error = null
+                            }
+                            is ClipboardVerdict.Skip ->
+                                error = context.getString(R.string.manual_import_paste_empty)
+                        }
+                    },
+                    style = ShowCodeText.Item,
+                    color = Accent,
                 )
             }
             item {

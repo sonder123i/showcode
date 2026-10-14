@@ -155,6 +155,8 @@
     <!-- 手动导入：拒绝短信权限后的一等公民退路 -->
     <string name="manual_import_title">手动导入</string>
     <string name="manual_import_raw">短信 / 通知原文</string>
+    <string name="manual_import_paste">粘贴剪贴板</string>
+    <string name="manual_import_paste_empty">剪贴板里现在没有文本。可以先去长按那条短信复制，再回来点这一下。</string>
     <string name="manual_import_auto">从原文自动提取</string>
     <string name="manual_import_auto_failed">原文里没认出来，请手动填下面两项</string>
     <string name="manual_import_extra">这条里还有 %1$d 个码，点一下填进取件码，存完再点下一个</string>
