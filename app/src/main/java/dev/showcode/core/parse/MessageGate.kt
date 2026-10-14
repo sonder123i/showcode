@@ -45,4 +45,14 @@ object MessageGate {
     /** 正文本身是不是在喊人去取件——不含任何码也算，那是「该给个原因」而不是「该丢掉」。 */
     fun looksLikePickup(body: String): Boolean =
         !NOT_PICKUP.containsMatchIn(body) && PICKUP_CONTEXT.containsMatchIn(body)
+
+    /**
+     * 用户自己写的规则命中之后，这条消息允不允许成卡。
+     *
+     * 这里**不看负向锚**：规则本身就是用户为某个写法写死的锚定词，比内置词表更强。
+     * 但语境仍然要看，而且不能松——写「(\d{6})」这种宽规则的人，会直接把验证码短信
+     * 收成一张标着「楼下驿站」的假卡。误收一张的代价远大于漏收一条：
+     * 用户是站在柜机前发现假的。
+     */
+    fun admitsRuleHit(body: String): Boolean = PICKUP_CONTEXT.containsMatchIn(body)
 }

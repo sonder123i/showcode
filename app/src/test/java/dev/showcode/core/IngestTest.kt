@@ -157,6 +157,9 @@ class IngestTest {
         val plan = planIngest(message = msg(), outcome = rejected, fingerprint = "fp")
         assertTrue(plan.unrecognized is UnrecognizedAction.Insert)
         assertEquals(UnrecognizedReason.NO_CODE_FOUND, (plan.unrecognized as UnrecognizedAction.Insert).reason)
+        // ⚠️ 未识别**不记账**。记了账，下一次刷新会在解析之前就被 ALREADY_SEEN 整条跳过，
+        // 于是用户后来补的那条解析规则永远看不到这条消息——失败列表成了一条死路。
+        assertFalse(plan.worthLedgering)
     }
 
     @Test

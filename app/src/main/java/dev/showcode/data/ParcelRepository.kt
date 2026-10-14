@@ -31,6 +31,8 @@ import dev.showcode.core.muteKey
 import dev.showcode.core.parse.IncomingMessage
 import dev.showcode.core.parse.MessageDomain
 import dev.showcode.core.parse.ParseOutcome
+import dev.showcode.core.parse.ParseRule
+import dev.showcode.core.parse.ParseRules
 import dev.showcode.core.parse.PickupCodeParser
 import dev.showcode.core.parse.ParsedParcel
 import dev.showcode.core.planIngest
@@ -62,6 +64,8 @@ data class AppData(
     val dismissals: Set<String> = emptySet(),
     /** 被「不再显示此类」收掉的发件人。设置页要能列出来，否则用户屏蔽错了没有反悔的地方。 */
     val mutedSenders: List<String> = emptyList(),
+    /** 用户自己写的解析规则。和屏蔽名单同一个理由：写进去的东西必须看得见、删得掉。 */
+    val rules: List<ParseRule> = emptyList(),
     val lastSyncAt: Long? = null,
     val syncing: Boolean = false,
     /** null = 这次启动还没刷过。 */
@@ -321,15 +325,19 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     /**
      * 处理一条消息，返回 (新增行数, 更新行数)。
      * 判断全在 [planIngest]，这里只负责取事实和执行。
+     *
+     * @param forceReplay 绕过「这条消息读过了」那道闸。**只有** [reprocessUnrecognized] 传 true：
+     *   账本存在的全部理由是不必每轮重跑，而用户刚补了一条规则时恰恰需要重跑那几条。
+     *   默认 false，所以刷新重放那条防线一个字都没动。
      */
-    private fun process(message: IncomingMessage): Pair<Int, Int> {
+    private fun process(message: IncomingMessage, forceReplay: Boolean = false): Pair<Int, Int> {
         val fingerprint = messageFingerprint(message.channel, message.sender, message.body)
-        val outcome = PickupCodeParser.parse(message)
+        val outcome = PickupCodeParser.parse(message, enabledRules())
         val plan = planIngest(
             message = message,
             outcome = outcome,
             fingerprint = fingerprint,
-            alreadySeen = db.isMessageSeen(fingerprint),
+            alreadySeen = !forceReplay && db.isMessageSeen(fingerprint),
             senderMuted = db.isSenderMuted(muteKey(message.sender)),
             existingParcels = existingFor(outcome),
             unrecognizedState = if (outcome is ParseOutcome.Rejected) {
@@ -443,6 +451,93 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         }
     }
 
+    // ---------- 解析规则 ----------
+
+    /**
+     * 当前启用中的规则。每次解析现读，不缓存快照：写规则的路径都排在这条单线程 scope 上，
+     * 缓存要么晚一步生效（用户当场看不出差别，下次才发现——那是最难复查的 bug），
+     * 要么就得在每一处写入后面手动失效。这张表最多 [ParseRules.MAX_RULES] 行，读它比省它便宜。
+     */
+    private fun enabledRules(): List<ParseRule> = db.allRules().filter { it.enabled }
+
+    /**
+     * 录入前的校验。返回 null 表示可用，否则是 [RuleReject] 里那把键（UI 负责翻成人话）。
+     * [addParseRule] 会再验一遍——写路径不信任调用方。
+     */
+    fun validateRule(pattern: String, pointName: String): String? =
+        ParseRules.validate(pattern, pointName, db.allRules().size)
+
+    /**
+     * 用一段样本原文当场跑一遍完整解析，把结论原样交给 UI。
+     *
+     * 这条出口是必需的：规则**只在内置一个码都没认出来时**才补位，所以完全存在这样一种规则
+     * ——它字面上命中了那段文本，却因为内置已经抽出了码而永远不会生效。
+     * 规则最坏的失效是看起来在工作、其实永不命中，而这件事在保存之前就能验出来。
+     */
+    fun previewRule(pattern: String, pointName: String, sample: IncomingMessage): ParseOutcome =
+        PickupCodeParser.parse(sample, listOf(ParseRule(pattern = pattern, pointName = pointName)))
+
+    /**
+     * 存一条规则。返回新行 id；`<= 0` 表示没写进去（和 [ShowCodeDb.insertRule] 同一条规矩）。
+     *
+     * 落库之后必须紧接着重判库里那几条未识别——用户写规则是为了治**已经漏掉的那一条**，
+     * 如果它只对以后的短信生效，这一屏就白做了一次。两段排在同一条串行 scope 上，
+     * 所以重判读到的必然是刚存进去的那条规则。
+     */
+    fun addParseRule(pattern: String, pointName: String, lockerNo: String?): Job = scope.launch {
+        val rejection = ParseRules.validate(pattern, pointName, db.allRules().size)
+        if (rejection != null) return@launch
+        val id = db.insertRule(pattern.trim(), pointName.trim(), lockerNo?.trim()?.takeIf { it.isNotEmpty() }, System.currentTimeMillis())
+        if (id > 0) reprocessUnrecognized()
+        reload()
+    }
+
+    /**
+     * 用当前规则表重判库里还挂着的未识别消息。返回救回来的条数。
+     *
+     * 三条刻意的取舍：
+     * 1. 走 [planIngest] 那条一模一样的路（`forceReplay = true`），而不是自己插行——
+     *    「同码同点已有未取行就更新而不是再插一条」这类判据一条都不能为了省事而绕。
+     * 2. 命中即标 **RESOLVED** 而不是删掉。删掉等于用户什么也没说过，下一次回填又会插回同一条。
+     * 3. 上界钉死在 [REPROCESS_CAP]：这一步由用户点「保存」触发，不是后台常驻，
+     *    库里攒了几百条时不该一次全跑。
+     */
+    private fun reprocessUnrecognized(): Int {
+        val rules = enabledRules()
+        if (rules.isEmpty()) return 0
+        val targets = ParseRules.reprocessTargets(db.newUnrecognizedBodies(REPROCESS_CAP), rules)
+        var saved = 0
+        for (target in targets) {
+            val tally = process(
+                IncomingMessage(
+                    sender = target.sender,
+                    body = target.body,
+                    receivedAt = target.receivedAt,
+                    channel = Source.SMS,
+                ),
+                forceReplay = true,
+            )
+            if (tally.first + tally.second > 0) saved++
+        }
+        db.resolveUnrecognizedByIds(targets.map { it.id }, System.currentTimeMillis())
+        return saved
+    }
+
+    /** 开关一条规则。关掉之后已有的那些件**不**回退——规则只负责认码，不负责撤销历史。 */
+    fun setRuleEnabled(id: Long, enabled: Boolean) {
+        scope.launch {
+            db.setRuleEnabled(id, enabled)
+            reload()
+        }
+    }
+
+    fun deleteParseRule(id: Long) {
+        scope.launch {
+            db.deleteRule(id)
+            reload()
+        }
+    }
+
     private fun stampSync() {
         db.metaPut(KEY_LAST_SYNC, System.currentTimeMillis().toString())
     }
@@ -459,6 +554,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             aliases = db.allAliases().associateBy { it.aliasKey },
             dismissals = db.allDismissals(),
             mutedSenders = muted.toList(),
+            rules = db.allRules(),
             lastSyncAt = db.metaGet(KEY_LAST_SYNC)?.toLongOrNull(),
             syncing = false,
             lastSyncResult = previous.lastSyncResult,
@@ -490,6 +586,13 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
 
         /** 待看的未识别上限。超了按时间丢最旧的——列表的意义是「现在去看」，不是档案。 */
         const val NEW_UNRECOGNIZED_CAP = 50
+
+        /**
+         * 保存一条规则时最多重判多少条未识别。
+         * 这一步由用户点「保存」触发、跑在写线程上，所以要有上界；它取未识别的全部保留量
+         * （[NEW_UNRECOGNIZED_CAP]），等于「列表里看得见的，一条都不会被漏判」。
+         */
+        const val REPROCESS_CAP = 50
     }
 }
 

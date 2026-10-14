@@ -82,25 +82,40 @@ sealed interface ParseOutcome {
 
 object PickupCodeParser {
 
-    fun parse(message: IncomingMessage): ParseOutcome {
+    fun parse(message: IncomingMessage, rules: List<ParseRule> = emptyList()): ParseOutcome {
         val body = message.body
         val hits = extractCodes(body)
         val primary = hits.firstOrNull()
-        return when {
-            primary != null && MessageGate.admitsCode(body, strong = primary.strong) -> {
-                val name = extractPointName(body)
-                if (name.confirmed) {
-                    parsed(message, body, hits, name.value)
-                } else {
-                    // 码是确定的、点是不确定的：把码一起带进未识别，用户只补那一个字段。
-                    ParseOutcome.Rejected(
-                        UnrecognizedReason.POINT_NAME_UNCONFIRMED,
-                        hits.map { it.value },
-                    )
-                }
+        // 内置判据一旦认出件（含「码认出但点不确定」），它说什么就是什么，用户规则不参与：
+        // 规则只做加法，不许覆盖、也不许把已认出的件拽回未识别。
+        if (primary != null && MessageGate.admitsCode(body, strong = primary.strong)) {
+            val name = extractPointName(body)
+            return if (name.confirmed) {
+                parsed(message, body, hits, name.value)
+            } else {
+                // 码是确定的、点是不确定的：把码一起带进未识别，用户只补那一个字段。
+                ParseOutcome.Rejected(
+                    UnrecognizedReason.POINT_NAME_UNCONFIRMED,
+                    hits.map { it.value },
+                )
             }
-            MessageGate.looksLikePickup(body) -> ParseOutcome.Rejected(reasonOf(body, message.sender))
-            else -> ParseOutcome.Ignored
+        }
+        // 内置一个码都没认出来时，才轮到用户规则补位——所以规则不可能覆盖内置已经认出的件。
+        // 规则命中也不走「点名不确定」那道保守判据：会写规则的人已经确认过是哪个点了，
+        // 这正是它唯一被允许绕过的闸门。形状判据和取件语境仍然要过，见下面两道条件。
+        val ruleParcel = if (rules.isEmpty() || hits.isNotEmpty() || !MessageGate.admitsRuleHit(body)) {
+            null
+        } else {
+            ParseRules.apply(rules, body, message.receivedAt)
+        }
+        if (ruleParcel != null) return ParseOutcome.Parsed(listOf(ruleParcel))
+        // ⚠️ 这里刻意只看正文、不看 `primary`：码抽得出但进门被拒（「验证码 610920」）
+        // 是被静默丢弃的。把它改成落未识别会让验证码短信涌进列表，而角标一旦常年有个
+        // 无意义的数字，用户就会连真的漏件一起忽略掉。
+        return if (MessageGate.looksLikePickup(body)) {
+            ParseOutcome.Rejected(reasonOf(body, message.sender))
+        } else {
+            ParseOutcome.Ignored
         }
     }
 

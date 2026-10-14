@@ -98,13 +98,18 @@ data class IngestPlan(
     val fingerprint: String,
 ) {
     /**
-     * 只给「真的动过库」的消息记账。没动过库的（Ignored / Suppressed）不记，
-     * 留给解析器以后修好了重判的机会——它们本来也不产生任何写，重放的代价只有 CPU。
+     * 只给「真的写进了 parcel 表」的消息记账。
+     *
+     * ⚠️ 未识别**不记账**，这是用户自定义解析规则的前提。记了账，下一次刷新会在解析之前
+     * 就被 [MessageSkip.ALREADY_SEEN] 整条跳过（见 [planIngest] 第一行），于是用户后来
+     * 补的那条规则永远看不到这条消息——失败列表成了一条死路。
+     * 不记账也不会重复插行：未识别自己按 `body_fp` 去重（库里已有这条正文即 Suppressed），
+     * 代价只是每次刷新多跑几趟正则。
+     *
      * 反过来，一旦某条消息被记了账，它就再也拿不到第二次机会，所以这条判据要往保守的一侧站。
      */
     val worthLedgering: Boolean
-        get() = parcels.any { it is ParcelAction.Insert || it is ParcelAction.Update } ||
-            unrecognized is UnrecognizedAction.Insert
+        get() = parcels.any { it is ParcelAction.Insert || it is ParcelAction.Update }
 }
 
 /**

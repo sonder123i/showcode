@@ -14,8 +14,11 @@ import dev.showcode.core.Source
 import dev.showcode.core.UnrecognizedState
 import dev.showcode.core.bodyFingerprint
 import dev.showcode.core.enumOrDefault
+import dev.showcode.core.parse.IncomingMessage
 import dev.showcode.core.parse.MessageDomain
 import dev.showcode.core.parse.MessageDomains
+import dev.showcode.core.parse.ParseRule
+import dev.showcode.core.parse.UnrecognizedRecord
 import dev.showcode.core.parse.UnrecognizedReason
 
 /**
@@ -117,6 +120,22 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         )
         // 用户已经否认过的疑似重复对。V2 的社区别名数据不得覆盖本地表态，所以要先查这张表。
         db.execSQL("CREATE TABLE point_dismiss (pair_key TEXT PRIMARY KEY, created_at INTEGER NOT NULL)")
+        // 用户自己写的解析规则。`pattern` 是一段由用户提供、在解析时被编译的正则，
+        // 因此它的执行位置只可能在 [dev.showcode.core.parse.ParseRules] 里那条只读路径上：
+        // 规则只做加法（内置认出件时一律不参与），且坏正则在录入时就被拒、解析时静默失效。
+        // 这里不存「命中过什么」——一条规则该不该生效由当下这次解析决定，历史记录不算判据。
+        db.execSQL(
+            """
+            CREATE TABLE parse_rule (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              pattern TEXT NOT NULL,
+              point_name TEXT NOT NULL,
+              locker_no TEXT,
+              enabled INTEGER NOT NULL DEFAULT 1,
+              created_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -137,6 +156,21 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
             db.execSQL("CREATE TABLE IF NOT EXISTS point_dismiss (pair_key TEXT PRIMARY KEY, created_at INTEGER NOT NULL)")
         }
         if (oldVersion < 3) upgradeToV3(db)
+        if (oldVersion < 4) {
+            // v3 → v4：解析规则表是纯新增，旧库里没有，补建即可。
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS parse_rule (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  pattern TEXT NOT NULL,
+                  point_name TEXT NOT NULL,
+                  locker_no TEXT,
+                  enabled INTEGER NOT NULL DEFAULT 1,
+                  created_at INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
     }
 
     /**
@@ -421,6 +455,88 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         )
     }
 
+    // ---------- 解析规则 ----------
+
+    fun allRules(): List<ParseRule> = readableDatabase
+        .rawQuery(
+            "SELECT id, pattern, point_name, locker_no, enabled, created_at FROM parse_rule" +
+                " ORDER BY created_at DESC",
+            null,
+        )
+        .use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(
+                        ParseRule(
+                            id = c.getLong(0),
+                            pattern = c.getString(1),
+                            pointName = c.getString(2),
+                            lockerNo = if (c.isNull(3)) null else c.getString(3),
+                            enabled = c.getInt(4) != 0,
+                            createdAt = c.getLong(5),
+                        )
+                    )
+                }
+            }
+        }
+
+    /** 和 [insertParcel] 同一条规矩：撞约束只返回 -1 不抛，调用方必须查返回值。 */
+    fun insertRule(pattern: String, pointName: String, lockerNo: String?, at: Long): Long =
+        writableDatabase.insert(
+            "parse_rule",
+            null,
+            ContentValues().apply {
+                put("pattern", pattern)
+                put("point_name", pointName)
+                put("locker_no", lockerNo)
+                put("enabled", 1)
+                put("created_at", at)
+            },
+        )
+
+    fun setRuleEnabled(id: Long, enabled: Boolean) {
+        writableDatabase.update(
+            "parse_rule",
+            ContentValues().apply { put("enabled", if (enabled) 1 else 0) },
+            "id = ?",
+            arrayOf(id.toString()),
+        )
+    }
+
+    fun deleteRule(id: Long) {
+        writableDatabase.delete("parse_rule", "id = ?", arrayOf(id.toString()))
+    }
+
+    /**
+     * 还挂着的未识别正文，按时间从新到旧，最多 [limit] 条。
+     *
+     * 只取重判要用的那三个字段：这一步是「用户刚写完一条规则」触发的，
+     * 不是后台常驻，所以要把上界钉死——库里攒了几百条时不该一次全跑。
+     */
+    fun newUnrecognizedBodies(limit: Int): List<UnrecognizedRecord> = readableDatabase
+        .rawQuery(
+            "SELECT id, sender, body, received_at FROM unrecognized WHERE state = 'NEW'" +
+                " ORDER BY received_at DESC LIMIT ?",
+            arrayOf(limit.toString()),
+        )
+        .use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(UnrecognizedRecord(id = c.getLong(0), sender = c.getString(1), body = c.getString(2), receivedAt = c.getLong(3)))
+                }
+            }
+        }
+
+    /** 规则救回了这条正文：表态成 RESOLVED，和手动提取同一个语义。 */
+    fun resolveUnrecognizedByIds(ids: List<Long>, at: Long) {
+        if (ids.isEmpty()) return
+        val args = ArrayList<Any?>(ids.size + 1).apply { add(at); addAll(ids) }.toTypedArray()
+        writableDatabase.execSQL(
+            "UPDATE unrecognized SET state = 'RESOLVED', decided_at = ? WHERE id IN (${ids.joinToString(",") { "?" }})",
+            args,
+        )
+    }
+
     fun metaGet(key: String): String? = readableDatabase
         .rawQuery("SELECT mvalue FROM meta WHERE mkey = ?", arrayOf(key))
         .use { if (it.moveToFirst()) it.getString(0) else null }
@@ -471,6 +587,6 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     private companion object {
         const val NAME = "showcode.db"
-        const val VERSION = 3
+        const val VERSION = 4
     }
 }
