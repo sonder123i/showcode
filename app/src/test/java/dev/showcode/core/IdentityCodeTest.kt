@@ -71,6 +71,27 @@ class IdentityCodeTest {
         assertFalse(IdentityCodes.shouldWarnStale(code(dynamic = false)))
     }
 
+    @Test
+    fun `折叠只在有退路时才允许`() {
+        // 没有选过官方 App 就把码藏起来，等于把唯一剩下的信息也拿走——那是做成死路，不是省事。
+        val withWayOut = IdentityCode(1, "会员码", "8877", dynamic = true, appPackage = "com.x.unmeng")
+        val withoutWayOut = withWayOut.copy(appPackage = null)
+        assertTrue(IdentityCodes.shouldCollapseQr(withWayOut, revealed = false))
+        assertFalse(IdentityCodes.shouldCollapseQr(withoutWayOut, revealed = false))
+        assertFalse(IdentityCodes.shouldCollapseQr(withWayOut, revealed = true))
+        // 静态码没有任何理由折叠：它不会作废。
+        assertFalse(IdentityCodes.shouldCollapseQr(withWayOut.copy(dynamic = false), revealed = false))
+    }
+
+    @Test
+    fun `亮度是抬地板，不是拉满，也不许把人调暗`() {
+        // 夜里在楼下取件时 1.0 是拿屏幕照人眼；而用户自己开到最亮的人不该被我们降下来。
+        assertEquals(IdentityCodes.BRIGHTNESS_FLOOR, IdentityCodes.liftedBrightness(null))
+        assertEquals(IdentityCodes.BRIGHTNESS_FLOOR, IdentityCodes.liftedBrightness(-1f))
+        assertEquals(IdentityCodes.BRIGHTNESS_FLOOR, IdentityCodes.liftedBrightness(0.3f))
+        assertEquals(0.95f, IdentityCodes.liftedBrightness(0.95f), 0f)
+    }
+
     private fun code(dynamic: Boolean) = IdentityCode(
         id = 1,
         label = "菜鸟驿站会员码",

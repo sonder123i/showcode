@@ -138,7 +138,7 @@ Android 的签名密钥**无法轮换**：换了钥匙的老用户只能卸载�
 ```bash
 # JDK 17
 ./gradlew :app:assembleDebug          # 调试包
-./gradlew :app:testDebugUnitTest      # 213 个单元测试
+./gradlew :app:testDebugUnitTest      # 215 个单元测试
 ```
 
 打 release 包需要一个你自己的签名密钥。**密钥和口令不要提交进仓库**，两条受支持的来源：

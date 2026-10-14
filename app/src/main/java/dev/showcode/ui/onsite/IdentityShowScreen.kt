@@ -3,6 +3,7 @@ package dev.showcode.ui.onsite
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,7 +29,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -70,6 +75,9 @@ fun IdentityShowScreen(
     val context = LocalContext.current
     val matrix = remember(code.value) { Qr.of(code.value) }
     val fontScale = LocalDensity.current.fontScale
+    /* 动态码默认收起来，点开才画。按码分键：上一张手动开过，换一张不该继承那个决定——
+       这张屏的每一次出示都是一次独立的判断。 */
+    var revealed by rememberSaveable(code.id) { mutableStateOf(false) }
 
     // 亮到最高 + 不许熄屏。柜机那个相机把屏幕当一个自发光方块测光，
     // 用户平时留在 30％ 亮度时，同一张码要重试好几次——而那好几次是站在风里过的。
@@ -101,7 +109,10 @@ fun IdentityShowScreen(
             )
         }
 
-        if (IdentityCodes.shouldWarnStale(code)) {
+        val stale = IdentityCodes.shouldWarnStale(code)
+        val collapsedStale = IdentityCodes.shouldCollapseQr(code, revealed)
+
+        if (stale && !collapsedStale) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -126,7 +137,35 @@ fun IdentityShowScreen(
                 .padding(20.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (matrix == null) {
+            if (collapsedStale) {
+                // 会话级动态码默认不占满这一屏：它几乎一定已经作废，
+                // 而一张「看起来完整」的废码是这一屏能造成的最坏的误导。
+                // 码值本身仍然在下面那一段（人眼核对靠它，那里走的是现场模式那套字号）。
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.identity_stale_collapsed),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = OnsiteInk,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(R.string.identity_reveal_qr),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .border(1.dp, OnsiteInk, RoundedCornerShape(14.dp))
+                            .clickable { revealed = true },
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = OnsiteInk,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else if (matrix == null) {
                 // 存进去时编得出来、现在编不出来，只可能是版本上限以后被调低了。
                 // 这时候**不能画一张假码**——画不出就是画不出，把那串字符留给人工输入。
                 Text(
@@ -250,7 +289,11 @@ private fun LaunchLine(text: String) {
 }
 
 /**
- * 亮到最高，离开时原样还回去。
+ * 抬亮度 + 不许熄屏，离开时原样还回去。
+ *
+ * 柜机那个相机把屏幕当一个自发光方块测光，用户平时留在 30％ 时同一张码要重试好几次。
+ * 但**不是拉到 1.0**：扫码要的是对比不是最大亮度，夜里在楼下取件时 1.0 是拿屏幕照人眼。
+ * 所以是「抬到不低于 0.7，本来就更高的不降下来」。
  *
  * 写在 DisposableEffect 而不是别的地方，是因为「离开这一屏」有三条路：
  * 返回键、Home、进程被杀。前两条都必须恢复用户自己的亮度，第三条由系统接手。
@@ -262,7 +305,7 @@ private fun KeepScreenBright() {
         val window = (view.context as? Activity)?.window
         val previous = window?.attributes?.screenBrightness
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window?.let { it.attributes = it.attributes.apply { screenBrightness = 1f } }
+        window?.let { it.attributes = it.attributes.apply { screenBrightness = IdentityCodes.liftedBrightness(previous) } }
         onDispose {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             window?.let { it.attributes = it.attributes.apply { screenBrightness = previous ?: -1f } }

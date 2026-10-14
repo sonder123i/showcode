@@ -67,6 +67,30 @@ object IdentityCodes {
      * 所以这一屏不许假装知道——它只能说「这种码会变，别的信得过这张屏」。
      */
     fun shouldWarnStale(code: IdentityCode): Boolean = code.dynamic
+
+    /**
+     * 出示那一屏**默认**画不画这张二维码。
+     *
+     * 会话级动态码画满一屏，是在给用户一张「看起来完整、其实已经作废」的码——
+     * 而这一屏的失效方式从来不是报错，是他举着这张屏扫了三次才发现白扫。
+     *
+     * ⚠️ 折叠的正当性**只来自有一条更好的退路**（选过官方 App）。没有退路还把码藏起来，
+     * 等于把唯一剩下的信息也拿走，那是替用户把这件事做成死路——所以这里必须有 `appPackage`。
+     * 他点过「还是出示这一份旧的」之后也不再折叠：那是他自己的决定，不是我们的默认。
+     */
+    fun shouldCollapseQr(code: IdentityCode, revealed: Boolean): Boolean =
+        code.dynamic && code.appPackage != null && !revealed
+
+    /**
+     * 出示那一屏的亮度。**抬到不低于 [BRIGHTNESS_FLOOR]，但用户自己调得更高的不降下来。**
+     *
+     * 不是拉满 1.0：柜机那颗摄像头要的是**对比**不是最大亮度，而夜里在楼下取件时
+     * 1.0 是拿屏幕照人眼。null（还没读过）和负值（跟随系统的 -1f）都按地板给。
+     */
+    fun liftedBrightness(previous: Float?): Float =
+        if (previous == null || previous < BRIGHTNESS_FLOOR) BRIGHTNESS_FLOOR else previous
+
+    const val BRIGHTNESS_FLOOR = 0.7f
 }
 
 /** 拒收理由。和解析规则同一套做法：稳定的键，文案在 UI 层。 */

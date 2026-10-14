@@ -359,6 +359,8 @@
     <string name="identity_reject_too_many">已经存到上限了。这一屏是给你随身要扫的那几张用的，不是码的收藏夹。</string>
 
     <string name="identity_stale_warning">这张码标着「每次都要现取」。它很可能已经变了——扫不过时别硬试，用下面那颗按钮开官方 App。</string>
+    <string name="identity_stale_collapsed">这张码是每次现取的，这里存的那一份多半已经作废。用下面的按钮去官方 App 拿一张新的。</string>
+    <string name="identity_reveal_qr">还是出示这一份旧的</string>
     <string name="identity_cannot_render">这段字符太长，现在画不出能扫的密度。字符还在下面，可以让工作人员手工输。</string>
     <string name="identity_copy_hint">点一下复制这串字符</string>
     <string name="identity_copied">已复制</string>
