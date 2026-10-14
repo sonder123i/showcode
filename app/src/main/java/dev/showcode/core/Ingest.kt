@@ -59,8 +59,14 @@ data class ExistingParcel(val id: Long, val picked: Boolean, val pickedAt: Long?
 /** 用户在这条未识别消息上的表态。 */
 enum class UnrecognizedState { NEW, DISMISSED, RESOLVED }
 
-/** 整条消息级的跳过原因。 */
-enum class MessageSkip { NONE, ALREADY_SEEN, MUTED_SENDER }
+/**
+ * 整条消息级的跳过原因。
+ *
+ * `MUTED_SENDER` 与 `NOTIFY_APP_OFF` 是两套语义，故意不合并：前者是用户对**一条没认出来的
+ * 消息**的表态（可在收容页反悔），后者是对**一个来源**的配置（在设置页里改）。
+ * 合并成一档，那一屏的「恢复」就会去动它根本不该动的东西。
+ */
+enum class MessageSkip { NONE, ALREADY_SEEN, MUTED_SENDER, NOTIFY_APP_OFF }
 
 /** 对一件解析成功的包裹，库里该怎么动。 */
 sealed interface ParcelAction {
@@ -136,12 +142,16 @@ fun planIngest(
     fingerprint: String,
     alreadySeen: Boolean = false,
     senderMuted: Boolean = false,
+    appMuted: Boolean = false,
     existingParcels: Map<Pair<String, String>, ExistingParcel> = emptyMap(),
     unrecognizedState: UnrecognizedState? = null,
     domain: MessageDomain = MessageDomains.classify(message.body),
 ): IngestPlan {
     // 消息级跳过先于解析结果：账本命中时连「它到底认没认出来」都不该再判断一次。
     if (alreadySeen) return IngestPlan(MessageSkip.ALREADY_SEEN, emptyList(), null, fingerprint)
+    // 来源级的配置排在发件人级的表态之前：用户关掉了整个 App，那条消息连有没有被
+    // 表态过都不必再查——否则收容页那句「恢复」会指向一条本来就不打算收的消息。
+    if (appMuted) return IngestPlan(MessageSkip.NOTIFY_APP_OFF, emptyList(), null, fingerprint)
     if (senderMuted) return IngestPlan(MessageSkip.MUTED_SENDER, emptyList(), null, fingerprint)
     return when (outcome) {
         ParseOutcome.Ignored -> IngestPlan(MessageSkip.NONE, emptyList(), null, fingerprint)

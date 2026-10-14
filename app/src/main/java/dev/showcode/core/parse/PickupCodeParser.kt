@@ -16,6 +16,14 @@ data class IncomingMessage(
     val channel: Source,
     /** 谁的件。微信/QQ 转发进来的会被标成代取件，其余默认是自己的。 */
     val owner: Owner = Owner.SELF,
+    /**
+     * 通知渠道的**包名**，短信为 null。
+     *
+     * 有 [sender] 了还要这一个，是因为 sender 存的是显示名（「菜鸟」还是「菜鸟驿站」取决于
+     * 对方怎么起），而「按 App 关通知」这件事必须按身份判：显示名会改、会重名、会随语言变。
+     * 拿 label 当判据的后果是用户关掉了 A，实际被静音的是改了名的 B。
+     */
+    val sourcePackage: String? = null,
 )
 
 /** 解析成功产物，尚未落库（不含 id、pointKey 等派生字段）。 */

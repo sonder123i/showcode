@@ -17,6 +17,8 @@ import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.HealthReport
 import dev.showcode.core.MessageSkip
+import dev.showcode.core.NotifyApp
+import dev.showcode.core.NotifyApps
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
 import dev.showcode.core.ParcelAction
@@ -31,6 +33,7 @@ import dev.showcode.core.bodyFingerprint
 import dev.showcode.core.healthReport
 import dev.showcode.core.messageFingerprint
 import dev.showcode.core.muteKey
+import dev.showcode.core.ownerOfForward
 import dev.showcode.core.parse.IncomingMessage
 import dev.showcode.core.parse.MessageDomain
 import dev.showcode.core.parse.ParseOutcome
@@ -72,6 +75,8 @@ data class AppData(
     val rules: List<ParseRule> = emptyList(),
     /** 用户登记的身份码（驿站自助机、柜机寄件那类要扫一下的东西）。同样必须看得见、删得掉。 */
     val identityCodes: List<IdentityCode> = emptyList(),
+    /** 推过通知的 App。设置页那张开关列表就是它，所以关掉的那些也要留在里面——看不见就没法反悔。 */
+    val notifyApps: List<NotifyApp> = emptyList(),
     val lastSyncAt: Long? = null,
     val syncing: Boolean = false,
     /** null = 这次启动还没刷过。 */
@@ -157,11 +162,33 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
 
     /** 短信广播 / 通知监听进来。返回 Job，好让 BroadcastReceiver 用 goAsync() 等它落库。 */
     fun ingest(message: IncomingMessage): Job = scope.launch {
+        recordNotifySource(message)
         process(message)
         // 实时收到消息本身就证明收录是活的，所以这里也盖时间戳：
         // 否则首页会在明明刚进了一条短信时仍然报「可能不是最新」。
         stampSync()
         reload()
+    }
+
+    /**
+     * 记下「这个 App 推过通知」。
+     *
+     * 放在**判据之前**：关掉一个 App 之后它当然还在推通知，而那些「已经不再收」的到达
+     * 正是用户以后决定要不要重新打开它时唯一的事实。放在 process 之后就等于
+     * 一旦关掉，那一行从此冻结在关闭前的样子。
+     *
+     * 只对通知渠道生效——SmsReceiver 走同一个入口，把 `1069xxxx` 记成一个 App
+     * 会让那张开关列表长出号码来。
+     */
+    private fun recordNotifySource(message: IncomingMessage) {
+        if (message.channel != Source.NOTIFICATION) return
+        val pkg = NotifyApps.normalizePackage(message.sourcePackage) ?: return
+        db.recordNotifyApp(
+            pkg = pkg,
+            label = message.sender.ifBlank { pkg },
+            forwardsFamily = ownerOfForward(message.sourcePackage) == Owner.FAMILY,
+            at = message.receivedAt,
+        )
     }
 
     fun markPicked(id: Long, at: Long = System.currentTimeMillis()) {
@@ -353,6 +380,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             fingerprint = fingerprint,
             alreadySeen = !forceReplay && db.isMessageSeen(fingerprint),
             senderMuted = db.isSenderMuted(muteKey(message.sender)),
+            appMuted = !NotifyApps.admits(message, db.disabledNotifyPackages()),
             existingParcels = existingFor(outcome),
             unrecognizedState = if (outcome is ParseOutcome.Rejected) {
                 db.unrecognizedState(bodyFingerprint(message.body))
@@ -634,6 +662,25 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     fun isAppInstalled(packageName: String): Boolean =
         context.packageManager.getLaunchIntentForPackage(packageName) != null
 
+    // ---------- 按 App 的通知开关 ----------
+
+    /**
+     * 关或开某个 App 的通知采集。
+     *
+     * 两件事要说清，因为它们都是这一屏的代价：
+     *
+     * 1. **只影响以后。** 关掉不会让已经收进来的件消失，也不会把以前被它推来的码找回来——
+     *    通知不像短信有收件箱可回填，错过的就错过了。那一屏必须这么写，不然用户会以为
+     *    这是个「历史清理」按钮。
+     * 2. **这一屏默认全开**，所以做了这个功能也不会少一条噪音；它交出去的是「能关」这个能力。
+     */
+    fun setNotifyAppDisabled(pkg: String, disabled: Boolean) {
+        scope.launch {
+            db.setNotifyAppDisabled(NotifyApps.normalizePackage(pkg) ?: return@launch, disabled)
+            reload()
+        }
+    }
+
     private fun stampSync() {
         db.metaPut(KEY_LAST_SYNC, System.currentTimeMillis().toString())
     }
@@ -652,6 +699,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             mutedSenders = muted.toList(),
             rules = db.allRules(),
             identityCodes = db.allIdentityCodes(),
+            notifyApps = NotifyApps.sortedForSwitches(db.allNotifyApps()),
             lastSyncAt = db.metaGet(KEY_LAST_SYNC)?.toLongOrNull(),
             syncing = false,
             lastSyncResult = previous.lastSyncResult,

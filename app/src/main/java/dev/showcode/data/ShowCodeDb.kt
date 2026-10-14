@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import dev.showcode.core.ExistingParcel
 import dev.showcode.core.IdentityCode
+import dev.showcode.core.NotifyApp
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
 import dev.showcode.core.PointAlias
@@ -153,6 +154,21 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
             )
             """.trimIndent()
         )
+        // 推过通知的 App。一行 = 一个来源，`disabled` 是用户在那一行的配置。
+        // 默认 0（全收）：这一屏不减少任何现有噪音，它只是把「能关」交出去。
+        // 没有外键指向 parcel：关掉一个 App 不动它以前收进来的件。
+        db.execSQL(
+            """
+            CREATE TABLE notify_app (
+              pkg TEXT PRIMARY KEY,
+              label TEXT NOT NULL,
+              disabled INTEGER NOT NULL DEFAULT 0,
+              forwards_family INTEGER NOT NULL DEFAULT 0,
+              last_seen_at INTEGER NOT NULL,
+              seen_count INTEGER NOT NULL DEFAULT 1
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -201,6 +217,22 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
                   note TEXT,
                   app_pkg TEXT,
                   created_at INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+        if (oldVersion < 6) {
+            // v5 → v6：按 App 的通知开关。也是纯新增表——它不认识任何已有的行，
+            // 所以老库升级完，那张开关列表是空的，直到下一个通知进来。
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS notify_app (
+                  pkg TEXT PRIMARY KEY,
+                  label TEXT NOT NULL,
+                  disabled INTEGER NOT NULL DEFAULT 0,
+                  forwards_family INTEGER NOT NULL DEFAULT 0,
+                  last_seen_at INTEGER NOT NULL,
+                  seen_count INTEGER NOT NULL DEFAULT 1
                 )
                 """.trimIndent()
             )
@@ -607,6 +639,70 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         writableDatabase.delete("identity_code", "id = ?", arrayOf(id.toString()))
     }
 
+    // ---------- 按 App 的通知开关 ----------
+
+    /**
+     * 记一次「这个 App 推过通知」。已存在就只更新见到时间与次数。
+     *
+     * 两条语句而不是 upsert：`ON CONFLICT DO UPDATE` 要 SQLite 3.24，而 minSdk 26 那两台
+     * 出厂带的是 3.19——写在一个设备上才会坏的 SQL 是这个仓库不做的交易。
+     *
+     * ⚠️ 这里刻意**不碰 `disabled`**。每一次通知都重写整行，会把用户关掉的那个开关
+     * 在下一条通知到达时静默打开——那是把配置当成缓存来刷。
+     */
+    fun recordNotifyApp(pkg: String, label: String, forwardsFamily: Boolean, at: Long) {
+        val db = writableDatabase
+        db.execSQL(
+            "INSERT OR IGNORE INTO notify_app (pkg, label, disabled, forwards_family, last_seen_at, seen_count)" +
+                " VALUES (?, ?, 0, ?, ?, 1)",
+            arrayOf(pkg, label, if (forwardsFamily) 1 else 0, at),
+        )
+        db.execSQL(
+            "UPDATE notify_app SET label = ?, last_seen_at = ?, seen_count = seen_count + 1," +
+                " forwards_family = MAX(forwards_family, ?) WHERE pkg = ?",
+            arrayOf(label, at, if (forwardsFamily) 1 else 0, pkg),
+        )
+    }
+
+    fun allNotifyApps(): List<NotifyApp> = readableDatabase
+        .rawQuery(
+            "SELECT pkg, label, disabled, forwards_family, last_seen_at, seen_count FROM notify_app",
+            null,
+        )
+        .use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(
+                        NotifyApp(
+                            packageName = c.getString(0),
+                            label = c.getString(1),
+                            disabled = c.getInt(2) != 0,
+                            forwardsFamily = c.getInt(3) != 0,
+                            lastSeenAt = c.getLong(4),
+                            seenCount = c.getInt(5),
+                        ),
+                    )
+                }
+            }
+        }
+
+    /** 判据要的那一份：只取关掉的包名。每条通知都读一次，所以这一条必须是廉价的。 */
+    fun disabledNotifyPackages(): Set<String> = readableDatabase
+        .rawQuery("SELECT pkg FROM notify_app WHERE disabled = 1", null)
+        .use { c ->
+            buildList {
+                while (c.moveToNext()) add(c.getString(0))
+            }.toSet()
+        }
+
+    /** 用户在那一屏按下的开关。关掉一个 App 不动它以前收进来的件——那只影响以后。 */
+    fun setNotifyAppDisabled(pkg: String, disabled: Boolean) {
+        writableDatabase.execSQL(
+            "UPDATE notify_app SET disabled = ? WHERE pkg = ?",
+            arrayOf(if (disabled) 1 else 0, pkg),
+        )
+    }
+
     /**
      * 还挂着的未识别正文，按时间从新到旧，最多 [limit] 条。
      *
@@ -687,6 +783,6 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     private companion object {
         const val NAME = "showcode.db"
-        const val VERSION = 5
+        const val VERSION = 6
     }
 }

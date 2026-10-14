@@ -29,6 +29,8 @@ class PickupNotificationListener : NotificationListenerService() {
                 receivedAt = sbn.postTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
                 channel = Source.NOTIFICATION,
                 owner = ownerOfForward(sbn.packageName),
+                // 判据走这个，不走上面那个显示名：label 会改、会重名、会随系统语言变。
+                sourcePackage = sbn.packageName,
             )
         )
     }
