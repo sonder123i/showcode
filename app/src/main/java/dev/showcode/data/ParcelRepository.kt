@@ -16,6 +16,9 @@ import dev.showcode.core.ExistingParcel
 import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.HealthReport
+import dev.showcode.core.LaunchFacts
+import dev.showcode.core.LaunchOutcome
+import dev.showcode.core.launchOutcome
 import dev.showcode.core.MessageSkip
 import dev.showcode.core.NotifyApp
 import dev.showcode.core.NotifyApps
@@ -661,6 +664,31 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     /** 装没装那个官方 App。没装就不该出现「跳过去」那颗按钮——点了什么也不会发生。 */
     fun isAppInstalled(packageName: String): Boolean =
         context.packageManager.getLaunchIntentForPackage(packageName) != null
+
+    /**
+     * 试着打开那个官方 App，并**如实报告它到底有没有起来**。
+     *
+     * 原来这里是一句 `runCatching { startActivity(...) }`，失败就什么都不发生——而竞品那条
+     * issue #39 报的正是「点了没反应」，维护者给的解法却是系统里的一个开关
+     * （小米：应用设置→其他权限→链式启动管理）。**「装了但被拦住」和「没装」是两件事**，
+     * 合成一句「打不开」就等于把唯一有用的那条线索弄丢了。
+     */
+    fun openOfficialApp(packageName: String?): LaunchOutcome {
+        val pkg = NotifyApps.normalizePackage(packageName)
+        val facts = if (pkg == null) {
+            LaunchFacts(hasPackage = false, resolvable = false, started = false)
+        } else {
+            val intent = runCatching { context.packageManager.getLaunchIntentForPackage(pkg) }.getOrNull()
+            LaunchFacts(
+                hasPackage = true,
+                resolvable = intent != null,
+                started = intent != null && runCatching {
+                    context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }.isSuccess,
+            )
+        }
+        return launchOutcome(facts)
+    }
 
     // ---------- 按 App 的通知开关 ----------
 

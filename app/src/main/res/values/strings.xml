@@ -363,6 +363,10 @@
     <string name="identity_copy_hint">点一下复制这串字符</string>
     <string name="identity_copied">已复制</string>
     <string name="identity_open_app">打开官方 App 现取</string>
+    <string name="identity_open_app_missing">打开官方 App 现取（这台手机上没装它）</string>
+    <string name="identity_launch_blocked">没能打开它。有些手机（小米、iQOO 等）要把本 App 的「链式启动」权限打开，才允许它别的 App 跳起来——这不是码坏了。</string>
+    <string name="identity_launch_not_installed">这台手机上没有找到这个应用。可以去设置里装回来，或者手动在那家 App 里取件。</string>
+    <string name="identity_launch_no_target">这张码没有记下它属于哪家 App，所以没有可跳的地方。</string>
 
     <string name="settings_notify">通知来源</string>
     <string name="settings_notify_count">%1$d 个</string>

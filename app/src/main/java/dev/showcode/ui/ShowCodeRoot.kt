@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.showcode.app
 import dev.showcode.core.DAY_MS
 import dev.showcode.core.HealthIssue
+import dev.showcode.core.IdentityCode
 import dev.showcode.core.Owner
 import dev.showcode.core.PointAlias
 import dev.showcode.core.PickupPointGroup
@@ -107,6 +108,10 @@ fun ShowCodeRoot() {
     var notifyReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
     /** 正在出示哪一张。存 id 不存对象：码被删掉时那一屏必须跟着退回去，而不是展示一张已经不存在的码。 */
     var identityShowId by rememberSaveable { mutableStateOf(0L) }
+    /** 那颗「打开官方 App」的按钮能不能按。随 ON_RESUME 重算，不进渲染。 */
+    var identityAppInstalled by remember { mutableStateOf(false) }
+    /** 上一次按下那颗按钮的结局。只在出示那一屏说话，离开就清掉。 */
+    var identityLaunch by remember { mutableStateOf<dev.showcode.core.LaunchOutcome?>(null) }
     /* 能启动的 App。只在进「存一张」那一屏时查一次：这个查询要对几百个包各解一次显示名，
        放在组合里每帧跑一遍是会卡的。 */
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
@@ -203,6 +208,11 @@ fun ShowCodeRoot() {
                 widgetAdded = AppWidgetManager.getInstance(context)
                     .getAppWidgetIds(ComponentName(context, PickupWidgetProvider::class.java))
                     .isNotEmpty()
+                // 装没装那个官方 App 也在这里重算：放在渲染里会跟着每次重组打一次
+                // PackageManager，而这一屏的 now 每 30 秒一跳；放在进屏一次又会停在
+                // 快照上——用户中途卸载了它，那颗按钮就该改口，而不是「点了没反应」。
+                val shown = repository.data.value.identityCodes.firstOrNull { it.id == identityShowId }
+                identityAppInstalled = shown?.appPackage?.let { repository.isAppInstalled(it) } == true
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -243,15 +253,12 @@ fun ShowCodeRoot() {
         }
     }
 
-    /* 打开用户自己选过的那个官方 App。走系统的启动意图，**不走写死的深链**：
-       竞品那种 `tbopen://…` 直达路径随对方版本变，而我们连对方版本都看不到——
-       这一颗按钮唯一的职责是「码扫不过时把人送到能救他的地方」，送到首页就够了，
-       送进一个 404 页面比不送更糟。 */
-    fun openOfficialApp(packageName: String) {
-        if (packageName.isBlank()) return
-        runCatching { context.packageManager.getLaunchIntentForPackage(packageName) }
-            .getOrNull()
-            ?.let { runCatching { context.startActivity(it) } }
+    /**
+     * 打开那张码的官方 App。结局要回到屏上说话，不许在这里吞掉——
+     * 竞品 issue #39 的症状就是「点了没反应」，而它真正的答案是 ROM 里的一个开关。
+     */
+    fun openOfficialApp(code: IdentityCode) {
+        identityLaunch = repository.openOfficialApp(code.appPackage)
     }
 
     /** 方案丙的反向绑定：从 App 内请求再钉一个绑定单点的组件。 */
@@ -588,11 +595,19 @@ fun ShowCodeRoot() {
             if (code == null) {
                 LaunchedEffect(Unit) { route = Route.IDENTITY_LIST }
             } else {
+                /* 进屏先算一次装没装、并把上一轮的跳转结局擦掉。两件事都不能只靠 ON_RESUME：
+                   冷启动之后 设置 → 身份码 → 出示 这条路上不会再有一次 resume，而留着上一轮的
+                   「没装」会让人以为这次也没装。 */
+                LaunchedEffect(code.id) {
+                    identityLaunch = null
+                    identityAppInstalled = code.appPackage?.let { repository.isAppInstalled(it) } == true
+                }
                 IdentityShowScreen(
                     code = code,
-                    appInstalled = code.appPackage?.let { repository.isAppInstalled(it) } == true,
+                    appInstalled = identityAppInstalled,
+                    launch = identityLaunch,
                     onBack = { route = Route.IDENTITY_LIST },
-                    onOpenApp = { openOfficialApp(code.appPackage.orEmpty()) },
+                    onOpenApp = { openOfficialApp(code) },
                 )
             }
         }

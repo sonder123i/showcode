@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import dev.showcode.R
 import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityCodes
+import dev.showcode.core.LaunchOutcome
 import dev.showcode.core.qr.Qr
 import dev.showcode.ui.copyCode
 import dev.showcode.ui.identity.QrMatrixCanvas
@@ -62,6 +63,7 @@ import dev.showcode.ui.theme.UrgencyDueSoon
 fun IdentityShowScreen(
     code: IdentityCode,
     appInstalled: Boolean,
+    launch: LaunchOutcome?,
     onBack: () -> Unit,
     onOpenApp: () -> Unit,
 ) {
@@ -190,8 +192,10 @@ fun IdentityShowScreen(
                 )
             }
 
-            // 降级路：会话码在这一屏救不了自己，只能把人送到能救他的那个 App 去。
-            if (code.appPackage != null && appInstalled) {
+            /* 降级路：会话码在这一屏救不了自己，只能把人送到能救他的那个 App 去。
+               这颗按钮**不按装没装隐藏**——藏掉它等于把这条唯一的退路一起藏了，
+               用户会对着一个什么都没有的屏幕发呆；没装就照实说没装。 */
+            if (code.appPackage != null) {
                 Spacer(Modifier.height(16.dp))
                 Row(
                     modifier = Modifier
@@ -205,15 +209,44 @@ fun IdentityShowScreen(
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp), tint = OnsiteSurface)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = stringResource(R.string.identity_open_app),
+                        text = stringResource(
+                            if (appInstalled) R.string.identity_open_app else R.string.identity_open_app_missing
+                        ),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = OnsiteSurface,
                     )
                 }
+                when (launch) {
+                    // 「点了没反应」是竞品 issue #39 的全部内容，而它真正的答案是系统里的一个开关。
+                    // 这句话必须在这屏上能看见，不该像他们那样只在 issue 回复里流传。
+                    LaunchOutcome.Blocked -> LaunchLine(stringResource(R.string.identity_launch_blocked))
+                    LaunchOutcome.NotInstalled -> LaunchLine(stringResource(R.string.identity_launch_not_installed))
+                    LaunchOutcome.NoTarget -> LaunchLine(stringResource(R.string.identity_launch_no_target))
+                    // 打开了就没什么好说的；没按过也什么都不说。
+                    LaunchOutcome.Opened, null -> Unit
+                }
             }
         }
     }
+}
+
+/**
+ * 跳转结局那一句话。
+ *
+ * 刻意做成常驻的一行，不是 toast：这个人手上可能正抱着两个包裹、屏幕上有水、身后有人催，
+ * 一条一秒钟消失的提示他追不上，追不上的提示等于没说。
+ */
+@Composable
+private fun LaunchLine(text: String) {
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        color = UrgencyDueSoon,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /**
