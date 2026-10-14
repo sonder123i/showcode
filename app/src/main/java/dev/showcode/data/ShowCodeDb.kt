@@ -165,7 +165,7 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
               disabled INTEGER NOT NULL DEFAULT 0,
               forwards_family INTEGER NOT NULL DEFAULT 0,
               last_seen_at INTEGER NOT NULL,
-              seen_count INTEGER NOT NULL DEFAULT 1
+              seen_count INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -232,7 +232,7 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
                   disabled INTEGER NOT NULL DEFAULT 0,
                   forwards_family INTEGER NOT NULL DEFAULT 0,
                   last_seen_at INTEGER NOT NULL,
-                  seen_count INTEGER NOT NULL DEFAULT 1
+                  seen_count INTEGER NOT NULL DEFAULT 0
                 )
                 """.trimIndent()
             )
@@ -652,9 +652,11 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
      */
     fun recordNotifyApp(pkg: String, label: String, forwardsFamily: Boolean, at: Long) {
         val db = writableDatabase
+        // 插入时给 **0** 而不是 1：下面那条 UPDATE 无条件 +1，两条一起才等于「到达一次」。
+        // 写成 1 的话第一次到达就计成两条，而那一屏把这个数字念给人听。
         db.execSQL(
             "INSERT OR IGNORE INTO notify_app (pkg, label, disabled, forwards_family, last_seen_at, seen_count)" +
-                " VALUES (?, ?, 0, ?, ?, 1)",
+                " VALUES (?, ?, 0, ?, ?, 0)",
             arrayOf(pkg, label, if (forwardsFamily) 1 else 0, at),
         )
         db.execSQL(
