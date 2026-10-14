@@ -30,6 +30,13 @@ jobs:
       - name: 视觉系统棘轮
         run: python3 tools/visual-audit.py --ci
 
+      # 库结构棘轮。`data/` 一层没有测试框架（不引 Robolectric 那条取舍仍然成立），
+      # 所以 SQL 写错在 JVM 单测里够不着——而这一类错的后果是「老库升级后第一次读到就崩」。
+      # 它同时守住三件会各自漂的事：加了表忘写迁移、同一张表的两份 DDL 漂了、
+      # 以及 DAO 里的列名对不上升过级的库。纯 python 标准库，不需要 SDK 也不需要设备。
+      - name: 库结构与迁移棘轮
+        run: python3 tools/migration-check.py --ci
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -189,10 +189,17 @@ keytool -genkeypair -keystore release.keystore -storetype PKCS12 \
 改代码的话：`core/` 目录是零 Android 依赖的纯 Kotlin（时效判定、取件点归一、排序、字号防溢出规则），
 所有值得测的东西都应该留在那一层——先跑 `./gradlew :app:testDebugUnitTest` 看有没有红。
 
-绿了不等于对。有两类事那三道棘轮都量不出来：**柜机那颗摄像头拍不拍得清我们画的码**，
-和**迁移在真库上跑没跑**（`v3→v4→v5→v6`，唯一一旦错就没法「再点一下」纠正的一类）。
-所以改完要过一遍 [`docs/verification-checklist.md`](docs/verification-checklist.md)——
-按编号跑、按编号回报，跑不了的那几条会写在 issue 里而不是被当成已通过。
+绿了不等于对。有两类事棘轮量不出来：**柜机那颗摄像头拍不拍得清我们画的码**，
+和**迁移有没有真的在这台机器上跑过**。
+
+第四条棘轮（`tools/migration-check.py`，纯标准库，CI 里和视觉棘轮并列）已经把后一类**拆开了一半**：
+加表忘写迁移、`onCreate` 与迁移里那两份 DDL 漂了、DAO 的列名对不上升过级的库、
+`notify_app` 那条 upsert 会不会把用户关掉的开关冲回来——这些现在在合并前就会红。
+剩下那一半仍然只有设备能答：**`onUpgrade` 真的被调用、真的作用在你那个旧文件上**。
+所以别把 CI 绿了读成「迁移验过了」。
+
+改完任何一笔都要过一遍 [`docs/verification-checklist.md`](docs/verification-checklist.md)——
+按编号跑、按编号回报，跑不了的那几条写进 issue，而不是被当成已通过。
 
 ## 许可证
 
