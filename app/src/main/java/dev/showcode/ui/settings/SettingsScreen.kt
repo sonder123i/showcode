@@ -82,6 +82,9 @@ fun SettingsScreen(
     /** 已存的身份码张数。 */
     identityCount: Int,
     onOpenIdentity: () -> Unit,
+    /** 推过通知的 App 个数。0 个也要有入口：那一屏的空态本身是诊断信息。 */
+    notifyCount: Int,
+    onOpenNotify: () -> Unit,
     /** 代取件分组的名字（story-7 AC2 要求用户能改）。 */
     familyLabel: String,
     onFamilyLabel: (String) -> Unit,
@@ -261,6 +264,38 @@ fun SettingsScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.settings_identity_hint),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                }
+            }
+
+            /* 通知来源同样 0 个也要出现：那一屏的空态本身就是诊断——它说的是
+               「监听还没见过任何通知」，而这正是权限没给或被 ROM 杀掉时唯一的可见线索。 */
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
+                        .clickable(onClick = onOpenNotify)
+                        .padding(16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.settings_notify),
+                            modifier = Modifier.weight(1f),
+                            style = ShowCodeText.Body,
+                            color = Ink,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_notify_count, notifyCount),
+                            style = ShowCodeText.Item,
+                            color = if (notifyCount > 0) Ink else InkMuted,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_notify_hint),
                         style = ShowCodeText.Caption,
                         color = InkMuted,
                     )

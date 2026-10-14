@@ -342,4 +342,19 @@
     <string name="identity_copy_hint">点一下复制这串字符</string>
     <string name="identity_copied">已复制</string>
     <string name="identity_open_app">打开官方 App 现取</string>
+
+    <string name="settings_notify">通知来源</string>
+    <string name="settings_notify_count">%1$d 个</string>
+    <string name="settings_notify_hint">哪些 App 的通知还在收。关掉只对以后生效，不动已经收进来的件。</string>
+
+    <string name="notify_title">通知来源</string>
+    <string name="notify_hint">这里只列推过通知的来源，没推过的不出现。默认全都在收——关掉谁，那条通道以后就不进来了。</string>
+    <string name="notify_empty">还没见过任何通知。可能是还没给通知使用权，也可能是给完之后那些 App 还没推过东西。去首页那条体检里能看到权限状态。</string>
+    <string name="notify_on">在收</string>
+    <string name="notify_off">已关掉</string>
+    <string name="notify_seen">推过 %1$d 条 · %2$s见过一次</string>
+    <string name="notify_forward_warning">这个 App 转发过别人的取件码（妈妈经微信发来的那种）。关掉它，那条入口一起没了。</string>
+    <string name="notify_forward_confirm">再点一次真的关掉：以后经它转来的码不会出现在任何地方，包括「没认出来的取件短信」。</string>
+    <string name="notify_cancel">不关了</string>
+    <string name="notify_irreversible_hint">通知不像短信有收件箱可以回填：关掉期间推来的那几条永久收不回，重新打开只救以后的。这里只管通知——短信那边的屏蔽在「不再显示此类」那格，两套互不影响。</string>
 </resources>

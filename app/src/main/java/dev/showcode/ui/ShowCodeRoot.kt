@@ -53,13 +53,14 @@ import dev.showcode.ui.onboarding.OnboardStep
 import dev.showcode.ui.onboarding.OnboardingScreen
 import dev.showcode.ui.rules.RuleEditScreen
 import dev.showcode.ui.rules.RuleListScreen
+import dev.showcode.ui.settings.NotifyAppsScreen
 import dev.showcode.ui.settings.SettingsScreen
 import dev.showcode.widget.PickupWidgetProvider
 import dev.showcode.widget.WidgetNav
 
 private enum class Route {
     HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL,
-    MERGE_PREVIEW, RULES, RULE_EDIT, IDENTITY_LIST, IDENTITY_ADD, IDENTITY_SHOW,
+    MERGE_PREVIEW, RULES, RULE_EDIT, IDENTITY_LIST, IDENTITY_ADD, IDENTITY_SHOW, NOTIFY_APPS,
 }
 
 /* 合并后撤销条的驻留时长。story-6 的 user_side 写的是「五秒内屏幕下方有个已合并 · 撤销」。 */
@@ -103,6 +104,7 @@ fun ShowCodeRoot() {
     var rulePrefillRaw by rememberSaveable { mutableStateOf("") }
     var ruleReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
     var identityReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
+    var notifyReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
     /** 正在出示哪一张。存 id 不存对象：码被删掉时那一屏必须跟着退回去，而不是展示一张已经不存在的码。 */
     var identityShowId by rememberSaveable { mutableStateOf(0L) }
     /* 能启动的 App。只在进「存一张」那一屏时查一次：这个查询要对几百个包各解一次显示名，
@@ -335,6 +337,7 @@ fun ShowCodeRoot() {
             Route.IDENTITY_LIST -> route = identityReturn
             Route.IDENTITY_ADD -> route = Route.IDENTITY_LIST
             Route.IDENTITY_SHOW -> route = Route.IDENTITY_LIST
+            Route.NOTIFY_APPS -> route = notifyReturn
             Route.MANUAL_IMPORT -> route = manualReturn
             Route.ONBOARDING -> {
                 val steps = OnboardStep.entries
@@ -489,6 +492,11 @@ fun ShowCodeRoot() {
                 identityReturn = Route.SETTINGS
                 route = Route.IDENTITY_LIST
             },
+            notifyCount = appData.notifyApps.size,
+            onOpenNotify = {
+                notifyReturn = Route.SETTINGS
+                route = Route.NOTIFY_APPS
+            },
             onOpenUnrecognized = {
                 unrecognizedReturn = Route.SETTINGS
                 route = Route.UNRECOGNIZED
@@ -585,6 +593,13 @@ fun ShowCodeRoot() {
                 )
             }
         }
+
+        Route.NOTIFY_APPS -> NotifyAppsScreen(
+            apps = appData.notifyApps,
+            now = now,
+            onBack = { route = notifyReturn },
+            onToggle = { pkg, disabled -> repository.setNotifyAppDisabled(pkg, disabled) },
+        )
 
         Route.MANUAL_IMPORT -> ManualImportScreen(
             prefillRaw = manualPrefill,
