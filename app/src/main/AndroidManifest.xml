@@ -5,6 +5,16 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- 身份码那屏要「从这台手机的 App 里选一个」并跳过去。targetSdk 30 起这是**包可见性**
+         而不是权限问题：不声明就查不到别人的启动活动，症状是明明装了却说没装，而且不报错。
+         声明的是启动器意图而不是逐个包名，因为这一格的对象本来就是「所有能打开的 App」。 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".ShowCodeApp"
         android:allowBackup="false"

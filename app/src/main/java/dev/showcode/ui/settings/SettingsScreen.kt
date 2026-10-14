@@ -79,6 +79,9 @@ fun SettingsScreen(
     /** 已写下的解析规则条数。0 条时入口仍然要给——不然没人知道有这条路。 */
     ruleCount: Int,
     onOpenRules: () -> Unit,
+    /** 已存的身份码张数。 */
+    identityCount: Int,
+    onOpenIdentity: () -> Unit,
     /** 代取件分组的名字（story-7 AC2 要求用户能改）。 */
     familyLabel: String,
     onFamilyLabel: (String) -> Unit,
@@ -226,6 +229,38 @@ fun SettingsScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.settings_rules_hint),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                }
+            }
+
+            /* 身份码：和解析规则同一个理由——0 张时也要有路可达。
+               这一格的东西不在短信里、不在通知里，用户没有任何别的机会发现 App 能做它。 */
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
+                        .clickable(onClick = onOpenIdentity)
+                        .padding(16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.settings_identity),
+                            modifier = Modifier.weight(1f),
+                            style = ShowCodeText.Body,
+                            color = Ink,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_identity_count, identityCount),
+                            style = ShowCodeText.Item,
+                            color = if (identityCount > 0) Ink else InkMuted,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_identity_hint),
                         style = ShowCodeText.Caption,
                         color = InkMuted,
                     )

@@ -36,12 +36,16 @@ import dev.showcode.ui.points.MergePreviewScreen
 import dev.showcode.ui.points.PointDetailScreen
 import kotlinx.coroutines.delay
 import dev.showcode.data.DemoData
+import dev.showcode.data.InstalledApp
 import dev.showcode.data.unrecognizedBadgeCount
 import dev.showcode.ui.home.HomeEmpty
 import dev.showcode.ui.home.HomeScreen
 import dev.showcode.ui.home.HomeUiState
 import dev.showcode.ui.inbox.ManualImportScreen
 import dev.showcode.ui.inbox.UnrecognizedScreen
+import dev.showcode.ui.identity.IdentityEditScreen
+import dev.showcode.ui.identity.IdentityListScreen
+import dev.showcode.ui.onsite.IdentityShowScreen
 import dev.showcode.ui.onsite.OnsiteScreen
 import dev.showcode.ui.onsite.TilesScreen
 import dev.showcode.ui.onboarding.OnboardStep
@@ -52,7 +56,10 @@ import dev.showcode.ui.settings.SettingsScreen
 import dev.showcode.widget.PickupWidgetProvider
 import dev.showcode.widget.WidgetNav
 
-private enum class Route { HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL, MERGE_PREVIEW, RULES, RULE_EDIT }
+private enum class Route {
+    HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL,
+    MERGE_PREVIEW, RULES, RULE_EDIT, IDENTITY_LIST, IDENTITY_ADD, IDENTITY_SHOW,
+}
 
 /* 合并后撤销条的驻留时长。story-6 的 user_side 写的是「五秒内屏幕下方有个已合并 · 撤销」。 */
 private const val MERGE_UNDO_MS = 5_000L
@@ -94,6 +101,12 @@ fun ShowCodeRoot() {
        那一屏要治的就是眼前这一条，让用户再抄一遍原文等于没做这个入口。 */
     var rulePrefillRaw by rememberSaveable { mutableStateOf("") }
     var ruleReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
+    var identityReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
+    /** 正在出示哪一张。存 id 不存对象：码被删掉时那一屏必须跟着退回去，而不是展示一张已经不存在的码。 */
+    var identityShowId by rememberSaveable { mutableStateOf(0L) }
+    /* 能启动的 App。只在进「存一张」那一屏时查一次：这个查询要对几百个包各解一次显示名，
+       放在组合里每帧跑一遍是会卡的。 */
+    var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
     /* 代取件分组的名字。写在这里而不是每次现读 prefs：prefs 不是可观察的，
        用户在设置页改完必须当场反映到现场模式的那个分组标签上。 */
     var familyLabel by remember { mutableStateOf(repository.prefs.familyLabel) }
@@ -129,6 +142,13 @@ fun ShowCodeRoot() {
         if (lastMerge != null) {
             delay(MERGE_UNDO_MS)
             lastMerge = null
+        }
+    }
+
+    // 装了什么 App 这件事不会在本次会话里变，所以查一次就够；离开那一屏也不清，回来不用重查。
+    LaunchedEffect(route) {
+        if (route == Route.IDENTITY_ADD && installedApps.isEmpty()) {
+            installedApps = repository.installedApps()
         }
     }
 
@@ -220,6 +240,17 @@ fun ShowCodeRoot() {
         }
     }
 
+    /* 打开用户自己选过的那个官方 App。走系统的启动意图，**不走写死的深链**：
+       竞品那种 `tbopen://…` 直达路径随对方版本变，而我们连对方版本都看不到——
+       这一颗按钮唯一的职责是「码扫不过时把人送到能救他的地方」，送到首页就够了，
+       送进一个 404 页面比不送更糟。 */
+    fun openOfficialApp(packageName: String) {
+        if (packageName.isBlank()) return
+        runCatching { context.packageManager.getLaunchIntentForPackage(packageName) }
+            .getOrNull()
+            ?.let { runCatching { context.startActivity(it) } }
+    }
+
     /** 方案丙的反向绑定：从 App 内请求再钉一个绑定单点的组件。 */
     fun requestPinWidget() {
         runCatching {
@@ -300,6 +331,9 @@ fun ShowCodeRoot() {
                 rulePrefillRaw = ""
                 route = Route.RULES
             }
+            Route.IDENTITY_LIST -> route = identityReturn
+            Route.IDENTITY_ADD -> route = Route.IDENTITY_LIST
+            Route.IDENTITY_SHOW -> route = Route.IDENTITY_LIST
             Route.MANUAL_IMPORT -> route = manualReturn
             Route.ONBOARDING -> {
                 val steps = OnboardStep.entries
@@ -440,6 +474,11 @@ fun ShowCodeRoot() {
                 ruleReturn = Route.SETTINGS
                 route = Route.RULES
             },
+            identityCount = appData.identityCodes.size,
+            onOpenIdentity = {
+                identityReturn = Route.SETTINGS
+                route = Route.IDENTITY_LIST
+            },
             onOpenUnrecognized = {
                 unrecognizedReturn = Route.SETTINGS
                 route = Route.UNRECOGNIZED
@@ -499,6 +538,43 @@ fun ShowCodeRoot() {
             },
             onSave = { pattern, pointName, lockerNo -> repository.addParseRule(pattern, pointName, lockerNo) },
         )
+
+        Route.IDENTITY_LIST -> IdentityListScreen(
+            codes = appData.identityCodes,
+            onBack = { route = identityReturn },
+            onAdd = { route = Route.IDENTITY_ADD },
+            onShow = { code ->
+                identityShowId = code.id
+                route = Route.IDENTITY_SHOW
+            },
+            onToggleDynamic = { id, dynamic -> repository.setIdentityDynamic(id, dynamic) },
+            onDelete = { id -> repository.deleteIdentityCode(id) },
+        )
+
+        Route.IDENTITY_ADD -> IdentityEditScreen(
+            existingCount = appData.identityCodes.size,
+            apps = installedApps,
+            onBack = { route = Route.IDENTITY_LIST },
+            onSave = { label, value, dynamic, note, appPackage ->
+                repository.addIdentityCode(label, value, dynamic, note, appPackage)
+            },
+        )
+
+        Route.IDENTITY_SHOW -> {
+            /* 按 id 现取。那张码可能刚被删掉，这时候必须退回去，而不是继续出示一张
+               已经不存在的码——它屏上看起来仍然完全正常，而那正是最坏的失效。 */
+            val code = appData.identityCodes.firstOrNull { it.id == identityShowId }
+            if (code == null) {
+                LaunchedEffect(Unit) { route = Route.IDENTITY_LIST }
+            } else {
+                IdentityShowScreen(
+                    code = code,
+                    appInstalled = code.appPackage?.let { repository.isAppInstalled(it) } == true,
+                    onBack = { route = Route.IDENTITY_LIST },
+                    onOpenApp = { openOfficialApp(code.appPackage.orEmpty()) },
+                )
+            }
+        }
 
         Route.MANUAL_IMPORT -> ManualImportScreen(
             prefillRaw = manualPrefill,

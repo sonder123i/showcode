@@ -3,6 +3,7 @@ package dev.showcode.data
 import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Telephony
@@ -12,6 +13,8 @@ import dev.showcode.R
 import dev.showcode.core.DAY_MS
 import dev.showcode.core.DEFAULT_CLOSING_MINUTE
 import dev.showcode.core.ExistingParcel
+import dev.showcode.core.IdentityCode
+import dev.showcode.core.IdentityCodes
 import dev.showcode.core.HealthReport
 import dev.showcode.core.MessageSkip
 import dev.showcode.core.Owner
@@ -67,6 +70,8 @@ data class AppData(
     val mutedSenders: List<String> = emptyList(),
     /** 用户自己写的解析规则。和屏蔽名单同一个理由：写进去的东西必须看得见、删得掉。 */
     val rules: List<ParseRule> = emptyList(),
+    /** 用户登记的身份码（驿站自助机、柜机寄件那类要扫一下的东西）。同样必须看得见、删得掉。 */
+    val identityCodes: List<IdentityCode> = emptyList(),
     val lastSyncAt: Long? = null,
     val syncing: Boolean = false,
     /** null = 这次启动还没刷过。 */
@@ -76,6 +81,14 @@ data class AppData(
     val monthlyPicked: Int = 0,
     val lastPickupAt: Long? = null,
 )
+
+/**
+ * 一个能启动的 App：包名 + 显示名。
+ *
+ * 刻意不带图标——这一格只用于「选」，选完屏上留下的是名字。
+ * 为一列勾选项去解码几百张 bitmap 是这个 App 最不该付的那笔开销。
+ */
+data class InstalledApp(val packageName: String, val label: String)
 
 /**
  * 全部数据都在本机（brief 约束：用户数据永不出本机）。
@@ -546,6 +559,81 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         }
     }
 
+    // ---------- 身份码 ----------
+
+    /**
+     * 存一张身份码。返回 false = 没写进去。
+     *
+     * 校验放在写路径而不是只放在屏上：`IdentityCodes.validate` 里那一步是**真的编一遍二维码**，
+     * 装不下的码值存进库就等于埋了一张永远扫不出来的卡，而它出现在屏上的那天用户在柜机前。
+     */
+    suspend fun addIdentityCode(
+        label: String,
+        value: String,
+        dynamic: Boolean,
+        note: String?,
+        appPackage: String?,
+    ): Boolean {
+        if (IdentityCodes.validate(label, value, dynamic, db.allIdentityCodes().size) != null) return false
+        val id = db.insertIdentityCode(
+            label = label.trim(),
+            value = value.trim(),
+            dynamic = dynamic,
+            note = note?.trim()?.takeIf { it.isNotEmpty() },
+            appPackage = appPackage?.trim()?.takeIf { it.isNotEmpty() },
+            at = System.currentTimeMillis(),
+        )
+        if (id <= 0) return false
+        reload()
+        return true
+    }
+
+    /**
+     * 只切「这张码会不会变」。
+     *
+     * 这一格值得单独有一个开关，是因为它多半是**事后**才知道的：第一次扫不出来之后，
+     * 用户才确定那是个每 60 秒换一次的会话码。那种时候让他删了重录不是好设计。
+     */
+    fun setIdentityDynamic(id: Long, dynamic: Boolean) {
+        scope.launch {
+            db.setIdentityDynamic(id, dynamic)
+            reload()
+        }
+    }
+
+    fun deleteIdentityCode(id: Long) {
+        scope.launch {
+            db.deleteIdentityCode(id)
+            reload()
+        }
+    }
+
+    /**
+     * 这台手机上**能启动的** App，按显示名排好。给「这张码属于哪个 App」那一格。
+     *
+     * 不让用户手填包名：`com.cainiao.wireless` 这种东西没人记得住，而这一格要救的恰恰是
+     * 「码已经失效、得回官方 App 现取」的那一次——最不该让人打字的一次。
+     *
+     * 走 IO 线程：这个查询要对几百个包各做一次 label 解析，在主线程点一下就是一卡。
+     */
+    suspend fun installedApps(): List<InstalledApp> = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        pm.queryIntentActivities(intent, 0)
+            .map { entry ->
+                InstalledApp(
+                    packageName = entry.activityInfo.packageName,
+                    label = entry.loadLabel(pm).toString(),
+                )
+            }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label }
+    }
+
+    /** 装没装那个官方 App。没装就不该出现「跳过去」那颗按钮——点了什么也不会发生。 */
+    fun isAppInstalled(packageName: String): Boolean =
+        context.packageManager.getLaunchIntentForPackage(packageName) != null
+
     private fun stampSync() {
         db.metaPut(KEY_LAST_SYNC, System.currentTimeMillis().toString())
     }
@@ -563,6 +651,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             dismissals = db.allDismissals(),
             mutedSenders = muted.toList(),
             rules = db.allRules(),
+            identityCodes = db.allIdentityCodes(),
             lastSyncAt = db.metaGet(KEY_LAST_SYNC)?.toLongOrNull(),
             syncing = false,
             lastSyncResult = previous.lastSyncResult,

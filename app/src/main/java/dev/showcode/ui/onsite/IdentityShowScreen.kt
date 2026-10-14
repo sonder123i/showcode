@@ -1,0 +1,238 @@
+package dev.showcode.ui.onsite
+
+import android.app.Activity
+import android.view.WindowManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.showcode.R
+import dev.showcode.core.IdentityCode
+import dev.showcode.core.IdentityCodes
+import dev.showcode.core.qr.Qr
+import dev.showcode.ui.copyCode
+import dev.showcode.ui.identity.QrMatrixCanvas
+import dev.showcode.ui.theme.OnsiteInk
+import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.TabularNumbers
+import dev.showcode.ui.theme.UrgencyDueSoon
+
+/**
+ * 出示一张身份码（驿站自助机、柜机寄件那种要扫一下的东西）。
+ *
+ * 这一屏借用现场模式那套约束，因为它们的使用环境是同一个：户外强光、单手、身后有人催，
+ * 而**码和扫码窗之间只有那 20 厘米**。所以二维码占掉整屏能占的最大方块，
+ * 其余一切都排在它下面，包括那串给人核对用的码值。
+ */
+@Composable
+fun IdentityShowScreen(
+    code: IdentityCode,
+    appInstalled: Boolean,
+    onBack: () -> Unit,
+    onOpenApp: () -> Unit,
+) {
+    val context = LocalContext.current
+    val matrix = remember(code.value) { Qr.of(code.value) }
+    val fontScale = LocalDensity.current.fontScale
+
+    // 亮到最高 + 不许熄屏。柜机那个相机把屏幕当一个自发光方块测光，
+    // 用户平时留在 30％ 亮度时，同一张码要重试好几次——而那好几次是站在风里过的。
+    KeepScreenBright()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(OnsiteSurface)
+            .windowInsetsPadding(WindowInsets.systemBars),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.onsite_back))
+            }
+            Text(
+                text = code.label,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 16.dp),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = OnsiteInk,
+            )
+        }
+
+        if (IdentityCodes.shouldWarnStale(code)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(UrgencyDueSoon.copy(alpha = 0.12f))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(16.dp), tint = UrgencyDueSoon)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.identity_stale_warning),
+                    fontSize = 13.sp,
+                    color = OnsiteInk,
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (matrix == null) {
+                // 存进去时编得出来、现在编不出来，只可能是版本上限以后被调低了。
+                // 这时候**不能画一张假码**——画不出就是画不出，把那串字符留给人工输入。
+                Text(
+                    text = stringResource(R.string.identity_cannot_render),
+                    fontSize = 15.sp,
+                    color = UrgencyDueSoon,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                // 方块必须方：竖屏里高度富余，直接 fillMaxWidth 会让上下留白而码是正方形，
+                // 但横屏（有人把手机横过来举着）时不卡尺寸就会画成一个压扁的矩形——扫不出来。
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val side = minOf(maxWidth, maxHeight)
+                    Box(
+                        modifier = Modifier
+                            .size(side)
+                            .background(OnsiteSurface, RoundedCornerShape(0.dp)),
+                    ) {
+                        QrMatrixCanvas(matrix = matrix, modifier = Modifier.fillMaxSize())
+                    }
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // 码值走现场模式那套防溢出字号，不另写一套：一维码时代的教训就是两套规则会漂移。
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val viewportWidthDp = maxWidth.value
+                Text(
+                    text = code.value,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { copyCode(context, code.value, R.string.identity_copied) },
+                    fontSize = codeFontSize(code.value, hasLocker = true, viewportWidthDp, fontScale),
+                    fontWeight = FontWeight.Bold,
+                    color = OnsiteInk,
+                    fontFamily = FontFamily.Monospace,
+                    style = TabularNumbers,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.identity_copy_hint),
+                fontSize = 12.sp,
+                color = OnsiteInk.copy(alpha = 0.55f),
+            )
+
+            code.note?.let { note ->
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = note,
+                    fontSize = 13.sp,
+                    color = OnsiteInk.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            // 降级路：会话码在这一屏救不了自己，只能把人送到能救他的那个 App 去。
+            if (code.appPackage != null && appInstalled) {
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .background(OnsiteInk, RoundedCornerShape(14.dp))
+                        .clickable(onClick = onOpenApp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp), tint = OnsiteSurface)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.identity_open_app),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = OnsiteSurface,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 亮到最高，离开时原样还回去。
+ *
+ * 写在 DisposableEffect 而不是别的地方，是因为「离开这一屏」有三条路：
+ * 返回键、Home、进程被杀。前两条都必须恢复用户自己的亮度，第三条由系统接手。
+ */
+@Composable
+private fun KeepScreenBright() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = (view.context as? Activity)?.window
+        val previous = window?.attributes?.screenBrightness
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window?.let { it.attributes = it.attributes.apply { screenBrightness = 1f } }
+        onDispose {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window?.let { it.attributes = it.attributes.apply { screenBrightness = previous ?: -1f } }
+        }
+    }
+}

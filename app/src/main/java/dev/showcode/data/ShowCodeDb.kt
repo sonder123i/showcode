@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import dev.showcode.core.ExistingParcel
+import dev.showcode.core.IdentityCode
 import dev.showcode.core.Owner
 import dev.showcode.core.Parcel
 import dev.showcode.core.PointAlias
@@ -136,6 +137,22 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
             )
             """.trimIndent()
         )
+        // 身份码。它**不是** parcel 的一种：没有取件点、没有时效、没有来源消息，
+        // 硬塞进 parcel 只会让分组和紧急度那些判据多一个恒为空的分支。
+        // `dynamic` 那一列存的不是备注，是一句以后要当真的话：这张码会变。
+        db.execSQL(
+            """
+            CREATE TABLE identity_code (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              label TEXT NOT NULL,
+              value TEXT NOT NULL,
+              dynamic INTEGER NOT NULL DEFAULT 0,
+              note TEXT,
+              app_pkg TEXT,
+              created_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -166,6 +183,23 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
                   point_name TEXT NOT NULL,
                   locker_no TEXT,
                   enabled INTEGER NOT NULL DEFAULT 1,
+                  created_at INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+        if (oldVersion < 5) {
+            // v4 → v5：身份码同样是纯新增表。它和 parcel 一点关系都没有，
+            // 所以这一格迁移不需要任何收口或回填——不动老行是老库升级唯一的红线。
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS identity_code (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  label TEXT NOT NULL,
+                  value TEXT NOT NULL,
+                  dynamic INTEGER NOT NULL DEFAULT 0,
+                  note TEXT,
+                  app_pkg TEXT,
                   created_at INTEGER NOT NULL
                 )
                 """.trimIndent()
@@ -507,6 +541,72 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         writableDatabase.delete("parse_rule", "id = ?", arrayOf(id.toString()))
     }
 
+    // ---------- 身份码 ----------
+
+    fun allIdentityCodes(): List<IdentityCode> = readableDatabase
+        .rawQuery(
+            "SELECT id, label, value, dynamic, note, app_pkg, created_at FROM identity_code" +
+                " ORDER BY created_at DESC",
+            null,
+        )
+        .use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(
+                        IdentityCode(
+                            id = c.getLong(0),
+                            label = c.getString(1),
+                            value = c.getString(2),
+                            dynamic = c.getInt(3) != 0,
+                            note = if (c.isNull(4)) null else c.getString(4),
+                            appPackage = if (c.isNull(5)) null else c.getString(5),
+                            createdAt = c.getLong(6),
+                        ),
+                    )
+                }
+            }
+        }
+
+    /** 和 [insertRule] 同一条规矩：撞约束只返回 -1 不抛，调用方必须查返回值。 */
+    fun insertIdentityCode(
+        label: String,
+        value: String,
+        dynamic: Boolean,
+        note: String?,
+        appPackage: String?,
+        at: Long,
+    ): Long = writableDatabase.insert(
+        "identity_code",
+        null,
+        ContentValues().apply {
+            put("label", label)
+            put("value", value)
+            put("dynamic", if (dynamic) 1 else 0)
+            put("note", note)
+            put("app_pkg", appPackage)
+            put("created_at", at)
+        },
+    )
+
+    /**
+     * 只改「这张码会不会变」那一格。
+     *
+     * 单独开这一条是因为它的触发时机：用户是**站在机器前扫过一次失败之后**才确定
+     * 「这玩意儿是动态的」。那种时候让他删掉重录一遍码值，等于赌他还记得原串。
+     */
+    fun setIdentityDynamic(id: Long, dynamic: Boolean) {
+        writableDatabase.update(
+            "identity_code",
+            ContentValues().apply { put("dynamic", if (dynamic) 1 else 0) },
+            "id = ?",
+            arrayOf(id.toString()),
+        )
+    }
+
+    fun deleteIdentityCode(id: Long) {
+        writableDatabase.delete("identity_code", "id = ?", arrayOf(id.toString()))
+    }
+
     /**
      * 还挂着的未识别正文，按时间从新到旧，最多 [limit] 条。
      *
@@ -587,6 +687,6 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     private companion object {
         const val NAME = "showcode.db"
-        const val VERSION = 4
+        const val VERSION = 5
     }
 }

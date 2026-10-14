@@ -1,0 +1,533 @@
+package dev.showcode.ui.identity
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import dev.showcode.R
+import dev.showcode.core.IdentityCode
+import dev.showcode.core.IdentityCodes
+import dev.showcode.core.IdentityReject
+import dev.showcode.core.qr.MAX_VERSION
+import dev.showcode.core.qr.Qr
+import dev.showcode.data.InstalledApp
+import dev.showcode.ui.inbox.ScreenTopBar
+import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.Canvas
+import dev.showcode.ui.theme.Hairline
+import dev.showcode.ui.theme.Ink
+import dev.showcode.ui.theme.InkMuted
+import dev.showcode.ui.theme.InkSecondary
+import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.ShowCodeShapes
+import dev.showcode.ui.theme.ShowCodeText
+import dev.showcode.ui.theme.SurfaceCard
+import dev.showcode.ui.theme.UrgencyDueSoon
+import dev.showcode.ui.theme.UrgencySafe
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/* 「已存好」那句的驻留时长。和解析规则那一屏同一个数：两处都是「存完就回列表」，
+   停的时间不一样会让人以为两个屏的规则不一样。 */
+private const val IDENTITY_SAVED_HOLD_MS = 900L
+
+/**
+ * 身份码列表。
+ *
+ * 这里列的是**要扫的东西**，不是包裹，所以没有紧急度、没有排序判据——
+ * 一屏最多 [IdentityCodes.MAX_CODES] 条，按录入时间排就够了。
+ */
+@Composable
+fun IdentityListScreen(
+    codes: List<IdentityCode>,
+    onBack: () -> Unit,
+    onAdd: () -> Unit,
+    onShow: (IdentityCode) -> Unit,
+    onToggleDynamic: (Long, Boolean) -> Unit,
+    onDelete: (Long) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(OnsiteSurface)
+            .windowInsetsPadding(WindowInsets.systemBars),
+    ) {
+        ScreenTopBar(title = stringResource(R.string.identity_title), onBack = onBack)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item {
+                Text(
+                    text = stringResource(R.string.identity_hint),
+                    style = ShowCodeText.Caption,
+                    color = InkMuted,
+                )
+            }
+            if (codes.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.identity_empty),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SurfaceCard, ShowCodeShapes.Md)
+                            .border(1.dp, Hairline, ShowCodeShapes.Md)
+                            .padding(16.dp),
+                        style = ShowCodeText.Meta,
+                        color = InkSecondary,
+                    )
+                }
+            }
+            items(codes, key = { it.id }) { code ->
+                IdentityRow(
+                    code = code,
+                    onShow = { onShow(code) },
+                    onToggleDynamic = { onToggleDynamic(code.id, !code.dynamic) },
+                    onDelete = onDelete,
+                )
+            }
+            item {
+                Text(
+                    text = stringResource(R.string.identity_add),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceCard, ShowCodeShapes.Md)
+                        .border(1.dp, Accent, ShowCodeShapes.Md)
+                        .clickable(onClick = onAdd)
+                        .padding(16.dp),
+                    style = ShowCodeText.Item,
+                    color = Accent,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IdentityRow(
+    code: IdentityCode,
+    onShow: () -> Unit,
+    onToggleDynamic: () -> Unit,
+    onDelete: (Long) -> Unit,
+) {
+    var confirming by remember(code.id) { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceCard, ShowCodeShapes.Md)
+            .border(1.dp, Hairline, ShowCodeShapes.Md)
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = code.label,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onShow),
+                style = ShowCodeText.Item,
+                color = Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // 「会变」不是一个标签，是一个警告：它意味着这张屏上那张码可能已经作废。
+            Text(
+                text = stringResource(if (code.dynamic) R.string.identity_dynamic else R.string.identity_static),
+                modifier = Modifier
+                    .background(
+                        color = if (code.dynamic) UrgencyDueSoon.copy(alpha = 0.12f) else UrgencySafe.copy(alpha = 0.12f),
+                        shape = ShowCodeShapes.Sm,
+                    )
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                style = ShowCodeText.Micro,
+                color = if (code.dynamic) UrgencyDueSoon else UrgencySafe,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = code.value,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onShow),
+            style = ShowCodeText.CodeSmall,
+            color = InkSecondary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        code.note?.let { note ->
+            Spacer(Modifier.height(4.dp))
+            Text(text = note, style = ShowCodeText.Caption, color = InkMuted)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = stringResource(R.string.identity_show),
+                modifier = Modifier.clickable(onClick = onShow),
+                style = ShowCodeText.Action,
+                color = Accent,
+            )
+            Text(
+                text = stringResource(if (code.dynamic) R.string.identity_mark_static else R.string.identity_mark_dynamic),
+                modifier = Modifier.clickable(onClick = onToggleDynamic),
+                style = ShowCodeText.Action,
+                color = InkMuted,
+            )
+            Text(
+                text = stringResource(if (confirming) R.string.identity_delete_confirm else R.string.identity_delete),
+                modifier = Modifier
+                    .clickable { if (confirming) onDelete(code.id) else confirming = true }
+                    .padding(vertical = 4.dp),
+                style = ShowCodeText.Action,
+                color = if (confirming) UrgencyDueSoon else InkMuted,
+            )
+        }
+    }
+}
+
+/**
+ * 存一张身份码。
+ *
+ * 必填的其实只有两格，而**「会不会变」是这一屏最重要的一格**：静态码存下来是资产，
+ * 会话级动态码存下来是一颗定时炸弹——两张屏看起来一模一样，区别只在用户站在自助机前那一次。
+ * 所以这一格不给默认值，必须点一下才让走。
+ */
+@Composable
+fun IdentityEditScreen(
+    existingCount: Int,
+    apps: List<InstalledApp>,
+    onBack: () -> Unit,
+    onSave: suspend (label: String, value: String, dynamic: Boolean, note: String?, appPackage: String?) -> Boolean,
+) {
+    var label by rememberSaveable { mutableStateOf("") }
+    var value by rememberSaveable { mutableStateOf("") }
+    var note by rememberSaveable { mutableStateOf("") }
+    var dynamic by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var app by rememberSaveable { mutableStateOf<InstalledApp?>(null) }
+    var picking by rememberSaveable { mutableStateOf(false) }
+    var savedFlag by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    // 判据和写路径同一个（真的编一遍码），实时算，所以「现在还不能存」的原因在保存之前就看得见。
+    val reject = remember(label, value, dynamic, existingCount) {
+        IdentityCodes.validate(label, value, dynamic, existingCount)
+    }
+    val matrix = remember(value) { Qr.of(value.trim()) }
+
+    LaunchedEffect(savedFlag) {
+        if (savedFlag) {
+            delay(IDENTITY_SAVED_HOLD_MS)
+            onBack()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(OnsiteSurface)
+            .windowInsetsPadding(WindowInsets.systemBars),
+    ) {
+        ScreenTopBar(title = stringResource(R.string.identity_edit_title), onBack = onBack)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Text(
+                    text = stringResource(R.string.identity_edit_hint),
+                    style = ShowCodeText.Meta,
+                    color = InkMuted,
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.identity_field_label)) },
+                    singleLine = true,
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.identity_field_value)) },
+                    minLines = 2,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                )
+            }
+            if (value.isNotBlank()) {
+                // 码值一进来就先把「能不能画成码」说清楚，因为那是这一屏唯一的失效方式。
+                // 报版本不报字符数：能塞进 15 版的长度取决于内容是数字还是汉字，说数字是误导。
+                item {
+                    Text(
+                        text = matrix?.let {
+                            stringResource(R.string.identity_qr_ok, it.version, MAX_VERSION)
+                        } ?: stringResource(R.string.identity_qr_too_big),
+                        style = ShowCodeText.Caption,
+                        color = if (matrix == null) UrgencyDueSoon else InkMuted,
+                    )
+                }
+            }
+            item {
+                Column {
+                    Text(
+                        text = stringResource(R.string.identity_dynamic_question),
+                        style = ShowCodeText.Action,
+                        color = InkMuted,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Choice(
+                            label = stringResource(R.string.identity_dynamic_no),
+                            selected = dynamic == false,
+                            onSelect = { dynamic = false },
+                        )
+                        Choice(
+                            label = stringResource(R.string.identity_dynamic_yes),
+                            selected = dynamic == true,
+                            onSelect = { dynamic = true },
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.identity_dynamic_question_hint),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                }
+            }
+            item {
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.identity_field_note)) },
+                    singleLine = true,
+                )
+            }
+            item {
+                Column {
+                    Text(
+                        text = app?.let { stringResource(R.string.identity_app_chosen, it.label) }
+                            ?: stringResource(R.string.identity_app_none),
+                        style = ShowCodeText.Meta,
+                        color = Ink,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.identity_app_pick),
+                            modifier = Modifier
+                                .clickable { picking = true }
+                                .padding(vertical = 4.dp),
+                            style = ShowCodeText.Action,
+                            color = Accent,
+                        )
+                        if (app != null) {
+                            Text(
+                                text = stringResource(R.string.identity_app_clear),
+                                modifier = Modifier
+                                    .clickable { app = null }
+                                    .padding(vertical = 4.dp),
+                                style = ShowCodeText.Action,
+                                color = InkMuted,
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.identity_app_hint),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                }
+            }
+            if (reject != null && value.isNotBlank()) {
+                item {
+                    Text(
+                        text = stringResource(rejectText(reject)),
+                        style = ShowCodeText.Meta,
+                        color = UrgencyDueSoon,
+                    )
+                }
+            }
+            if (savedFlag) {
+                item {
+                    Text(
+                        text = stringResource(R.string.identity_saved),
+                        style = ShowCodeText.Meta,
+                        color = UrgencySafe,
+                    )
+                }
+            }
+            item {
+                val canSave = reject == null
+                Text(
+                    text = stringResource(R.string.identity_save),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .background(if (canSave) Ink else SurfaceCard, ShowCodeShapes.Md)
+                        .border(1.dp, if (canSave) Ink else Hairline, ShowCodeShapes.Md)
+                        .clickable(enabled = canSave) {
+                            scope.launch {
+                                val stored = onSave(label, value, dynamic == true, note, app?.packageName)
+                                // 以落库的返回为准：失败时字要留在屏上。
+                                if (stored) savedFlag = true
+                            }
+                        },
+                    style = ShowCodeText.Section,
+                    color = if (canSave) OnsiteSurface else InkMuted,
+                )
+            }
+        }
+    }
+
+    if (picking) {
+        Dialog(onDismissRequest = { picking = false }) {
+            AppPicker(
+                apps = apps,
+                onPick = { picked ->
+                    app = picked
+                    // 名字空着的时候替他填上：从「菜鸟驿站」选出来的那张，标题八成就叫菜鸟驿站。
+                    if (label.isBlank()) label = picked.label.take(IdentityCodes.MAX_LABEL_LENGTH)
+                    picking = false
+                },
+                onCancel = { picking = false },
+            )
+        }
+    }
+}
+
+@Composable
+private fun Choice(label: String, selected: Boolean, onSelect: () -> Unit) {
+    Text(
+        text = label,
+        modifier = Modifier
+            .background(if (selected) Accent else Canvas, ShowCodeShapes.Md)
+            .border(1.dp, if (selected) Ink else Hairline, ShowCodeShapes.Md)
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        style = ShowCodeText.Item,
+        color = Ink,
+    )
+}
+
+/**
+ * 从这台手机装过的 App 里挑一个。
+ *
+ * 不做「手填包名」那一格：`com.cainiao.android` 这种东西没人记得住，
+ * 而这一格要救的恰恰是**码已经失效、需要回官方 App 现取**的那次——最不该让人打字的一次。
+ */
+@Composable
+private fun AppPicker(apps: List<InstalledApp>, onPick: (InstalledApp) -> Unit, onCancel: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val shown = remember(apps, query) {
+        if (query.isBlank()) apps else apps.filter { it.label.contains(query.trim(), ignoreCase = true) }
+    }
+    Column(
+        modifier = Modifier
+            .widthIn(max = 420.dp)
+            .background(OnsiteSurface, ShowCodeShapes.Md)
+            .border(1.dp, Hairline, ShowCodeShapes.Md)
+            .padding(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.identity_app_picker_title),
+            style = ShowCodeText.Section,
+            color = Ink,
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.identity_app_picker_search)) },
+            singleLine = true,
+        )
+        Spacer(Modifier.height(8.dp))
+        if (shown.isEmpty()) {
+            // 空列表要说清是「这台手机没装」还是「搜不到」，否则用户会以为是自己操作错了。
+            Text(
+                text = stringResource(
+                    if (apps.isEmpty()) R.string.identity_app_picker_none_installed
+                    else R.string.identity_app_picker_no_match
+                ),
+                style = ShowCodeText.Meta,
+                color = InkMuted,
+            )
+        }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp),
+        ) {
+            items(shown, key = { it.packageName }) { app ->
+                Text(
+                    text = app.label,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPick(app) }
+                        .padding(vertical = 12.dp),
+                    style = ShowCodeText.Item,
+                    color = Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = stringResource(R.string.identity_app_picker_cancel),
+                modifier = Modifier
+                    .clickable(onClick = onCancel)
+                    .padding(vertical = 6.dp),
+                style = ShowCodeText.Action,
+                color = InkMuted,
+            )
+        }
+    }
+}
+
+private fun rejectText(reject: String): Int = when (reject) {
+    IdentityReject.NEEDS_DYNAMIC -> R.string.identity_reject_needs_dynamic
+    IdentityReject.EMPTY_LABEL -> R.string.identity_reject_empty_label
+    IdentityReject.LABEL_TOO_LONG -> R.string.identity_reject_label_long
+    IdentityReject.EMPTY_VALUE -> R.string.identity_reject_empty_value
+    IdentityReject.VALUE_NOT_ENCODABLE -> R.string.identity_reject_not_encodable
+    else -> R.string.identity_reject_too_many
+}
