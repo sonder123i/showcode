@@ -11,7 +11,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 钉版本而不是跟 ubuntu-latest：GitHub 在 2026-10-19 把 latest 迁到 Ubuntu 26，
+    # 而下面「库结构与迁移棘轮」那条靠 runner 自带的 python3 + sqlite3 跑真库迁移。
+    # 它的价值恰恰是「跑在真 SQLite 上」，所以让它悄悄换到一个没验过的 SQLite 版本上，
+    # 等于把这条棘轮变成它本来要防的那种东西。要升就单独提一笔、看着它绿了再升。
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -50,7 +54,8 @@ jobs:
     # 而"没配密钥"是还没准备好的正常状态，不该在公开仓库上留一个失败标记。
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-    runs-on: ubuntu-latest
+    # 和 build 同一张镜像：别让「发出去的那一次」跑在另一套工具链上（理由见 build 那段注释）
+    runs-on: ubuntu-24.04
     permissions:
       contents: write   # 要建 GitHub Release；默认 token 没这个权限
     steps:
