@@ -326,9 +326,11 @@
     <string name="identity_delete_confirm">再点一次确认删除</string>
 
     <string name="identity_edit_title">存一张身份码</string>
-    <string name="identity_edit_hint">把那张码显示的字符抄进来（不是截图）。二维码由 App 现在算出来，所以抄错了当场就会看出来。</string>
+    <string name="identity_edit_hint">那页上如果有复制按钮，就复制码本身过来点粘贴；没有再照原样打字。别存截图——二维码由这台手机现算，截图存进来是一张不能缩放、不能重画的死图。</string>
     <string name="identity_field_label">叫什么 *</string>
     <string name="identity_field_value">码上的字符 *</string>
+    <string name="identity_paste">从剪贴板粘贴这串字符</string>
+    <string name="identity_paste_empty">剪贴板里没有可读的文本。回到那张码的页面，把码本身复制过来再点一次。</string>
     <string name="identity_field_note">备注（可选）</string>
     <string name="identity_qr_ok">画得出：第 %1$d 版（上限第 %2$d 版，越密越难扫）</string>
     <string name="identity_qr_too_big">这么长已经画不出能扫的码了——那种东西本来就该走 App，不该印在屏上。删短一点或换一格填。</string>

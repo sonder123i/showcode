@@ -31,18 +31,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import dev.showcode.R
+import dev.showcode.core.ClipboardIntake
+import dev.showcode.core.ClipboardVerdict
 import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.IdentityReject
 import dev.showcode.core.qr.MAX_VERSION
 import dev.showcode.core.qr.Qr
 import dev.showcode.data.InstalledApp
+import dev.showcode.ui.readText
 import dev.showcode.ui.inbox.ScreenTopBar
 import dev.showcode.ui.theme.Accent
 import dev.showcode.ui.theme.Canvas
@@ -237,6 +241,9 @@ fun IdentityEditScreen(
     var app by rememberSaveable { mutableStateOf<InstalledApp?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var savedFlag by rememberSaveable { mutableStateOf(false) }
+    /** 只装一句「按下了但那一下没结果」的话（剪贴板读不到）。校验失败走 reject，两条不混。 */
+    var notice by rememberSaveable { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     // 判据和写路径同一个（真的编一遍码），实时算，所以「现在还不能存」的原因在保存之前就看得见。
@@ -288,6 +295,27 @@ fun IdentityEditScreen(
                     label = { Text(stringResource(R.string.identity_field_value)) },
                     minLines = 2,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                )
+            }
+            item {
+                /* 粘贴优先于打字：身份码来自别的 App 的页面或截图，手打错一位，
+                   得到的是一张**合法、能扫、扫出来是错内容**的码——这种错当场看不出来，
+                   要等到柜机前才发现。所以这一格默认要有一条不用打字的入口。
+                   判据复用 F3 那一条 explicitPaste（按下就是表达意图，只拒空），
+                   而不是在这里再写一套「像不像一条码」的猜测。 */
+                Text(
+                    text = stringResource(R.string.identity_paste),
+                    modifier = Modifier
+                        .clickable {
+                            when (val verdict = ClipboardIntake.explicitPaste(readText(context))) {
+                                is ClipboardVerdict.Fill -> value = verdict.text
+                                is ClipboardVerdict.Skip ->
+                                    notice = context.getString(R.string.identity_paste_empty)
+                            }
+                        }
+                        .padding(vertical = 6.dp),
+                    style = ShowCodeText.Action,
+                    color = Accent,
                 )
             }
             if (value.isNotBlank()) {
@@ -372,6 +400,15 @@ fun IdentityEditScreen(
                     Text(
                         text = stringResource(R.string.identity_app_hint),
                         style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                }
+            }
+            notice?.let { message ->
+                item {
+                    Text(
+                        text = message,
+                        style = ShowCodeText.Meta,
                         color = InkMuted,
                     )
                 }
