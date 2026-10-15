@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -108,7 +109,6 @@ fun ShowCodeRoot() {
        那一屏要治的就是眼前这一条，让用户再抄一遍原文等于没做这个入口。 */
     var rulePrefillRaw by rememberSaveable { mutableStateOf("") }
     var ruleReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
-    var identityReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
     var notifyReturn by rememberSaveable { mutableStateOf(Route.SETTINGS) }
     /** 正在出示哪一张。存 id 不存对象：码被删掉时那一屏必须跟着退回去，而不是展示一张已经不存在的码。 */
     var identityShowId by rememberSaveable { mutableStateOf(0L) }
@@ -353,7 +353,9 @@ fun ShowCodeRoot() {
                 rulePrefillRaw = ""
                 route = Route.RULES
             }
-            Route.IDENTITY_LIST -> route = identityReturn
+            // 底栏那三格是主屏：身份码列表按返回回默认那一格（待取页），而不是退出 App——
+            // 柜机前按了一下返回结果人被扔到桌面上，是比少一级面包屑更让人恼火的事。
+            Route.IDENTITY_LIST -> route = Route.HOME
             Route.IDENTITY_ADD -> route = Route.IDENTITY_LIST
             Route.IDENTITY_SHOW -> route = Route.IDENTITY_LIST
             Route.NOTIFY_APPS -> route = notifyReturn
@@ -512,11 +514,6 @@ fun ShowCodeRoot() {
                     ruleReturn = Route.SETTINGS
                     route = Route.RULES
                 },
-                identityCount = appData.identityCodes.size,
-                onOpenIdentity = {
-                    identityReturn = Route.SETTINGS
-                    route = Route.IDENTITY_LIST
-                },
                 notifyCount = appData.notifyApps.size,
                 onOpenNotify = {
                     notifyReturn = Route.SETTINGS
@@ -537,7 +534,6 @@ fun ShowCodeRoot() {
                 onRequestSms = { requestSmsPermission() },
                 onOpenNotificationSettings = { openNotificationSettings() },
                 onOpenAppDetails = { openAppDetails() },
-                onBack = { route = Route.HOME },
             )
 
             Route.UNRECOGNIZED -> UnrecognizedScreen(
@@ -584,7 +580,6 @@ fun ShowCodeRoot() {
 
             Route.IDENTITY_LIST -> IdentityListScreen(
                 codes = appData.identityCodes,
-                onBack = { route = identityReturn },
                 onAdd = { route = Route.IDENTITY_ADD },
                 onShow = { code ->
                     identityShowId = code.id
@@ -708,7 +703,21 @@ fun ShowCodeRoot() {
             )
         }
 
-        // 底栏下一笔接进来。
+        /* 三个主屏共用的底栏。子屏不画它：现场模式那一屏只该有那张码和那颗按钮，一排键摆在那儿
+           是挡道的；引导屏也没有「另一个去处」可言。 */
+        if (route == Route.HOME || route == Route.IDENTITY_LIST || route == Route.SETTINGS) {
+            ShowCodeNavBar(
+                current = when (route) {
+                    Route.IDENTITY_LIST -> NavBarTab.IDENTITY
+                    Route.SETTINGS -> NavBarTab.SETTINGS
+                    else -> NavBarTab.HOME
+                },
+                onHome = { route = Route.HOME },
+                onIdentity = { route = Route.IDENTITY_LIST },
+                onSettings = { route = Route.SETTINGS },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
 
 }

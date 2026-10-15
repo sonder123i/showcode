@@ -310,12 +310,8 @@
     <string name="tile_sub_urgent">%1$d 件待取 · %2$d 件急</string>
     <string name="tile_description">点一下立刻重读收件箱里的取件码。通知监听没开启时，它先把你送到能开它的地方——那时它不报件数，因为那些数不可信。</string>
 
-    <string name="settings_identity">身份码</string>
-    <string name="settings_identity_count">%1$d 张</string>
-    <string name="settings_identity_hint">驿站自助机、柜机寄件那种要扫一下的东西。存在这台手机上，不联网。</string>
-
     <string name="identity_title">身份码</string>
-    <string name="identity_hint">这里存的是「我是谁」那一类码，不是取件码：要扫一下才开门、才寄件的东西。</string>
+    <string name="identity_hint">这里存的是「我是谁」那一类码，不是取件码：要扫一下才开门、才寄件的东西。都存在这台手机上，不联网。</string>
     <string name="identity_empty">还没有身份码。如果你常在某个驿站被要求「扫一下手机」，可以把那张码存进来——下次不用翻别的 App。</string>
     <string name="identity_add">＋ 存一张</string>
     <string name="identity_dynamic">会变</string>

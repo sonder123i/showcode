@@ -48,6 +48,8 @@ import dev.showcode.core.Urgency
 import dev.showcode.core.UrgencyThresholds
 import dev.showcode.core.urgencyOf
 import dev.showcode.data.Prefs
+import dev.showcode.ui.NAV_BAR_CLEARANCE
+import dev.showcode.ui.inbox.ScreenTopBar
 import dev.showcode.ui.theme.Accent
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.Ink
@@ -79,9 +81,6 @@ fun SettingsScreen(
     /** 已写下的解析规则条数。0 条时入口仍然要给——不然没人知道有这条路。 */
     ruleCount: Int,
     onOpenRules: () -> Unit,
-    /** 已存的身份码张数。 */
-    identityCount: Int,
-    onOpenIdentity: () -> Unit,
     /** 推过通知的 App 个数。0 个也要有入口：那一屏的空态本身是诊断信息。 */
     notifyCount: Int,
     onOpenNotify: () -> Unit,
@@ -95,7 +94,6 @@ fun SettingsScreen(
     onRequestSms: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenAppDetails: () -> Unit,
-    onBack: () -> Unit,
 ) {
     var familyLabelDraft by remember { mutableStateOf(familyLabel) }
     val dueSoon = parcels.filter { !it.picked && urgencyOf(it, now, thresholds) == Urgency.DUE_SOON }
@@ -106,25 +104,11 @@ fun SettingsScreen(
             .background(OnsiteSurface)
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.onsite_back))
-            }
-            Text(
-                text = stringResource(R.string.settings_title),
-                style = ShowCodeText.Headline,
-                color = Ink,
-            )
-        }
+        ScreenTopBar(title = stringResource(R.string.settings_title))
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = NAV_BAR_CLEARANCE),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item { SectionTitle(stringResource(R.string.settings_threshold_section)) }
@@ -232,38 +216,6 @@ fun SettingsScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.settings_rules_hint),
-                        style = ShowCodeText.Caption,
-                        color = InkMuted,
-                    )
-                }
-            }
-
-            /* 身份码：和解析规则同一个理由——0 张时也要有路可达。
-               这一格的东西不在短信里、不在通知里，用户没有任何别的机会发现 App 能做它。 */
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Hairline, ShowCodeShapes.Md)
-                        .clickable(onClick = onOpenIdentity)
-                        .padding(16.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.settings_identity),
-                            modifier = Modifier.weight(1f),
-                            style = ShowCodeText.Body,
-                            color = Ink,
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_identity_count, identityCount),
-                            style = ShowCodeText.Item,
-                            color = if (identityCount > 0) Ink else InkMuted,
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_identity_hint),
                         style = ShowCodeText.Caption,
                         color = InkMuted,
                     )

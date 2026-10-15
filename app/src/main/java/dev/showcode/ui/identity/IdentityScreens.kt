@@ -46,6 +46,7 @@ import dev.showcode.core.IdentityKind
 import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.IdentityReject
+import dev.showcode.ui.NAV_BAR_CLEARANCE
 import dev.showcode.core.qr.MAX_VERSION
 import dev.showcode.core.qr.Qr
 import dev.showcode.data.InstalledApp
@@ -79,7 +80,6 @@ private const val IDENTITY_SAVED_HOLD_MS = 900L
 @Composable
 fun IdentityListScreen(
     codes: List<IdentityCode>,
-    onBack: () -> Unit,
     onAdd: () -> Unit,
     onShow: (IdentityCode) -> Unit,
     onToggleDynamic: (Long, Boolean) -> Unit,
@@ -91,10 +91,10 @@ fun IdentityListScreen(
             .background(OnsiteSurface)
             .windowInsetsPadding(WindowInsets.systemBars),
     ) {
-        ScreenTopBar(title = stringResource(R.string.identity_title), onBack = onBack)
+        ScreenTopBar(title = stringResource(R.string.identity_title))
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = NAV_BAR_CLEARANCE),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {

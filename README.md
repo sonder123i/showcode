@@ -168,7 +168,7 @@ keytool -genkeypair -keystore release.keystore -storetype PKCS12 \
 
 技术选型上有两处刻意的"少依赖"，都是为了让贡献者能把项目跑起来：
 **不用 Room/KSP**（`SQLiteOpenHelper` 两张表 + 一张键值表，够用了），
-**不用 navigation-compose**（四个屏加几个次屏，一个枚举状态机比导航图更好读）。
+**不用 navigation-compose**（底栏那三个主屏加几个次屏，一个枚举状态机比导航图更好读）。
 
 ## 参与
 

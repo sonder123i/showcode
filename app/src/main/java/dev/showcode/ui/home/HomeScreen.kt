@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +66,7 @@ import dev.showcode.core.urgencyOf
 import dev.showcode.data.SyncResult
 import dev.showcode.ui.closingLabel
 import dev.showcode.ui.URGENCY_DUE_SOON_ICON
+import dev.showcode.ui.NAV_BAR_CLEARANCE
 import dev.showcode.ui.pointIconOf
 import dev.showcode.ui.pointKindLabel
 import dev.showcode.ui.relativeTimeText
@@ -227,13 +227,8 @@ fun HomeScreen(
                         )
                     }
                 }
-                IconButton(onClick = onOpenSettings, modifier = Modifier.size(44.dp)) {
-                    Icon(
-                        Icons.Filled.Settings,
-                        contentDescription = stringResource(R.string.settings_title),
-                        tint = InkSecondary,
-                    )
-                }
+                // 顶栏不再有那颗设置图标：设置现在是底栏三颗键之一，
+                // 同一屏上留两个入口会让人怀疑它们去的是不是同一个地方。
             }
 
             // permission-health-bar：跨屏常驻、不可被滚动隐藏——它挂在 LazyColumn 外面。
@@ -267,7 +262,7 @@ fun HomeScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = NAV_BAR_CLEARANCE),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (!state.loaded) return@LazyColumn

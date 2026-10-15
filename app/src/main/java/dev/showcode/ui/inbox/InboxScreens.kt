@@ -604,16 +604,26 @@ private fun OwnerChoice(label: String, selected: Boolean, onSelect: () -> Unit) 
     )
 }
 
+/**
+ * 子屏的顶栏。`onBack` 为空时不画那颗返回箭头——底栏那三格是主屏，不是谁的子页。
+ *
+ * 没箭头时标题从 20dp 起，对准的是**首页**标题的起位而不是子屏的：主屏之间对齐比
+ * 主屏跟子屏对齐重要，同一层的两屏标题错开一截，用户会读成「这两屏不是平级的」。
+ */
 @Composable
-internal fun ScreenTopBar(title: String, onBack: () -> Unit) {
+internal fun ScreenTopBar(title: String, onBack: (() -> Unit)? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.onsite_back))
+        if (onBack != null) {
+            IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.onsite_back))
+            }
+        } else {
+            Spacer(Modifier.width(20.dp))
         }
         Text(
             text = title,

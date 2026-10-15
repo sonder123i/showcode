@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 身份码那一颗键。material-icons-core 里没有二维码这个图形，而扩展图标集是一笔新依赖，
+     所以按本仓库既有的做法（ic_point_*）自己画一份：三个定位角 + 四颗数据模块。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 左上 / 右上 / 左下 三个定位角：外圈实方 + 内圈挖空（evenOdd 让第二层不填） -->
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M3,3h6v6h-6z M5,5h2v2h-2z" />
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M15,3h6v6h-6z M17,5h2v2h-2z" />
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M3,15h6v6h-6z M5,17h2v2h-2z" />
+    <!-- 右下那一片是数据区，四颗模块摆散，免得读成第二个定位角 -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M11,11h2v2h-2z M17,13h2v2h-2z M13,17h2v2h-2z M19,19h2v2h-2z" />
+</vector>
