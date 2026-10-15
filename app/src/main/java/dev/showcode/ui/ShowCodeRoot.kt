@@ -161,6 +161,14 @@ fun ShowCodeRoot() {
         }
     }
 
+    /* 每次进待取页都刷一遍收件箱。首页那颗「立即刷新」胶囊被拿掉的前提就是这一条——
+       位置要让给底栏，而这句话不能一起丢掉：自动的东西失效方式是静默的，
+       所以顶栏留一行小字报「上次同步到什么时候」。冷启动第一次组合就在 HOME，也算进入。
+       演示模式不刷：那条路径一个字都不该落库。 */
+    LaunchedEffect(route) {
+        if (route == Route.HOME && !demo) repository.refreshNow()
+    }
+
     fun openMergePreview(a: PickupPointGroup, b: PickupPointGroup, preferTarget: PickupPointGroup? = null) {
         /* 从详情页点「并过来」时方向已经由用户定死了——并到他正在看的那个点，
            这里不能再拿件数去翻他的决定。只有轻提示那条路径两边没有主客，

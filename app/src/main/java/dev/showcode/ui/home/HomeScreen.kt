@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,6 +94,7 @@ import dev.showcode.ui.points.MergeUndoBar
 import dev.showcode.ui.points.SuspectHintCard
 import dev.showcode.ui.urgencyColor
 import dev.showcode.ui.urgencyLabel
+import kotlinx.coroutines.delay
 
 /**
  * 首页的三种空态。edge meta-3 的红线：本产品有 6 种语义完全不同的空态，绝不可共用文案。
@@ -184,6 +186,8 @@ fun HomeScreen(
         ((state.smsPermissionGranted || state.notificationAccessGranted) &&
             (state.lastSyncAt == null || now - state.lastSyncAt > STALE_THRESHOLD_MS))
 
+    // 底色与系统栏内边距住在这儿。浮动胶囊搬走之后它只剩一个子层，
+    // 但那三条修饰符挪进 Column 要把整屏重排一遍缩进——为一个空壳改动两百行不值当。
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -199,12 +203,15 @@ fun HomeScreen(
                     .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(R.string.home_title),
-                    modifier = Modifier.weight(1f),
-                    style = ShowCodeText.Headline,
-                    color = Ink,
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.home_title),
+                        style = ShowCodeText.Headline,
+                        color = Ink,
+                    )
+                    // 胶囊搬到这里来了：底栏要占的是它那个位置，而这句话不能跟着一起没了。
+                    SyncLine(state = state, now = now)
+                }
                 // 一件都没有时不给这颗按钮：那时候搜索框不是路，是一条死路。
                 if (state.groups.isNotEmpty()) {
                     IconButton(
@@ -260,7 +267,7 @@ fun HomeScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = REFRESH_PILL_CLEARANCE),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (!state.loaded) return@LazyColumn
@@ -391,21 +398,48 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
 
-        // 浮层落点：胶囊常驻底部，卡片从它下面滚过去。
-        // 未加载完不出现——那时报「从未同步」是在制造焦虑而不是在提供出口。
-        if (state.loaded) {
-            RefreshPill(
-                lastSyncAt = state.lastSyncAt,
-                now = now,
-                onRefresh = onRefresh,
-                syncing = state.syncing,
-                result = state.lastSyncResult,
-                failed = state.lastSyncFailed,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
+/**
+ * 顶栏那行小字：现在看到的是什么时候的数据。
+ *
+ * 它以前住在底部那颗胶囊里，还兼作「立即刷新」的按钮。首页改成每次进入自动刷之后按钮
+ * 没必要了，这句话必须留下——自动的东西失效方式是静默的（权限被 ROM 收回不会弹通知），
+ * 用户得能一眼分清「这是三分钟前的数据」和「今天根本没刷成功」。
+ *
+ * 刚刷完那句只露 [SYNC_RESULT_MS]，且不拿页面那个 30 秒一跳的 `now` 比：那个刻度是给
+ * 倒计时用的，用它这条会时准时不准——自动刷新之后这是首页唯一的「刷过了」的证据，不能飘。
+ */
+private const val SYNC_RESULT_MS = 8_000L
+
+@Composable
+private fun SyncLine(state: HomeUiState, now: Long) {
+    // 没加载完不出声：那时「还没同步过」是把一次正常的读库演成一件缺了什么的事。
+    if (!state.loaded) return
+    val result = state.lastSyncResult
+    val resultAt = result?.at
+    var showResult by remember(resultAt) { mutableStateOf(result != null) }
+    LaunchedEffect(resultAt) {
+        if (resultAt != null) {
+            delay(SYNC_RESULT_MS)
+            showResult = false
         }
     }
+    val text = when {
+        state.syncing -> stringResource(R.string.home_syncing)
+        state.lastSyncFailed -> stringResource(R.string.home_sync_failed)
+        showResult && result != null && result.added > 0 -> stringResource(R.string.home_sync_added, result.added)
+        showResult && result != null -> stringResource(R.string.home_sync_none)
+        else -> state.lastSyncAt?.let {
+            stringResource(R.string.home_synced_at, relativeTimeText(it, now))
+        } ?: stringResource(R.string.home_never_synced)
+    }
+    Text(
+        text = text,
+        style = ShowCodeText.Caption,
+        color = if (state.lastSyncFailed) UrgencyDueSoon else InkMuted,
+    )
 }
 
 /**

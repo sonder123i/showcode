@@ -39,8 +39,10 @@ class PickupTileService : TileService() {
         when (readout().action) {
             TileAction.OPEN_LISTENER_SETTINGS -> openListenerSettings()
             // 刷新是异步的：点完不能就地假设件数已经变了，等它落库再重画一次。
-            TileAction.REFRESH_NOW -> applicationContext.app.repository.refreshNow().invokeOnCompletion {
-                main.post { render() }
+            TileAction.REFRESH_NOW -> {
+                val job = applicationContext.app.repository.refreshNow()
+                // 正被首页那条自动刷占着时这次不重排，但照样当场重画——磁贴要回答的是「我按了」。
+                if (job == null) render() else job.invokeOnCompletion { main.post { render() } }
             }
         }
     }

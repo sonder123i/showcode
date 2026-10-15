@@ -290,8 +290,15 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         reload()
     }
 
-    /** 首页「立即刷新」：error-stale-data 的出口。 */
-    fun refreshNow(): Job = backfillSms()
+    /**
+     * 刷新收件箱。首页每次进入都调它，所以**已经在读时不再排第二个**：
+     * 在子屏之间来回切会连着触发，而两次查询用的是同一个游标，第二次什么也读不到，
+     * 只会把「正在同步」那句拖成一长串。返回 null = 这一下没发起。
+     */
+    fun refreshNow(): Job? {
+        if (_data.value.syncing) return null
+        return backfillSms()
+    }
 
     /**
      * 手动导入 / 未识别页的手动提取。

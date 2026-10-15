@@ -37,6 +37,7 @@
     <string name="home_sync_added">新增 %1$d 件</string>
     <string name="home_sync_none">无新件</string>
     <string name="home_never_synced">还没同步过</string>
+    <string name="home_synced_at">更新于 %1$s</string>
     <string name="time_just_now">刚刚</string>
     <string name="home_enable_ingest">开启自动收录</string>
     <string name="home_enable_ingest_hint">读短信与通知，把取件码自动归到对应取件点下、按紧急度排好。取件码永不出本机。</string>
