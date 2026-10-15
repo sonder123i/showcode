@@ -44,6 +44,7 @@ import dev.showcode.ui.points.MergePreviewScreen
 import dev.showcode.ui.points.PointDetailScreen
 import kotlinx.coroutines.delay
 import dev.showcode.data.DemoData
+import dev.showcode.data.PickupReminder
 import dev.showcode.data.InstalledApp
 import dev.showcode.data.unrecognizedBadgeCount
 import dev.showcode.ui.home.HomeEmpty
@@ -208,6 +209,13 @@ fun ShowCodeRoot() {
 
     var smsGranted by remember { mutableStateOf(repository.hasSmsPermission()) }
     var notificationGranted by remember { mutableStateOf(repository.hasNotificationAccess()) }
+    /* ⚠️ 这条和上面那条**不是同一件事**：`notificationGranted` 是「读别人的通知」（监听权），
+       这条是「发我们自己的通知」（POST_NOTIFICATIONS，Android 13+ 运行时权限）。
+       名字必须分开——两个都叫 notification 的布尔值放在同一个作用域里，将来一定有人用错。 */
+    var canPostNotifications by remember { mutableStateOf(PickupReminder.permissionGranted(context)) }
+    val postNotificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> canPostNotifications = granted }
 
     // 通知监听权只能在系统设置里给，回来时必须重新读一次，否则按钮会一直挂着
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -216,6 +224,7 @@ fun ShowCodeRoot() {
             if (event == Lifecycle.Event.ON_RESUME) {
                 smsGranted = repository.hasSmsPermission()
                 notificationGranted = repository.hasNotificationAccess()
+                canPostNotifications = PickupReminder.permissionGranted(context)
                 widgetAdded = AppWidgetManager.getInstance(context)
                     .getAppWidgetIds(ComponentName(context, PickupWidgetProvider::class.java))
                     .isNotEmpty()
@@ -314,7 +323,9 @@ fun ShowCodeRoot() {
         }
     }
 
-    // 组件点击的深链：冷启动与 onNewIntent 都汇到 WidgetNav.request
+    /* 外部入口的深链（桌面组件、巡检提醒那条通知）：冷启动与 onNewIntent 都汇到 WidgetNav.request。
+       通知点开来必须**直接落在那一格里**——它叫的是「对一眼有没有漏的」，
+       还要用户自己找一遍那一格在哪，这条提醒就白发了。 */
     LaunchedEffect(Unit) {
         WidgetNav.request.collect { intent ->
             val target = WidgetNav.routeOf(intent) ?: return@collect
@@ -327,6 +338,7 @@ fun ShowCodeRoot() {
                 }
                 WidgetNav.ROUTE_DEMO -> enterDemo(sampleGroups.firstOrNull()?.key.orEmpty())
                 WidgetNav.ROUTE_UNRECOGNIZED -> route = Route.UNRECOGNIZED
+                WidgetNav.ROUTE_IDENTITY -> route = Route.IDENTITY_LIST
                 else -> route = Route.HOME
             }
         }
@@ -510,6 +522,17 @@ fun ShowCodeRoot() {
                     route = Route.RULES
                 },
                 notifyCount = appData.notifyApps.size,
+                reminderOn = repository.prefs.reminderOn,
+                onReminderOn = { on ->
+                    repository.prefs.reminderOn = on
+                    /* 在他**主动要这条提醒**的这一刻才问权限，不在启动时拦人。
+                       拒了也不回滚开关：那一格下面会红着一行说「没给权限它不会响」，
+                       比偷偷关掉一个他刚打开的开关诚实。 */
+                    if (on && !canPostNotifications) {
+                        postNotificationLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+                notificationGranted = canPostNotifications,
                 onOpenNotify = {
                     notifyReturn = Route.SETTINGS
                     route = Route.NOTIFY_APPS
@@ -637,6 +660,9 @@ fun ShowCodeRoot() {
             Route.MANUAL_IMPORT -> ManualImportScreen(
                 prefillRaw = manualPrefill,
                 knownBodies = knownBodies,
+                // 芯片只有四个位置，最常用的那个必须在第一个：按该点现有件数排。
+                knownPoints = appData.parcels.groupingBy { it.pointName }.eachCount()
+                    .entries.sortedByDescending { it.value }.map { it.key },
                 onBack = { route = manualReturn },
                 onSave = { code, name, locker, raw, owner ->
                     val stored = repository.manualAdd(code, name, locker, raw, owner, resolvesUnrecognizedOf = manualSourceBody)

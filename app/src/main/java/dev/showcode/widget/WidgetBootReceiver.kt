@@ -3,6 +3,7 @@ package dev.showcode.widget
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import dev.showcode.data.PickupReminder
 
 /**
  * 重启 / 升级之后重新安排组件的唤醒。
@@ -17,5 +18,7 @@ class WidgetBootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         PickupWidgetProvider.updateAll(context)
+        // 闹钟不跨重启。巡检提醒借这一个已经存在的钩子重排，不另开 receiver、不多要权限。
+        PickupReminder.schedule(context)
     }
 }

@@ -1,5 +1,8 @@
 package dev.showcode.core
 
+import java.time.Instant
+import java.time.ZoneId
+
 /**
  * 「推送盲区」的判定。
  *
@@ -42,6 +45,26 @@ object BlindSpot {
         detected(sources) &&
         lastRemindedDay != today
 
-    /** 提醒的文案分两种：第一次要说清为什么开始提醒他，之后只是催一下。 */
-    fun isFirstReminder(lastRemindedAt: Long?): Boolean = lastRemindedAt == null
+    /** 第一次提醒要说清「为什么开始提醒你」，之后只是催一下。0 = 从没提醒过。 */
+    fun isFirstReminder(lastRemindedDay: Int): Boolean = lastRemindedDay == 0
+
+    /** 自然日序号。提醒按天不按 24 小时滚动：半夜重复响一次，用户只会把通知权限整个关掉。 */
+    fun epochDay(atMillis: Long): Int = (atMillis / MILLIS_PER_DAY).toInt()
+
+    /**
+     * 下一个本地 [HOUR] 点的时间戳。
+     *
+     * 定在早上 9 点不是随手取的：这个提醒的内容是「今天出门前对一眼拼多多」，
+     * 晚了人就出门了、早了是骚扰。它不精确也没关系——`setAndAllowWhileIdle` 本来就允许系统
+     * 往后挪几分钟，而挪几分钟不影响「出门前」这个语义。
+     */
+    fun nextReminderAt(nowMillis: Long): Long {
+        val today = Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        val candidate = today.atTime(HOUR, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        return if (candidate > nowMillis) candidate else today.plusDays(1)
+            .atTime(HOUR, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+
+    private const val MILLIS_PER_DAY = 24L * 60 * 60 * 1000
+    private const val HOUR = 9
 }

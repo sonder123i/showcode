@@ -356,9 +356,16 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             }
             stampSync()
             reload()
+            /* 手动录进一条 = 这个用户的链路里有平台**根本不推送**——盲区在这一刻才被证实。
+               闹钟在这里挂，而不是只在启动时挂：用户可能装完 App 三个月才第一次手动录，
+               那时候该开始提醒他，而不等他下次重启手机。 */
+            PickupReminder.schedule(context)
         }
         stored
     }
+
+    /** 出现过的收录来源。`db` 是本类私有的，提醒功能要问的是这件事，不是那张表。 */
+    fun distinctSources(): Set<Source> = db.distinctSources()
 
     fun hasSmsPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED

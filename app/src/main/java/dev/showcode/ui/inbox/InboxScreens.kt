@@ -350,6 +350,8 @@ fun ManualImportScreen(
     prefillRaw: String,
     /** 库里已经见过的正文（待取件的原文 + 还没处理的未识别正文）。自动填靠它决定「这条你已经导过了」。 */
     knownBodies: Set<String>,
+    /** 库里已有的取件点名。手动录入时点一下就用，不用打那种二十个字的长名。 */
+    knownPoints: List<String>,
     onBack: () -> Unit,
     onSave: suspend (code: String, pointName: String, lockerNo: String?, raw: String, owner: Owner) -> Boolean,
 ) {
@@ -500,6 +502,42 @@ fun ManualImportScreen(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.manual_import_point)) },
                 )
+            }
+            /* 已有点名直接点。手动录入的典型场景是「平台没推的那个件」，而那个驿站他手机里
+               多半已经有别的件了——要点开键盘打「南昌工学院天工蓝菜鸟驿站驿站」这种长名，
+               是不该存在的摩擦。形状沿用本屏上面那排码芯片，不另造一套。 */
+            if (knownPoints.isNotEmpty()) {
+                item {
+                    // FlowRow 不是可选的：实测四个长中文点名一行装不下，
+                    // 第三颗被截成「文昌苑菜鸟…」、第四颗直接跑到屏外点不到。
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        knownPoints.take(4).forEach { name ->
+                            Text(
+                                text = name,
+                                modifier = Modifier
+                                    .background(
+                                        if (pointName == name) AccentTint else SurfaceCard,
+                                        ShowCodeShapes.Sm,
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (pointName == name) Accent else Hairline,
+                                        ShowCodeShapes.Sm,
+                                    )
+                                    .clickable { pointName = name }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                style = ShowCodeText.Caption,
+                                color = if (pointName == name) Ink else InkMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
             }
             item {
                 OutlinedTextField(

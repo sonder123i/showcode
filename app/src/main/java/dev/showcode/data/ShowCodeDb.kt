@@ -718,6 +718,18 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
         .rawQuery("SELECT 1 FROM notify_app WHERE pkg = ? LIMIT 1", arrayOf(pkg))
         .use { it.moveToFirst() }
 
+    /**
+     * 出现过的收录来源。巡检提醒用它判「这个用户有没有推送盲区」——
+     * 只要有一条件是手动录进来的，就说明有平台根本不往手机推东西。
+     */
+    fun distinctSources(): Set<Source> = readableDatabase
+        .rawQuery("SELECT DISTINCT source FROM parcel", null)
+        .use { c ->
+            buildSet {
+                while (c.moveToNext()) add(enumOrDefault(c.getString(0), Source.SMS))
+            }
+        }
+
     /** 用户在那一屏按下的开关。关掉一个 App 不动它以前收进来的件——那只影响以后。 */
     fun setNotifyAppDisabled(pkg: String, disabled: Boolean) {
         writableDatabase.execSQL(

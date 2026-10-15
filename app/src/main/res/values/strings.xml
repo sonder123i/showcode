@@ -218,6 +218,7 @@
     <string name="ob_ready_health">权限体检</string>
     <string name="ob_ready_cta">进首页</string>
     <string name="ob_ready_manual">等不及？手动导入一条试试</string>
+    <string name="home_manual_entry">有个件平台没推给你？手动记一条</string>
     <string name="ob_ready_note">以上任何一项都能稍后在设置里改</string>
     <string name="merge_suspect">「%1$s」和「%2$s」可能是同一个点？</string>
     <string name="merge_suspect_yes">是同一个</string>
@@ -314,7 +315,7 @@
     <string name="tile_description">点一下立刻重读收件箱里的取件码。通知监听没开启时，它先把你送到能开它的地方——那时它不报件数，因为那些数不可信。</string>
 
     <string name="identity_title">身份码</string>
-    <string name="identity_entries_hint">这几家不用存码：点一下就打开它，在里面现取一张。</string>
+    <string name="identity_entries_hint">这几家不用存码：点一下就打开它的取件页，在里面现取一张。有些件不发短信、也不推通知，只有在那一栏里才看得见。</string>
     <string name="identity_entry_open">去取</string>
     <string name="identity_hint">这里存的是「我是谁」那一类码，不是取件码：要扫一下才开门、才寄件的东西。都存在这台手机上，不联网。</string>
     <string name="identity_empty">还没有存码。值得存的只有长期不变的那一种：驿站会员码、小区门禁。每隔几十秒就换一次的那种不用存——存下来的那一份一定扫不过。</string>
@@ -405,4 +406,13 @@
     <string name="notify_forward_confirm">再点一次真的关掉：以后经它转来的码不会出现在任何地方，包括「没认出来的取件短信」。</string>
     <string name="notify_cancel">不关了</string>
     <string name="notify_irreversible_hint">通知不像短信有收件箱可以回填：关掉期间推来的那几条永久收不回，重新打开只救以后的。这里只管通知——短信那边的屏蔽在「不再显示此类」那格，两套互不影响。</string>
+
+    <string name="reminder_channel">巡检提醒</string>
+    <string name="reminder_channel_desc">每天一次，叫你去平台那一栏对一眼有没有漏掉的件。</string>
+    <string name="reminder_title">对一眼拼多多 / 淘宝</string>
+    <string name="reminder_body">有些件不发短信、也不推通知，只在它们自己的「取快递」那一栏里露一下。点一下直接去那一栏，比等它自己冒出来可靠。</string>
+    <string name="reminder_body_first">上次那个件是你自己录进来的——说明那个平台不会把它推给你。以后每天这个点提醒你对一眼；不想听可以在设置里关掉。</string>
+    <string name="settings_reminder">每天提醒我对一眼</string>
+    <string name="settings_reminder_hint">只在你手动录过件之后才开始提醒（那说明有平台根本不推送）。拒了通知权限它就不响，改成进 App 时提示你。</string>
+    <string name="settings_reminder_needs_permission">要通知权限：没给的话这条提醒不会响。</string>
 </resources>

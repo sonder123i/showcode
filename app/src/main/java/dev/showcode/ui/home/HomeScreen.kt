@@ -381,7 +381,7 @@ fun HomeScreen(
                 // 手上有条码而 App 认不出来的那一刻，正是它最值钱的时候。
                 item {
                     Text(
-                        text = stringResource(R.string.ob_ready_manual),
+                        text = stringResource(R.string.home_manual_entry),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(onClick = onManualImport)

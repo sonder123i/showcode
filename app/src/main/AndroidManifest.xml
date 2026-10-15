@@ -3,6 +3,9 @@
 
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- 上面两条是「收」；这一条是「我们主动说话」。巡检提醒只在证实过推送盲区
+         （用户手动录过件）之后才响，而且拒了会退化成进 App 时的一条常驻提示，不损失功能。 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- 身份码那屏要「从这台手机的 App 里选一个」并跳过去。targetSdk 30 起这是**包可见性**
@@ -41,6 +44,10 @@
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".data.PickupReminderReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".widget.WidgetBootReceiver"

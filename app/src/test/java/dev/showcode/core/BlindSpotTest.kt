@@ -54,7 +54,27 @@ class BlindSpotTest {
 
     @Test
     fun `第一次和之后的文案不是一条`() {
-        assertEquals(true, BlindSpot.isFirstReminder(null))
-        assertEquals(false, BlindSpot.isFirstReminder(1_700_000_000_000L))
+        assertEquals(true, BlindSpot.isFirstReminder(0))
+        assertEquals(false, BlindSpot.isFirstReminder(20000))
+    }
+
+    @Test
+    fun `自然日按天切，不是按 24 小时滚动`() {
+        val dayMs = 24L * 60 * 60 * 1000
+        assertEquals(BlindSpot.epochDay(0), BlindSpot.epochDay(dayMs - 1))
+        assertEquals(BlindSpot.epochDay(0) + 1, BlindSpot.epochDay(dayMs))
+    }
+
+    @Test
+    fun `九点之前指向今天九点，之后指向明天九点`() {
+        val hourMs = 60L * 60 * 1000
+        // 本地 08:00 那一瞬间（用同一套时区算，断言的是「往后不到一天」这个形状）。
+        val beforeNine = BlindSpot.nextReminderAt(System.currentTimeMillis() - 12 * hourMs)
+        val afterNine = BlindSpot.nextReminderAt(System.currentTimeMillis())
+        val next = BlindSpot.nextReminderAt(beforeNine)
+        // 刚响过的那一刻再问，答案必须是明天——同一天不许排第二次。
+        assertEquals(true, next > beforeNine)
+        assertEquals(true, next - beforeNine <= 25 * hourMs)
+        assertEquals(true, afterNine > System.currentTimeMillis() - hourMs)
     }
 }

@@ -68,6 +68,24 @@ class Prefs(context: Context) {
 
     fun clearWidgetBinding(widgetId: Int) = setWidgetBinding(widgetId, null, null)
 
+    /**
+     * 巡检提醒的开关。默认开——但「开」离「会响」还差两道：必须**证实过推送盲区**
+     * （见 `core/BlindSpot`）并且通知权限已给。所以默认开不等于默认吵人。
+     */
+    var reminderOn: Boolean
+        get() = sp.getBoolean(KEY_REMINDER_ON, true)
+        set(value) = sp.edit().putBoolean(KEY_REMINDER_ON, value).apply()
+
+    /** 上次提醒所在的自然日（epochDay）。0 = 从没提醒过，第一次的文案要解释「为什么开始提醒你」。 */
+    var lastRemindedDay: Int
+        get() = sp.getInt(KEY_REMINDED_DAY, 0)
+        set(value) = sp.edit().putInt(KEY_REMINDED_DAY, value).apply()
+
+    /** 那条一次性询问问过了没有。问过就不再问——反复问同一件事比不问更让人烦。 */
+    var reminderAsked: Boolean
+        get() = sp.getBoolean(KEY_REMINDER_ASKED, false)
+        set(value) = sp.edit().putBoolean(KEY_REMINDER_ASKED, value).apply()
+
     private fun keyBinding(widgetId: Int) = "widget_bind_$widgetId"
     private fun keyBindingName(widgetId: Int) = "widget_bind_name_$widgetId"
 
@@ -85,6 +103,9 @@ class Prefs(context: Context) {
         private const val KEY_ONBOARDING_DONE = "onboarding_done"
         private const val KEY_WIDGET_HINT_DISMISSED = "widget_hint_dismissed"
         private const val KEY_FAMILY_LABEL = "family_label"
+        private const val KEY_REMINDER_ON = "pickup_reminder_on"
+        private const val KEY_REMINDED_DAY = "pickup_reminded_day"
+        private const val KEY_REMINDER_ASKED = "pickup_reminder_asked"
 
         const val DEFAULT_LOCKER_HOURS = 6
         const val DEFAULT_STATION_MINUTES = 90

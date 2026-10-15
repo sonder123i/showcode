@@ -48,6 +48,7 @@ import dev.showcode.core.Urgency
 import dev.showcode.core.UrgencyThresholds
 import dev.showcode.core.urgencyOf
 import dev.showcode.data.Prefs
+import androidx.compose.material3.Switch
 import dev.showcode.ui.NAV_BAR_CLEARANCE
 import dev.showcode.ui.inbox.ScreenTopBar
 import dev.showcode.ui.theme.Accent
@@ -84,6 +85,10 @@ fun SettingsScreen(
     /** 推过通知的 App 个数。0 个也要有入口：那一屏的空态本身是诊断信息。 */
     notifyCount: Int,
     onOpenNotify: () -> Unit,
+    /** 巡检提醒的开关。它离「会响」还差两道：证实过盲区 + 通知权限已给。 */
+    reminderOn: Boolean,
+    onReminderOn: (Boolean) -> Unit,
+    notificationGranted: Boolean,
     /** 代取件分组的名字（story-7 AC2 要求用户能改）。 */
     familyLabel: String,
     onFamilyLabel: (String) -> Unit,
@@ -248,6 +253,42 @@ fun SettingsScreen(
                         style = ShowCodeText.Caption,
                         color = InkMuted,
                     )
+                }
+            }
+
+            /* 巡检提醒的开关一直显示，不因为「还没证实盲区」就藏起来：
+               想提前关掉的人必须找得到它，而找不到一个开关比看见一个暂时不响的开关更让人不安。 */
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
+                        .padding(16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.settings_reminder),
+                            modifier = Modifier.weight(1f),
+                            style = ShowCodeText.Body,
+                            color = Ink,
+                        )
+                        Switch(checked = reminderOn, onCheckedChange = onReminderOn)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_reminder_hint),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                    // 开着开关却永远等不到提醒，是最坏的一种坏——所以没权限要当场说。
+                    if (reminderOn && !notificationGranted) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.settings_reminder_needs_permission),
+                            style = ShowCodeText.Caption,
+                            color = UrgencyDueSoon,
+                        )
+                    }
                 }
             }
 
