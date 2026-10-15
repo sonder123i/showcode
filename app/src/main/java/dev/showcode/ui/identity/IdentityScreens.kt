@@ -46,6 +46,8 @@ import dev.showcode.core.IdentityKind
 import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.IdentityCodes
 import dev.showcode.core.IdentityReject
+import dev.showcode.core.LaunchOutcome
+import dev.showcode.ui.LaunchOutcomeLine
 import dev.showcode.ui.NAV_BAR_CLEARANCE
 import dev.showcode.core.qr.MAX_VERSION
 import dev.showcode.core.qr.Qr
@@ -80,7 +82,10 @@ private const val IDENTITY_SAVED_HOLD_MS = 900L
 @Composable
 fun IdentityListScreen(
     codes: List<IdentityCode>,
+    entries: List<String>,
+    launch: LaunchOutcome?,
     onAdd: () -> Unit,
+    onOpenEntry: (String) -> Unit,
     onShow: (IdentityCode) -> Unit,
     onToggleDynamic: (Long, Boolean) -> Unit,
     onDelete: (Long) -> Unit,
@@ -97,6 +102,50 @@ fun IdentityListScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = NAV_BAR_CLEARANCE),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            /* 预置的那几家：点一下直接打开它，不落库、不进出示屏。
+               存在的理由是把最常见的两条路压到一下——存一张「入口」再省也要四下，
+               而竞品那一格本来就只有跳转。该列哪几家是判据（只列真装着的），在 core 那边筛。 */
+            if (entries.isNotEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SurfaceCard, ShowCodeShapes.Md)
+                            .border(1.dp, Hairline, ShowCodeShapes.Md)
+                            .padding(bottom = 6.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.identity_entries_hint),
+                            modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp),
+                            style = ShowCodeText.Caption,
+                            color = InkMuted,
+                        )
+                        entries.forEach { pkg ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onOpenEntry(pkg) }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource(presetLabel(pkg)),
+                                    modifier = Modifier.weight(1f),
+                                    style = ShowCodeText.Item,
+                                    color = Ink,
+                                )
+                                Text(
+                                    text = stringResource(R.string.identity_entry_open),
+                                    style = ShowCodeText.Action,
+                                    color = Accent,
+                                )
+                            }
+                        }
+                        // 按下去的结局就住在同一张卡里：话要说在刚按的那一下旁边。
+                        LaunchOutcomeLine(launch, modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                }
+            }
             item {
                 Text(
                     text = stringResource(R.string.identity_hint),
@@ -266,10 +315,12 @@ fun IdentityEditScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // 入口那一类的名字就是那家 App 的名字（PackageManager 给的显示名），不再让人打一遍。
+    val effectiveLabel = if (kind == IdentityKind.ENTRY) app?.label.orEmpty() else label
     // 判据和写路径同一个（真的编一遍码），实时算，所以「现在还不能存」的原因在保存之前就看得见。
-    val reject = remember(label, value, kind, dynamic, app, existingCount) {
+    val reject = remember(effectiveLabel, value, kind, dynamic, app, existingCount) {
         IdentityCodes.validate(
-            label = label,
+            label = effectiveLabel,
             value = value,
             kind = kind,
             dynamic = dynamic,
@@ -305,16 +356,7 @@ fun IdentityEditScreen(
                     color = InkMuted,
                 )
             }
-            item {
-                OutlinedTextField(
-                    value = label,
-                    onValueChange = { label = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.identity_field_label)) },
-                    singleLine = true,
-                )
-            }
-            /* 先问存什么。这一格放在名称之后、其它一切之前，因为它决定后面那几格存不存在：
+            /* 先问存什么，因为它决定后面那几格存不存在。
                竞品那一格本来就只有跳转（「只是跳转。身份码是动态刷新的」），
                而我们过去只能存一张码、跳转当附属——主次是反的。 */
             item {
@@ -345,6 +387,18 @@ fun IdentityEditScreen(
                         ),
                         style = ShowCodeText.Caption,
                         color = InkMuted,
+                    )
+                }
+            }
+            // 入口那一类的名字就是那家 App 的名字：为已经选好的东西再打一遍标题是收税。
+            if (kind == IdentityKind.CODE) {
+                item {
+                    OutlinedTextField(
+                        value = label,
+                        onValueChange = { label = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.identity_field_label)) },
+                        singleLine = true,
                     )
                 }
             }
@@ -444,7 +498,10 @@ fun IdentityEditScreen(
                     // 已知那几家排在这儿：绝大多数人就是这两家，让他们在几百行里搜「菜鸟」
                     // 是把三秒的事做成三十秒。**只列真装着的**——一颗点了只会失败的按钮比没有更坏。
                     val quick = remember(apps) {
-                        apps.filter { it.packageName in DeepLinkLadder.knownPackages }
+                        // 筛法只有一份（core 的 entriesFor）：同一个判据在两个屏上各写一遍，
+                        // 迟早会变成「那一屏列了两家、这一屏列了一家」。
+                        DeepLinkLadder.entriesFor(apps.mapTo(mutableSetOf()) { it.packageName })
+                            .mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
                     }
                     if (quick.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
@@ -524,7 +581,7 @@ fun IdentityEditScreen(
                         .border(1.dp, if (canSave) Ink else Hairline, ShowCodeShapes.Md)
                         .clickable(enabled = canSave) {
                             scope.launch {
-                                val stored = onSave(label, value, kind, dynamic == true, note, app?.packageName)
+                                val stored = onSave(effectiveLabel, value, kind, dynamic == true, note, app?.packageName)
                                 // 以落库的返回为准：失败时字要留在屏上。
                                 if (stored) savedFlag = true
                             }

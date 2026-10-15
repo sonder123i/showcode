@@ -30,6 +30,17 @@ object DeepLinkLadder {
     /** 已知的几家，用于「不用在一百多个 App 里翻」的快捷项。 */
     val knownPackages: List<String> = listOf(TAOBAO, PINDUODUO)
 
+    /**
+     * 预置那一排「一键去取」该列哪几家：[knownPackages] ∩ 这台机器真装着的，顺序按已知表。
+     *
+     * 这条限制是判据不是细节：**一颗点了只会失败的按钮比没有更坏**，而站在这一格的人
+     * 常常正抱着两个包裹。装没装是 data 层查出来的事实，怎么筛是纯的，所以筛法在这儿。
+     */
+    fun entriesFor(installedPackages: Set<String>): List<String> {
+        val have = installedPackages.mapTo(mutableSetOf()) { it.trim().lowercase() }
+        return knownPackages.filter { it in have }
+    }
+
     /** 第一级：直达页的 scheme URI。不认识的包返回空表，直接跳到第二级。 */
     fun deepLinksFor(packageName: String?): List<String> = when (packageName?.trim()?.lowercase()) {
         TAOBAO -> listOf(TAOBAO_OPEN_PREFIX + percentEncode(TAOBAO_LASTMILE))

@@ -52,6 +52,7 @@ import dev.showcode.core.IdentityKind
 import dev.showcode.core.LaunchOutcome
 import dev.showcode.core.qr.Qr
 import dev.showcode.ui.copyCode
+import dev.showcode.ui.LaunchOutcomeLine
 import dev.showcode.ui.identity.QrMatrixCanvas
 import dev.showcode.ui.theme.OnsiteInk
 import dev.showcode.ui.theme.OnsiteSurface
@@ -271,36 +272,13 @@ fun IdentityShowScreen(
                         color = OnsiteSurface,
                     )
                 }
-                when (launch) {
-                    // 「点了没反应」是竞品 issue #39 的全部内容，而它真正的答案是系统里的一个开关。
-                    // 这句话必须在这屏上能看见，不该像他们那样只在 issue 回复里流传。
-                    LaunchOutcome.Blocked -> LaunchLine(stringResource(R.string.identity_launch_blocked))
-                    LaunchOutcome.NotInstalled -> LaunchLine(stringResource(R.string.identity_launch_not_installed))
-                    LaunchOutcome.NoTarget -> LaunchLine(stringResource(R.string.identity_launch_no_target))
-                    // 打开了就没什么好说的；没按过也什么都不说。
-                    LaunchOutcome.Opened, null -> Unit
-                }
+                // 「点了没反应」是竞品 issue #39 的全部内容，而它真正的答案是系统里的一个开关。
+                // 这句话必须在这屏上能看见，不该像他们那样只在 issue 回复里流传。
+                Spacer(Modifier.height(8.dp))
+                LaunchOutcomeLine(launch, textAlign = TextAlign.Center)
             }
         }
     }
-}
-
-/**
- * 跳转结局那一句话。
- *
- * 刻意做成常驻的一行，不是 toast：这个人手上可能正抱着两个包裹、屏幕上有水、身后有人催，
- * 一条一秒钟消失的提示他追不上，追不上的提示等于没说。
- */
-@Composable
-private fun LaunchLine(text: String) {
-    Spacer(Modifier.height(8.dp))
-    Text(
-        text = text,
-        fontSize = 13.sp,
-        color = UrgencyDueSoon,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth(),
-    )
 }
 
 /**

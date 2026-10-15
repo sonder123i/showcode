@@ -29,6 +29,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.showcode.app
 import dev.showcode.core.DAY_MS
+import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.HealthIssue
 import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityKind
@@ -158,8 +159,9 @@ fun ShowCodeRoot() {
     }
 
     // 装了什么 App 这件事不会在本次会话里变，所以查一次就够；离开那一屏也不清，回来不用重查。
+    // 列表也要它：预置那几家「只列真装着的」，判据用的是同一份事实。
     LaunchedEffect(route) {
-        if (route == Route.IDENTITY_ADD && installedApps.isEmpty()) {
+        if ((route == Route.IDENTITY_LIST || route == Route.IDENTITY_ADD) && installedApps.isEmpty()) {
             installedApps = repository.installedApps()
         }
     }
@@ -578,16 +580,26 @@ fun ShowCodeRoot() {
                 onSave = { pattern, pointName, lockerNo -> repository.addParseRule(pattern, pointName, lockerNo) },
             )
 
-            Route.IDENTITY_LIST -> IdentityListScreen(
-                codes = appData.identityCodes,
-                onAdd = { route = Route.IDENTITY_ADD },
-                onShow = { code ->
-                    identityShowId = code.id
-                    route = Route.IDENTITY_SHOW
-                },
-                onToggleDynamic = { id, dynamic -> repository.setIdentityDynamic(id, dynamic) },
-                onDelete = { id -> repository.deleteIdentityCode(id) },
-            )
+            Route.IDENTITY_LIST -> {
+                /* 进这一格先擦掉上一轮的结局：挂着上一张那句「没打开」回到列表，
+                   会被读成「这一次也没打开」——而这一次你根本还没按。 */
+                LaunchedEffect(Unit) { identityLaunch = null }
+                IdentityListScreen(
+                    codes = appData.identityCodes,
+                    // 该列哪几家是判据，在 core 那边筛（只列真装着的）。
+                    entries = DeepLinkLadder.entriesFor(installedApps.mapTo(mutableSetOf()) { it.packageName }),
+                    launch = identityLaunch,
+                    onAdd = { route = Route.IDENTITY_ADD },
+                    // 预置那一行不落库、不进出示屏：点一下就是那一下想要的跳转。
+                    onOpenEntry = { pkg -> identityLaunch = repository.openOfficialApp(pkg) },
+                    onShow = { code ->
+                        identityShowId = code.id
+                        route = Route.IDENTITY_SHOW
+                    },
+                    onToggleDynamic = { id, dynamic -> repository.setIdentityDynamic(id, dynamic) },
+                    onDelete = { id -> repository.deleteIdentityCode(id) },
+                )
+            }
 
             Route.IDENTITY_ADD -> IdentityEditScreen(
                 existingCount = appData.identityCodes.size,

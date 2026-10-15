@@ -50,6 +50,30 @@ class LaunchOutcomeTest {
     // ---------- 兜底链本身 ----------
 
     @Test
+    fun `预置那几家只列真装着的，而且顺序按已知表`() {
+        // 没装的那家不许出现：这颗按钮点了只会失败，而站在这一格的人正抱着包裹。
+        assertEquals(
+            listOf(DeepLinkLadder.TAOBAO),
+            DeepLinkLadder.entriesFor(setOf(DeepLinkLadder.TAOBAO, "com.other.app")),
+        )
+        // 已知表决定顺序，不是「先装哪个」：两屏排出来的样子必须是同一份。
+        assertEquals(
+            listOf(DeepLinkLadder.TAOBAO, DeepLinkLadder.PINDUODUO),
+            DeepLinkLadder.entriesFor(setOf(DeepLinkLadder.PINDUODUO, "com.zzz", DeepLinkLadder.TAOBAO)),
+        )
+        // 装了几百家但一家都不认识 → 空表，那一格整格不出现，而不是摆一排死按钮。
+        assertEquals(emptyList<String>(), DeepLinkLadder.entriesFor(setOf("com.someone.else")))
+    }
+
+    @Test
+    fun `预置那几家的包名大小写与空格不算两家`() {
+        assertEquals(
+            DeepLinkLadder.entriesFor(setOf(DeepLinkLadder.TAOBAO)),
+            DeepLinkLadder.entriesFor(setOf(" COM.Taobao.Taobao ")),
+        )
+    }
+
+    @Test
     fun `不认识的那家只走包名启动那一级`() {
         assertEquals(emptyList<String>(), DeepLinkLadder.deepLinksFor("com.someone.else"))
         assertEquals(null, DeepLinkLadder.webFallbackFor("com.someone.else"))

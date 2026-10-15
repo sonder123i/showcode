@@ -311,6 +311,8 @@
     <string name="tile_description">点一下立刻重读收件箱里的取件码。通知监听没开启时，它先把你送到能开它的地方——那时它不报件数，因为那些数不可信。</string>
 
     <string name="identity_title">身份码</string>
+    <string name="identity_entries_hint">这几家不用存码：点一下就打开它，在里面现取一张。</string>
+    <string name="identity_entry_open">去取</string>
     <string name="identity_hint">这里存的是「我是谁」那一类码，不是取件码：要扫一下才开门、才寄件的东西。都存在这台手机上，不联网。</string>
     <string name="identity_empty">还没有身份码。如果你常在某个驿站被要求「扫一下手机」，可以把那张码存进来——下次不用翻别的 App。</string>
     <string name="identity_add">＋ 存一张</string>
