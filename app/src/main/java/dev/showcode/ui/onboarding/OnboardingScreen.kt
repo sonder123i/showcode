@@ -450,7 +450,6 @@ private fun InfoAlert(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .background(UrgencyDueSoonTint, ShowCodeShapes.Md)
-            .background(UrgencyDueSoonTint, ShowCodeShapes.Md)
             .border(1.dp, UrgencyDueSoon, ShowCodeShapes.Md)
             .padding(12.dp),
     ) {

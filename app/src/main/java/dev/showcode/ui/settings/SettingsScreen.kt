@@ -139,9 +139,6 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(SurfaceCard, ShowCodeShapes.Md)
-                        .background(SurfaceCard, ShowCodeShapes.Md)
-                        .background(SurfaceCard, ShowCodeShapes.Md)
-                        .background(SurfaceCard, ShowCodeShapes.Md)
                         .border(1.dp, Hairline, ShowCodeShapes.Md)
                         .padding(16.dp),
                 ) {
