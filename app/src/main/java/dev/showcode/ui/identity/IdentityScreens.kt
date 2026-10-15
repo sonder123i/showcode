@@ -155,16 +155,27 @@ fun IdentityListScreen(
             }
             if (codes.isEmpty()) {
                 item {
-                    Text(
-                        text = stringResource(R.string.identity_empty),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SurfaceCard, ShowCodeShapes.Md)
-                            .border(1.dp, Hairline, ShowCodeShapes.Md)
-                            .padding(16.dp),
-                        style = ShowCodeText.Meta,
-                        color = InkSecondary,
-                    )
+                    Column(modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceCard, ShowCodeShapes.Md)
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
+                        .padding(16.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.identity_empty),
+                            style = ShowCodeText.Meta,
+                            color = InkSecondary,
+                        )
+                        // 这句只在一家预置都没出现时才是路标；预置卡就在上面时它是废话。
+                        if (entries.isEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = stringResource(R.string.identity_empty_no_presets),
+                                style = ShowCodeText.Caption,
+                                color = InkMuted,
+                            )
+                        }
+                    }
                 }
             }
             items(codes, key = { it.id }) { code ->
@@ -717,6 +728,8 @@ private fun AppPicker(apps: List<InstalledApp>, onPick: (InstalledApp) -> Unit, 
 private fun presetLabel(packageName: String): Int = when (packageName) {
     DeepLinkLadder.TAOBAO -> R.string.preset_taobao
     DeepLinkLadder.PINDUODUO -> R.string.preset_pinduoduo
+    DeepLinkLadder.CAINIAO -> R.string.preset_cainiao
+    DeepLinkLadder.FENGCHAO -> R.string.preset_fengchao
     else -> R.string.preset_generic
 }
 

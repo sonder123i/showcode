@@ -1,6 +1,7 @@
 package dev.showcode.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -105,12 +106,24 @@ class LaunchOutcomeTest {
     }
 
     @Test
-    fun `快捷项里那两家都在链上有说法`() {
-        // 预置了却没有任何一级的包名是空壳——它会在选择器里显示成一颗点了只会失败的按钮。
-        DeepLinkLadder.knownPackages.forEach { pkg ->
-            val covered = DeepLinkLadder.deepLinksFor(pkg).isNotEmpty() ||
-                DeepLinkLadder.webFallbackFor(pkg) != null
-            assertEquals("$pkg 应该在兜底链上有东西", true, covered)
-        }
+    fun `只有那两家有直达链，加一家预置必须看得见这件事`() {
+        // 预置名单扩到四家了：菜鸟、丰巢我们**不知道**它们的直达 scheme，它们走第二级
+        // （启动入口，落在那家 App 首页）。所以这里钉的不是「每家都得有链」（那个前提已经不成立），
+        // 而是「有链的是哪两家」这个集合本身——再往名单里加一家而没给链，
+        // 必须体现成一次显式改动，而不是悄悄让一条老测试变红。
+        val withDirectLink = DeepLinkLadder.knownPackages.filter { DeepLinkLadder.deepLinksFor(it).isNotEmpty() }
+        assertEquals(listOf(DeepLinkLadder.TAOBAO, DeepLinkLadder.PINDUODUO), withDirectLink)
+        // 网页退路只有淘宝那一条（那个页面本来就是 H5）。
+        val withWebFallback = DeepLinkLadder.knownPackages.filter { DeepLinkLadder.webFallbackFor(it) != null }
+        assertEquals(listOf(DeepLinkLadder.TAOBAO), withWebFallback)
+    }
+
+    @Test
+    fun `预置名单不许有重复或空包名`() {
+        assertEquals(
+            DeepLinkLadder.knownPackages.size,
+            DeepLinkLadder.knownPackages.distinct().size,
+        )
+        DeepLinkLadder.knownPackages.forEach { pkg -> assertTrue("$pkg 不该是空的", pkg.isNotBlank()) }
     }
 }

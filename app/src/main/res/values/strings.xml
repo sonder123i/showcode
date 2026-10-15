@@ -314,7 +314,8 @@
     <string name="identity_entries_hint">这几家不用存码：点一下就打开它，在里面现取一张。</string>
     <string name="identity_entry_open">去取</string>
     <string name="identity_hint">这里存的是「我是谁」那一类码，不是取件码：要扫一下才开门、才寄件的东西。都存在这台手机上，不联网。</string>
-    <string name="identity_empty">还没有身份码。如果你常在某个驿站被要求「扫一下手机」，可以把那张码存进来——下次不用翻别的 App。</string>
+    <string name="identity_empty">还没有存码。值得存的只有长期不变的那一种：驿站会员码、小区门禁。每隔几十秒就换一次的那种不用存——存下来的那一份一定扫不过。</string>
+    <string name="identity_empty_no_presets">这台手机上没装我们认识的那几家（淘宝、拼多多、菜鸟、丰巢）。装了任意一家，它会直接出现在这一屏顶部，点一下就打开——那一种不用存。</string>
     <string name="identity_add">＋ 存一张</string>
     <string name="identity_dynamic">会变</string>
     <string name="identity_static">固定</string>
@@ -344,6 +345,8 @@
     <string name="identity_app_pick">从这台手机的 App 里选</string>
     <string name="preset_taobao">淘宝</string>
     <string name="preset_pinduoduo">拼多多</string>
+    <string name="preset_cainiao">菜鸟驿站</string>
+    <string name="preset_fengchao">丰巢</string>
     <string name="preset_generic">官方 App</string>
     <string name="identity_app_clear">取消</string>
     <string name="identity_app_hint">选上之后，出示那一屏会多一颗「打开它」的按钮——码扫不过时的那条退路。</string>

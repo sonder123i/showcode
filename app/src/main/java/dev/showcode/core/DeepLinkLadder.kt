@@ -20,6 +20,10 @@ object DeepLinkLadder {
 
     const val TAOBAO = "com.taobao.taobao"
     const val PINDUODUO = "com.xunmeng.pinduoduo"
+    /** 菜鸟（驿站会员码/取件码那一类）。包名核实自应用宝的官方详情页 `a.app.qq.com/o/simple.jsp?pkgname=…`。 */
+    const val CAINIAO = "com.cainiao.wireless"
+    /** 丰巢（柜机寄件码）。包名核实自应用宝的详情页 `sj.qq.com/appdetail/…`，单一来源。 */
+    const val FENGCHAO = "com.fcbox.hiveconsumer"
 
     /** 淘宝驿站取件页。竞品那条 tbopen 的 h5Url 就是它。 */
     private const val TAOBAO_LASTMILE =
@@ -27,8 +31,14 @@ object DeepLinkLadder {
     private const val TAOBAO_OPEN_PREFIX = "tbopen://m.taobao.com/tbopen/index.html?h5Url="
     private const val PDD_PACKAGE_PAGE = "pinduoduo://com.xunmeng.pinduoduo/mdkd/package"
 
-    /** 已知的几家，用于「不用在一百多个 App 里翻」的快捷项。 */
-    val knownPackages: List<String> = listOf(TAOBAO, PINDUODUO)
+    /**
+     * 预置名单，顺序就是屏上的顺序。
+     *
+     * ⚠️ 后两家**没有直达链**：它们走第二级（启动入口），所以点了落在那家 App 的首页，
+     * 不是身份码那一页。这不是漏了深链，是我们确实不知道那条 scheme——竞品那位维护者说的
+     * 也就是「只是跳转」这一层。有直达链的两家排在前面，让省三步的那些先被看到。
+     */
+    val knownPackages: List<String> = listOf(TAOBAO, PINDUODUO, CAINIAO, FENGCHAO)
 
     /**
      * 预置那一排「一键去取」该列哪几家：[knownPackages] ∩ 这台机器真装着的，顺序按已知表。
