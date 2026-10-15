@@ -9,6 +9,8 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -406,300 +409,306 @@ fun ShowCodeRoot() {
         suspect = suspect,
     )
 
-    when (route) {
-        Route.HOME -> HomeScreen(
-            state = homeState,
-            now = now,
-            sampleGroups = sampleGroups,
-            onOpenPoint = { key -> openPoint(key, realGroups.firstOrNull { it.key == key }?.name.orEmpty()) },
-            onOpenDemo = { key -> enterDemo(key) },
-            onRestoreParcel = { parcel -> repository.undoPicked(parcel.id) },
-            report = healthReport,
-            onOpenSettings = { route = Route.SETTINGS },
-            onFixWorst = {
-                when (healthReport.worst) {
-                    HealthIssue.SMS_DENIED -> requestSmsPermission()
-                    HealthIssue.NOTIFICATION_DENIED -> openNotificationSettings()
-                    else -> openAppDetails()
-                }
-            },
-            onOpenUnrecognized = { route = Route.UNRECOGNIZED },
-            onManualImport = {
-                manualPrefill = ""
-                manualSourceBody = null
-                manualReturn = Route.HOME
-                route = Route.MANUAL_IMPORT
-            },
-            onDismissWidgetHint = { repository.prefs.widgetHintDismissed = true },
-            onPinWidget = { requestPinWidget() },
-            onRequestSmsPermission = { requestSmsPermission() },
-            onOpenNotificationSettings = { openNotificationSettings() },
-            onRefresh = { repository.refreshNow() },
-            onManagePoint = { group ->
-                detailKey = group.key
-                route = Route.POINT_DETAIL
-            },
-            onSuspectYes = { suspect?.let { openMergePreview(it.first, it.second) } },
-            onSuspectNo = { suspect?.let { repository.dismissSuspect(it.dismissKey) } },
-            mergeUndoName = lastMerge?.targetName,
-            onUndoMerge = {
-                lastMerge?.let { repository.undoMerge(it.aliasKey) }
-                lastMerge = null
-            },
-        )
-
-        Route.ONSITE -> {
-            val group = activeGroups.firstOrNull { it.key == pointKey }
-            OnsiteScreen(
-                pointName = pointName,
-                items = group?.items.orEmpty(),
+    /* 主路由包一层 Box：底部导航要能叠在三个主屏之上。这一层除了给「叠」腾出位置，
+       不做任何别的事——里面的分支一行没改内容。 */
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (route) {
+            Route.HOME -> HomeScreen(
+                state = homeState,
                 now = now,
-                isDemo = demo,
-                focusParcelId = focusParcelId,
-                lastPickupAt = appData.lastPickupAt,
-                allPickedHere = if (demo) {
-                    demoParcels.any { it.pointKey == pointKey && demoPicked.contains(it.id) }
-                } else {
-                    appData.parcels.any { it.pointKey == pointKey && it.picked }
+                sampleGroups = sampleGroups,
+                onOpenPoint = { key -> openPoint(key, realGroups.firstOrNull { it.key == key }?.name.orEmpty()) },
+                onOpenDemo = { key -> enterDemo(key) },
+                onRestoreParcel = { parcel -> repository.undoPicked(parcel.id) },
+                report = healthReport,
+                onOpenSettings = { route = Route.SETTINGS },
+                onFixWorst = {
+                    when (healthReport.worst) {
+                        HealthIssue.SMS_DENIED -> requestSmsPermission()
+                        HealthIssue.NOTIFICATION_DENIED -> openNotificationSettings()
+                        else -> openAppDetails()
+                    }
                 },
-                onBack = { if (demo) exitDemo() else route = Route.HOME },
-                onExitDemo = { exitDemo() },
-                onOpenTiles = { currentId ->
-                    focusParcelId = currentId
-                    route = Route.TILES
+                onOpenUnrecognized = { route = Route.UNRECOGNIZED },
+                onManualImport = {
+                    manualPrefill = ""
+                    manualSourceBody = null
+                    manualReturn = Route.HOME
+                    route = Route.MANUAL_IMPORT
                 },
-                familyLabel = familyLabel,
-                onMarkPicked = { parcel ->
-                    if (demo) demoPicked.add(parcel.id) else repository.markPicked(parcel.id)
+                onDismissWidgetHint = { repository.prefs.widgetHintDismissed = true },
+                onPinWidget = { requestPinWidget() },
+                onRequestSmsPermission = { requestSmsPermission() },
+                onOpenNotificationSettings = { openNotificationSettings() },
+                onRefresh = { repository.refreshNow() },
+                onManagePoint = { group ->
+                    detailKey = group.key
+                    route = Route.POINT_DETAIL
                 },
-                onUndoPicked = { parcel ->
-                    if (demo) demoPicked.remove(parcel.id) else repository.undoPicked(parcel.id)
+                onSuspectYes = { suspect?.let { openMergePreview(it.first, it.second) } },
+                onSuspectNo = { suspect?.let { repository.dismissSuspect(it.dismissKey) } },
+                mergeUndoName = lastMerge?.targetName,
+                onUndoMerge = {
+                    lastMerge?.let { repository.undoMerge(it.aliasKey) }
+                    lastMerge = null
                 },
-                onRefresh = { if (!demo) repository.refreshNow() },
             )
-        }
 
-        Route.TILES -> {
-            val group = activeGroups.firstOrNull { it.key == pointKey }
-            TilesScreen(
-                pointName = pointName,
-                items = group?.items.orEmpty(),
-                isDemo = demo,
-                onBack = { route = Route.ONSITE },
-                onPick = { parcel ->
-                    focusParcelId = parcel.id
-                    route = Route.ONSITE
-                },
-            )
-        }
-
-        Route.SETTINGS -> SettingsScreen(
-            thresholds = thresholds,
-            parcels = appData.parcels,
-            now = now,
-            report = healthReport,
-            smsGranted = smsGranted,
-            notificationEnabled = notificationGranted,
-            unrecognizedCount = unrecognizedBadgeCount(appData.unrecognized),
-            ruleCount = appData.rules.size,
-            onOpenRules = {
-                ruleReturn = Route.SETTINGS
-                route = Route.RULES
-            },
-            identityCount = appData.identityCodes.size,
-            onOpenIdentity = {
-                identityReturn = Route.SETTINGS
-                route = Route.IDENTITY_LIST
-            },
-            notifyCount = appData.notifyApps.size,
-            onOpenNotify = {
-                notifyReturn = Route.SETTINGS
-                route = Route.NOTIFY_APPS
-            },
-            onOpenUnrecognized = {
-                unrecognizedReturn = Route.SETTINGS
-                route = Route.UNRECOGNIZED
-            },
-            familyLabel = familyLabel,
-            onFamilyLabel = {
-                repository.prefs.familyLabel = it
-                familyLabel = repository.prefs.familyLabel
-            },
-            onLockerHours = { repository.setLockerDueSoonHours(it) },
-            onStationMinutes = { repository.setStationDueSoonMinutes(it) },
-            onRestoreDefaults = { repository.restoreThresholdDefaults() },
-            onRequestSms = { requestSmsPermission() },
-            onOpenNotificationSettings = { openNotificationSettings() },
-            onOpenAppDetails = { openAppDetails() },
-            onBack = { route = Route.HOME },
-        )
-
-        Route.UNRECOGNIZED -> UnrecognizedScreen(
-            messages = appData.unrecognized,
-            mutedSenders = appData.mutedSenders,
-            now = now,
-            onBack = { route = unrecognizedReturn },
-            onExtract = { message ->
-                manualPrefill = message.body
-                manualSourceBody = message.body
-                manualReturn = Route.UNRECOGNIZED
-                route = Route.MANUAL_IMPORT
-            },
-            onDismiss = { message -> repository.dismissUnrecognized(message.id) },
-            onMuteSender = { message -> repository.muteSender(message.sender) },
-            onUnmuteSender = { key -> repository.unmuteSender(key) },
-            onWriteRule = { message ->
-                rulePrefillRaw = message.body
-                ruleReturn = Route.UNRECOGNIZED
-                route = Route.RULE_EDIT
-            },
-        )
-
-        Route.RULES -> RuleListScreen(
-            rules = appData.rules,
-            onBack = { route = ruleReturn },
-            onAdd = {
-                rulePrefillRaw = ""
-                route = Route.RULE_EDIT
-            },
-            onToggle = { id, enabled -> repository.setRuleEnabled(id, enabled) },
-            onDelete = { id -> repository.deleteParseRule(id) },
-        )
-
-        Route.RULE_EDIT -> RuleEditScreen(
-            prefillRaw = rulePrefillRaw,
-            now = now,
-            onBack = { route = Route.RULES },
-            onCheck = { pattern, pointName, sample ->
-                repository.checkRule(pattern, pointName, sample, appData.rules.size)
-            },
-            onSave = { pattern, pointName, lockerNo -> repository.addParseRule(pattern, pointName, lockerNo) },
-        )
-
-        Route.IDENTITY_LIST -> IdentityListScreen(
-            codes = appData.identityCodes,
-            onBack = { route = identityReturn },
-            onAdd = { route = Route.IDENTITY_ADD },
-            onShow = { code ->
-                identityShowId = code.id
-                route = Route.IDENTITY_SHOW
-            },
-            onToggleDynamic = { id, dynamic -> repository.setIdentityDynamic(id, dynamic) },
-            onDelete = { id -> repository.deleteIdentityCode(id) },
-        )
-
-        Route.IDENTITY_ADD -> IdentityEditScreen(
-            existingCount = appData.identityCodes.size,
-            apps = installedApps,
-            onBack = { route = Route.IDENTITY_LIST },
-            onSave = { label, value, kind, dynamic, note, appPackage ->
-                repository.addIdentityCode(label, value, kind, dynamic, note, appPackage)
-            },
-        )
-
-        Route.IDENTITY_SHOW -> {
-            /* 按 id 现取。那张码可能刚被删掉，这时候必须退回去，而不是继续出示一张
-               已经不存在的码——它屏上看起来仍然完全正常，而那正是最坏的失效。 */
-            val code = appData.identityCodes.firstOrNull { it.id == identityShowId }
-            if (code == null) {
-                LaunchedEffect(Unit) { route = Route.IDENTITY_LIST }
-            } else {
-                /* 进屏先算一次装没装、并把上一轮的跳转结局擦掉。两件事都不能只靠 ON_RESUME：
-                   冷启动之后 设置 → 身份码 → 出示 这条路上不会再有一次 resume，而留着上一轮的
-                   「没装」会让人以为这次也没装。 */
-                LaunchedEffect(code.id) {
-                    identityLaunch = null
-                    identityAppInstalled = code.appPackage?.let { repository.isAppInstalled(it) } == true
-                }
-                IdentityShowScreen(
-                    code = code,
-                    appInstalled = identityAppInstalled,
-                    launch = identityLaunch,
-                    onBack = { route = Route.IDENTITY_LIST },
-                    onOpenApp = { openOfficialApp(code) },
+            Route.ONSITE -> {
+                val group = activeGroups.firstOrNull { it.key == pointKey }
+                OnsiteScreen(
+                    pointName = pointName,
+                    items = group?.items.orEmpty(),
+                    now = now,
+                    isDemo = demo,
+                    focusParcelId = focusParcelId,
+                    lastPickupAt = appData.lastPickupAt,
+                    allPickedHere = if (demo) {
+                        demoParcels.any { it.pointKey == pointKey && demoPicked.contains(it.id) }
+                    } else {
+                        appData.parcels.any { it.pointKey == pointKey && it.picked }
+                    },
+                    onBack = { if (demo) exitDemo() else route = Route.HOME },
+                    onExitDemo = { exitDemo() },
+                    onOpenTiles = { currentId ->
+                        focusParcelId = currentId
+                        route = Route.TILES
+                    },
+                    familyLabel = familyLabel,
+                    onMarkPicked = { parcel ->
+                        if (demo) demoPicked.add(parcel.id) else repository.markPicked(parcel.id)
+                    },
+                    onUndoPicked = { parcel ->
+                        if (demo) demoPicked.remove(parcel.id) else repository.undoPicked(parcel.id)
+                    },
+                    onRefresh = { if (!demo) repository.refreshNow() },
                 )
             }
-        }
 
-        Route.NOTIFY_APPS -> NotifyAppsScreen(
-            apps = appData.notifyApps,
-            now = now,
-            onBack = { route = notifyReturn },
-            onToggle = { pkg, disabled -> repository.setNotifyAppDisabled(pkg, disabled) },
-        )
+            Route.TILES -> {
+                val group = activeGroups.firstOrNull { it.key == pointKey }
+                TilesScreen(
+                    pointName = pointName,
+                    items = group?.items.orEmpty(),
+                    isDemo = demo,
+                    onBack = { route = Route.ONSITE },
+                    onPick = { parcel ->
+                        focusParcelId = parcel.id
+                        route = Route.ONSITE
+                    },
+                )
+            }
 
-        Route.MANUAL_IMPORT -> ManualImportScreen(
-            prefillRaw = manualPrefill,
-            knownBodies = knownBodies,
-            onBack = { route = manualReturn },
-            onSave = { code, name, locker, raw, owner ->
-                val stored = repository.manualAdd(code, name, locker, raw, owner, resolvesUnrecognizedOf = manualSourceBody)
-                if (stored) {
-                    manualSourceBody = null
-                    manualPrefill = ""
-                    // 从引导里手动导入成功 = 用户已经拿到价值，引导可以收尾了
-                    if (manualReturn == Route.ONBOARDING) repository.prefs.onboardingDone = true
-                    manualReturn = Route.HOME
-                    route = Route.HOME
-                }
-                // 失败时留在原地：用户已经打好的字不能被清掉，那比一句报错重要。
-                stored
-            },
-        )
-
-        Route.POINT_DETAIL -> {
-            val group = realGroups.firstOrNull { it.key == detailKey }
-            val history = remember(detailKey, appData.aliases) { repository.mergeHistoryFor(detailKey) }
-            PointDetailScreen(
-                group = group,
-                history = history,
-                otherGroups = realGroups,
-                aliases = appData.aliases,
+            Route.SETTINGS -> SettingsScreen(
+                thresholds = thresholds,
+                parcels = appData.parcels,
                 now = now,
+                report = healthReport,
+                smsGranted = smsGranted,
+                notificationEnabled = notificationGranted,
+                unrecognizedCount = unrecognizedBadgeCount(appData.unrecognized),
+                ruleCount = appData.rules.size,
+                onOpenRules = {
+                    ruleReturn = Route.SETTINGS
+                    route = Route.RULES
+                },
+                identityCount = appData.identityCodes.size,
+                onOpenIdentity = {
+                    identityReturn = Route.SETTINGS
+                    route = Route.IDENTITY_LIST
+                },
+                notifyCount = appData.notifyApps.size,
+                onOpenNotify = {
+                    notifyReturn = Route.SETTINGS
+                    route = Route.NOTIFY_APPS
+                },
+                onOpenUnrecognized = {
+                    unrecognizedReturn = Route.SETTINGS
+                    route = Route.UNRECOGNIZED
+                },
+                familyLabel = familyLabel,
+                onFamilyLabel = {
+                    repository.prefs.familyLabel = it
+                    familyLabel = repository.prefs.familyLabel
+                },
+                onLockerHours = { repository.setLockerDueSoonHours(it) },
+                onStationMinutes = { repository.setStationDueSoonMinutes(it) },
+                onRestoreDefaults = { repository.restoreThresholdDefaults() },
+                onRequestSms = { requestSmsPermission() },
+                onOpenNotificationSettings = { openNotificationSettings() },
+                onOpenAppDetails = { openAppDetails() },
                 onBack = { route = Route.HOME },
-                onOpenPoint = { g -> openPoint(g.key, g.name) },
-                onSplit = { alias -> repository.undoMerge(alias.aliasKey) },
-                onSetOwner = { parcel, owner -> repository.setParcelOwner(parcel.id, owner) },
-                onMergeOtherIntoThis = { other ->
-                    group?.let { openMergePreview(other, it, preferTarget = it) }
+            )
+
+            Route.UNRECOGNIZED -> UnrecognizedScreen(
+                messages = appData.unrecognized,
+                mutedSenders = appData.mutedSenders,
+                now = now,
+                onBack = { route = unrecognizedReturn },
+                onExtract = { message ->
+                    manualPrefill = message.body
+                    manualSourceBody = message.body
+                    manualReturn = Route.UNRECOGNIZED
+                    route = Route.MANUAL_IMPORT
+                },
+                onDismiss = { message -> repository.dismissUnrecognized(message.id) },
+                onMuteSender = { message -> repository.muteSender(message.sender) },
+                onUnmuteSender = { key -> repository.unmuteSender(key) },
+                onWriteRule = { message ->
+                    rulePrefillRaw = message.body
+                    ruleReturn = Route.UNRECOGNIZED
+                    route = Route.RULE_EDIT
+                },
+            )
+
+            Route.RULES -> RuleListScreen(
+                rules = appData.rules,
+                onBack = { route = ruleReturn },
+                onAdd = {
+                    rulePrefillRaw = ""
+                    route = Route.RULE_EDIT
+                },
+                onToggle = { id, enabled -> repository.setRuleEnabled(id, enabled) },
+                onDelete = { id -> repository.deleteParseRule(id) },
+            )
+
+            Route.RULE_EDIT -> RuleEditScreen(
+                prefillRaw = rulePrefillRaw,
+                now = now,
+                onBack = { route = Route.RULES },
+                onCheck = { pattern, pointName, sample ->
+                    repository.checkRule(pattern, pointName, sample, appData.rules.size)
+                },
+                onSave = { pattern, pointName, lockerNo -> repository.addParseRule(pattern, pointName, lockerNo) },
+            )
+
+            Route.IDENTITY_LIST -> IdentityListScreen(
+                codes = appData.identityCodes,
+                onBack = { route = identityReturn },
+                onAdd = { route = Route.IDENTITY_ADD },
+                onShow = { code ->
+                    identityShowId = code.id
+                    route = Route.IDENTITY_SHOW
+                },
+                onToggleDynamic = { id, dynamic -> repository.setIdentityDynamic(id, dynamic) },
+                onDelete = { id -> repository.deleteIdentityCode(id) },
+            )
+
+            Route.IDENTITY_ADD -> IdentityEditScreen(
+                existingCount = appData.identityCodes.size,
+                apps = installedApps,
+                onBack = { route = Route.IDENTITY_LIST },
+                onSave = { label, value, kind, dynamic, note, appPackage ->
+                    repository.addIdentityCode(label, value, kind, dynamic, note, appPackage)
+                },
+            )
+
+            Route.IDENTITY_SHOW -> {
+                /* 按 id 现取。那张码可能刚被删掉，这时候必须退回去，而不是继续出示一张
+                   已经不存在的码——它屏上看起来仍然完全正常，而那正是最坏的失效。 */
+                val code = appData.identityCodes.firstOrNull { it.id == identityShowId }
+                if (code == null) {
+                    LaunchedEffect(Unit) { route = Route.IDENTITY_LIST }
+                } else {
+                    /* 进屏先算一次装没装、并把上一轮的跳转结局擦掉。两件事都不能只靠 ON_RESUME：
+                       冷启动之后 设置 → 身份码 → 出示 这条路上不会再有一次 resume，而留着上一轮的
+                       「没装」会让人以为这次也没装。 */
+                    LaunchedEffect(code.id) {
+                        identityLaunch = null
+                        identityAppInstalled = code.appPackage?.let { repository.isAppInstalled(it) } == true
+                    }
+                    IdentityShowScreen(
+                        code = code,
+                        appInstalled = identityAppInstalled,
+                        launch = identityLaunch,
+                        onBack = { route = Route.IDENTITY_LIST },
+                        onOpenApp = { openOfficialApp(code) },
+                    )
+                }
+            }
+
+            Route.NOTIFY_APPS -> NotifyAppsScreen(
+                apps = appData.notifyApps,
+                now = now,
+                onBack = { route = notifyReturn },
+                onToggle = { pkg, disabled -> repository.setNotifyAppDisabled(pkg, disabled) },
+            )
+
+            Route.MANUAL_IMPORT -> ManualImportScreen(
+                prefillRaw = manualPrefill,
+                knownBodies = knownBodies,
+                onBack = { route = manualReturn },
+                onSave = { code, name, locker, raw, owner ->
+                    val stored = repository.manualAdd(code, name, locker, raw, owner, resolvesUnrecognizedOf = manualSourceBody)
+                    if (stored) {
+                        manualSourceBody = null
+                        manualPrefill = ""
+                        // 从引导里手动导入成功 = 用户已经拿到价值，引导可以收尾了
+                        if (manualReturn == Route.ONBOARDING) repository.prefs.onboardingDone = true
+                        manualReturn = Route.HOME
+                        route = Route.HOME
+                    }
+                    // 失败时留在原地：用户已经打好的字不能被清掉，那比一句报错重要。
+                    stored
+                },
+            )
+
+            Route.POINT_DETAIL -> {
+                val group = realGroups.firstOrNull { it.key == detailKey }
+                val history = remember(detailKey, appData.aliases) { repository.mergeHistoryFor(detailKey) }
+                PointDetailScreen(
+                    group = group,
+                    history = history,
+                    otherGroups = realGroups,
+                    aliases = appData.aliases,
+                    now = now,
+                    onBack = { route = Route.HOME },
+                    onOpenPoint = { g -> openPoint(g.key, g.name) },
+                    onSplit = { alias -> repository.undoMerge(alias.aliasKey) },
+                    onSetOwner = { parcel, owner -> repository.setParcelOwner(parcel.id, owner) },
+                    onMergeOtherIntoThis = { other ->
+                        group?.let { openMergePreview(other, it, preferTarget = it) }
+                    },
+                )
+            }
+
+            Route.MERGE_PREVIEW -> pendingMerge?.let { preview ->
+                MergePreviewScreen(
+                    preview = preview,
+                    keepTarget = keepTarget,
+                    onKeepTarget = { keepTarget = it },
+                    onConfirm = { confirmMerge() },
+                    onCancel = { pendingMerge = null; route = mergeReturn },
+                )
+            }
+
+            Route.ONBOARDING -> OnboardingScreen(
+                step = onboardStep,
+                report = healthReport,
+                smsGranted = smsGranted,
+                notificationEnabled = notificationGranted,
+                widgetAdded = widgetAdded,
+                smsAttempted = smsAttempted,
+                onStep = { onboardStep = it },
+                onEnterDemo = { enterDemo(sampleGroups.firstOrNull()?.key.orEmpty()) },
+                onRequestSms = { requestSmsPermission(fromOnboarding = true) },
+                onOpenNotificationSettings = { openNotificationSettings() },
+                onPinWidget = { requestPinWidget() },
+                onManualImport = {
+                    manualPrefill = ""
+                    manualSourceBody = null
+                    manualReturn = Route.ONBOARDING
+                    route = Route.MANUAL_IMPORT
+                },
+                onFinish = {
+                    repository.prefs.onboardingDone = true
+                    onboardStep = OnboardStep.WELCOME
+                    route = Route.HOME
                 },
             )
         }
 
-        Route.MERGE_PREVIEW -> pendingMerge?.let { preview ->
-            MergePreviewScreen(
-                preview = preview,
-                keepTarget = keepTarget,
-                onKeepTarget = { keepTarget = it },
-                onConfirm = { confirmMerge() },
-                onCancel = { pendingMerge = null; route = mergeReturn },
-            )
-        }
-
-        Route.ONBOARDING -> OnboardingScreen(
-            step = onboardStep,
-            report = healthReport,
-            smsGranted = smsGranted,
-            notificationEnabled = notificationGranted,
-            widgetAdded = widgetAdded,
-            smsAttempted = smsAttempted,
-            onStep = { onboardStep = it },
-            onEnterDemo = { enterDemo(sampleGroups.firstOrNull()?.key.orEmpty()) },
-            onRequestSms = { requestSmsPermission(fromOnboarding = true) },
-            onOpenNotificationSettings = { openNotificationSettings() },
-            onPinWidget = { requestPinWidget() },
-            onManualImport = {
-                manualPrefill = ""
-                manualSourceBody = null
-                manualReturn = Route.ONBOARDING
-                route = Route.MANUAL_IMPORT
-            },
-            onFinish = {
-                repository.prefs.onboardingDone = true
-                onboardStep = OnboardStep.WELCOME
-                route = Route.HOME
-            },
-        )
+        // 底栏下一笔接进来。
     }
 
 }
