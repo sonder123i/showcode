@@ -349,12 +349,16 @@ fun IdentityEditScreen(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                Text(
-                    text = stringResource(R.string.identity_edit_hint),
-                    style = ShowCodeText.Meta,
-                    color = InkMuted,
-                )
+            // 这句整段都在讲「复制码本身、别存截图」——选了入口这一类时这一屏根本没有码可复制，
+            // 挂着它就是在对着一句不存在的话做指示。入口的说明是下面那条 kind 提示。
+            if (kind == IdentityKind.CODE) {
+                item {
+                    Text(
+                        text = stringResource(R.string.identity_edit_hint),
+                        style = ShowCodeText.Meta,
+                        color = InkMuted,
+                    )
+                }
             }
             /* 先问存什么，因为它决定后面那几格存不存在。
                竞品那一格本来就只有跳转（「只是跳转。身份码是动态刷新的」），
@@ -479,15 +483,6 @@ fun IdentityEditScreen(
                 }
             }
             item {
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.identity_field_note)) },
-                    singleLine = true,
-                )
-            }
-            item {
                 Column {
                     Text(
                         text = app?.let { stringResource(R.string.identity_app_chosen, it.label) }
@@ -537,11 +532,23 @@ fun IdentityEditScreen(
                         }
                     }
                     Text(
-                        text = stringResource(R.string.identity_app_hint),
+                        text = stringResource(
+                            if (kind == IdentityKind.CODE) R.string.identity_app_hint
+                            else R.string.identity_app_hint_entry
+                        ),
                         style = ShowCodeText.Caption,
                         color = InkMuted,
                     )
                 }
+            }
+            item {
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.identity_field_note)) },
+                    singleLine = true,
+                )
             }
             notice?.let { message ->
                 item {

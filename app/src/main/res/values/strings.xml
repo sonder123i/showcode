@@ -347,6 +347,7 @@
     <string name="preset_generic">官方 App</string>
     <string name="identity_app_clear">取消</string>
     <string name="identity_app_hint">选上之后，出示那一屏会多一颗「打开它」的按钮——码扫不过时的那条退路。</string>
+    <string name="identity_app_hint_entry">入口全靠这一步跳转：没选它就什么都点不出来。</string>
     <string name="identity_app_picker_title">选一个 App</string>
     <string name="identity_app_picker_search">搜名字</string>
     <string name="identity_app_picker_none_installed">这台手机上没有能启动的应用。</string>

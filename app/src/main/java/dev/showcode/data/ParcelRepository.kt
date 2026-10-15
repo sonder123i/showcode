@@ -676,6 +676,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         pm.queryIntentActivities(intent, 0)
+            .filter { it.activityInfo.packageName != context.packageName }
             .map { entry ->
                 InstalledApp(
                     packageName = entry.activityInfo.packageName,
