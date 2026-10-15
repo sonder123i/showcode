@@ -169,8 +169,9 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
 
     /** 短信广播 / 通知监听进来。返回 Job，好让 BroadcastReceiver 用 goAsync() 等它落库。 */
     fun ingest(message: IncomingMessage): Job = scope.launch {
-        recordNotifySource(message)
-        process(message)
+        // 先判这条消息，再决定要不要记下它的来源——顺序是刻意的，见 recordNotifySource。
+        val tally = process(message)
+        recordNotifySource(message, notable = tally.notable)
         // 实时收到消息本身就证明收录是活的，所以这里也盖时间戳：
         // 否则首页会在明明刚进了一条短信时仍然报「可能不是最新」。
         stampSync()
@@ -178,18 +179,24 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
     }
 
     /**
-     * 记下「这个 App 推过通知」。
+     * 记下「这个 App 推过**和取件有关的**通知」。
      *
-     * 放在**判据之前**：关掉一个 App 之后它当然还在推通知，而那些「已经不再收」的到达
-     * 正是用户以后决定要不要重新打开它时唯一的事实。放在 process 之后就等于
-     * 一旦关掉，那一行从此冻结在关闭前的样子。
+     * 只记两类：这条消息本身值得记账（认出来了，或像取件码以至于进了收容页），
+     * 或者这个来源**本来就在表里**。后者是必须留的例外——用户关掉一个 App 之后它当然还在推，
+     * 而那些「已经不再收」的到达正是他日后决定要不要重新打开它时唯一的事实；
+     * 一旦因为关掉就不再记，那一行会冻结在关闭前的样子。
+     *
+     * 为什么要这道门：那张开关表是用户唯一能看见「这个 App 知道谁在推通知」的地方。
+     * 银行、聊天、系统 App 各推一万条，只要没有一条像取件码，它们就**不该出现在这里**——
+     * 列出来既没用处，又正好制造「它在监控我手机」的观感。
      *
      * 只对通知渠道生效——SmsReceiver 走同一个入口，把 `1069xxxx` 记成一个 App
      * 会让那张开关列表长出号码来。
      */
-    private fun recordNotifySource(message: IncomingMessage) {
+    private fun recordNotifySource(message: IncomingMessage, notable: Boolean) {
         if (message.channel != Source.NOTIFICATION) return
         val pkg = NotifyApps.normalizePackage(message.sourcePackage) ?: return
+        if (!notable && !db.knowsNotifyApp(pkg)) return
         db.recordNotifyApp(
             pkg = pkg,
             label = message.sender.ifBlank { pkg },
@@ -269,8 +276,8 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
                                 channel = Source.SMS,
                             )
                         )
-                        added += tally.first
-                        updated += tally.second
+                        added += tally.added
+                        updated += tally.updated
                     }
                 }
             }
@@ -385,7 +392,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
      *   账本存在的全部理由是不必每轮重跑，而用户刚补了一条规则时恰恰需要重跑那几条。
      *   默认 false，所以刷新重放那条防线一个字都没动。
      */
-    private fun process(message: IncomingMessage, forceReplay: Boolean = false): Pair<Int, Int> {
+    private fun process(message: IncomingMessage, forceReplay: Boolean = false): IngestTally {
         val fingerprint = messageFingerprint(message.channel, message.sender, message.body)
         val outcome = PickupCodeParser.parse(message, enabledRules())
         val plan = planIngest(
@@ -402,7 +409,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
                 null
             },
         )
-        if (plan.skip != MessageSkip.NONE) return 0 to 0
+        if (plan.skip != MessageSkip.NONE) return IngestTally(0, 0, notable = false)
 
         var added = 0
         var updated = 0
@@ -435,8 +442,17 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
             UnrecognizedAction.Suppressed, null -> Unit
         }
         if (plan.worthLedgering) db.markMessageSeen(fingerprint, System.currentTimeMillis(), summarize(outcome))
-        return added to updated
+        return IngestTally(added, updated, notable = plan.worthLedgering)
     }
+
+    /**
+     * 一条消息走完判据之后的三个数。
+     *
+     * `notable` 用的是账本那个同一个判据（`worthLedgering`）：**这条消息认出来了，
+     * 或者它长得像取件码以至于值得进收容页**。它同时是「这个来源该不该被记进那张开关表」
+     * 的答案——见 [recordNotifySource]。
+     */
+    private data class IngestTally(val added: Int, val updated: Int, val notable: Boolean)
 
     /** 把裁决要用的「库里已有哪些同码同点的行」取出来。取数归 Repository，判断归 core。 */
     private fun existingFor(outcome: ParseOutcome): Map<Pair<String, String>, ExistingParcel> {
@@ -580,7 +596,7 @@ class ParcelRepository(private val context: Context, private val db: ShowCodeDb)
                 ),
                 forceReplay = true,
             )
-            if (tally.first + tally.second > 0) saved++
+            if (tally.added + tally.updated > 0) saved++
         }
         db.resolveUnrecognizedByIds(targets.map { it.id }, System.currentTimeMillis())
         return saved

@@ -713,6 +713,11 @@ class ShowCodeDb(context: Context) : SQLiteOpenHelper(context.applicationContext
             }.toSet()
         }
 
+    /** 这张表里有没有这个包。用于「用户见过的来源继续记到达」那条例外。 */
+    fun knowsNotifyApp(pkg: String): Boolean = readableDatabase
+        .rawQuery("SELECT 1 FROM notify_app WHERE pkg = ? LIMIT 1", arrayOf(pkg))
+        .use { it.moveToFirst() }
+
     /** 用户在那一屏按下的开关。关掉一个 App 不动它以前收进来的件——那只影响以后。 */
     fun setNotifyAppDisabled(pkg: String, disabled: Boolean) {
         writableDatabase.execSQL(

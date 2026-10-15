@@ -28,13 +28,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.showcode.app
-import dev.showcode.core.DAY_MS
 import dev.showcode.core.DeepLinkLadder
 import dev.showcode.core.HealthIssue
 import dev.showcode.core.IdentityCode
 import dev.showcode.core.IdentityKind
 import dev.showcode.core.Owner
 import dev.showcode.core.PointAlias
+import dev.showcode.core.recentlyPicked
 import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.bodyFingerprint
 import dev.showcode.core.groupByPoint
@@ -72,9 +72,6 @@ private enum class Route {
 
 /* 合并后撤销条的驻留时长。story-6 的 user_side 写的是「五秒内屏幕下方有个已合并 · 撤销」。 */
 private const val MERGE_UNDO_MS = 5_000L
-
-/** 首页「最近已取」最多列几条。它是误触后的补救出口，不是主路径，不该占满一屏。 */
-private const val RECENTLY_PICKED_LIMIT = 5
 
 /**
  * 三个主屏 + 三个次屏，用一个枚举做路由。
@@ -399,14 +396,10 @@ fun ShowCodeRoot() {
         lastSyncFailed = appData.lastSyncFailed,
         unrecognizedCount = unrecognizedBadgeCount(appData.unrecognized),
         /* 检索那句「你可能已经取过了」的依据。和下面的 recentlyPicked 不是一回事：
-           那栏只留最近 5 件、一天以内（误触补救出口），而一个月前取走的那件也值得被认出来。 */
+           那栏是误触补救出口、只留窗口内那几条（判据在 core/recentlyPicked），
+           而一个月前取走的那件也值得被检索认出来。 */
         pickedParcels = remember(appData.parcels) { appData.parcels.filter { it.picked } },
-        recentlyPicked = remember(appData.parcels, now) {
-            appData.parcels
-                .filter { it.picked && (it.pickedAt ?: 0L) > now - DAY_MS }
-                .sortedByDescending { it.pickedAt }
-                .take(RECENTLY_PICKED_LIMIT)
-        },
+        recentlyPicked = remember(appData.parcels, now) { recentlyPicked(appData.parcels, now) },
         showWidgetHint = !repository.prefs.widgetHintDismissed && realGroups.isNotEmpty(),
         smsPermissionGranted = smsGranted,
         notificationAccessGranted = notificationGranted,

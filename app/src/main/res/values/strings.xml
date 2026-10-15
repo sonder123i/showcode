@@ -49,7 +49,10 @@
     <string name="home_empty_first_time_hint">这是演示数据，收到第一条取件短信后会自动替换</string>
     <string name="home_empty_first_time_cta">看现场模式长什么样</string>
     <string name="home_empty_collection">都取完了 🎉 本月共取 %1$d 件</string>
-    <string name="home_recently_picked_title">最近已取 · 24 小时内可以改回</string>
+    <string name="home_recently_picked_title">最近已取 · 6 小时内可以改回</string>
+    <string name="home_recently_picked_count">最近已取 %1$d 件 · 可以改回</string>
+    <string name="home_expand">展开</string>
+    <string name="home_collapse">收起</string>
     <string name="home_restore">改回待取</string>
 
     <!-- 未识别：说清漏掉的是哪一类来源，不说「权限不足」，也不只说「解析失败」 -->
@@ -390,14 +393,14 @@
 
     <string name="settings_notify">通知来源</string>
     <string name="settings_notify_count">%1$d 个</string>
-    <string name="settings_notify_hint">哪些 App 的通知还在收。关掉只对以后生效，不动已经收进来的件。</string>
+    <string name="settings_notify_hint">哪些 App 的通知还在收。这里只列推过取件相关通知的来源，关掉谁只对以后生效。</string>
 
     <string name="notify_title">通知来源</string>
-    <string name="notify_hint">这里只列推过通知的来源，没推过的不出现。默认全都在收——关掉谁，那条通道以后就不进来了。</string>
-    <string name="notify_empty">还没见过任何通知。可能是还没给通知使用权，也可能是给完之后那些 App 还没推过东西。去首页那条体检里能看到权限状态。</string>
+    <string name="notify_hint">这里只列「推过和取件有关的通知」的来源：认出了码，或者长得像码以至于进了「没认出来」那一屏。银行、聊天、系统 App 的通知不会被记进这张表。列出来的默认全都在收——关掉谁，那条通道以后就不进来了。</string>
+    <string name="notify_empty">还没见过任何和取件有关的通知。可能是还没给通知使用权，也可能是那些 App 还没推过东西，还有一种是好消息：推过的通知全都和取件无关，所以没记进来。权限状态在首页那条体检里能看到。</string>
     <string name="notify_on">在收</string>
     <string name="notify_off">已关掉</string>
-    <string name="notify_seen">推过 %1$d 条 · %2$s见过一次</string>
+    <string name="notify_seen">与取件有关 %1$d 条 · %2$s见过一次</string>
     <string name="notify_forward_warning">这个 App 转发过别人的取件码（妈妈经微信发来的那种）。关掉它，那条入口一起没了。</string>
     <string name="notify_forward_confirm">再点一次真的关掉：以后经它转来的码不会出现在任何地方，包括「没认出来的取件短信」。</string>
     <string name="notify_cancel">不关了</string>

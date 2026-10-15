@@ -824,9 +824,14 @@ private fun AllDoneCard(monthlyPicked: Int) {
 /**
  * 最近已取。这一区块的存在理由是「已取」记录的是物理事实，所以中途退出现场模式会保留它，
  * 于是 3 秒撤销窗口一过就没有回头路了——除非首页给一个出口。
+ *
+ * 默认**折叠成一行**：它是补救出口不是主路径，原来五整行常驻在首页最贵的位置上，
+ * 把真正的待取件往下推。窗口缩到 6 小时之后（core 的 `RECENTLY_PICKED_WINDOW_MS`），
+ * 再占一整块就更说不通。折叠不持久化——那是「这一次要不要看」，不是一项设置。
  */
 @Composable
 private fun RecentlyPickedSection(parcels: List<Parcel>, onRestore: (Parcel) -> Unit) {
+    var open by remember { mutableStateOf(false) }
     val restoreLabel = stringResource(R.string.home_restore)
     Column(
         modifier = Modifier
@@ -835,11 +840,26 @@ private fun RecentlyPickedSection(parcels: List<Parcel>, onRestore: (Parcel) -> 
             .border(1.dp, Hairline, ShowCodeShapes.Md)
             .padding(14.dp)
     ) {
-        Text(
-            text = stringResource(R.string.home_recently_picked_title),
-            style = ShowCodeText.Caption,
-            color = InkMuted,
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { open = !open },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (open) stringResource(R.string.home_recently_picked_title)
+                else stringResource(R.string.home_recently_picked_count, parcels.size),
+                modifier = Modifier.weight(1f),
+                style = ShowCodeText.Caption,
+                color = InkMuted,
+            )
+            Text(
+                text = stringResource(if (open) R.string.home_collapse else R.string.home_expand),
+                style = ShowCodeText.Action,
+                color = InkMuted,
+            )
+        }
+        if (!open) return
         Spacer(Modifier.height(6.dp))
         parcels.forEach { parcel ->
             Row(
