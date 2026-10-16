@@ -419,4 +419,15 @@
     <string name="settings_glass">底栏玻璃效果</string>
     <string name="settings_glass_hint">底栏背后那条列表会被雾化。关掉就是今天的不透明灰底——更省电，也更实。</string>
     <string name="settings_glass_needs_os">这台设备的系统版本太低：模糊要 Android 12 及以上，现在只能用不透明底栏。</string>
+
+    <!-- 查快递入口 -->
+    <string name="lookup_title">查快递</string>
+    <string name="lookup_field_text">粘贴快递单号或取件短信原文…</string>
+    <string name="lookup_auto_extract">自动提取</string>
+    <string name="lookup_manual_code">取件码（已识别）</string>
+    <string name="lookup_manual_point">取件点（已识别）</string>
+    <string name="lookup_save">保存并跳转</string>
+    <string name="lookup_save_failed">没能写进本机数据库，你填的内容还在这里，可以再试一次。</string>
+    <string name="lookup_auto_extract_failed">原文里没认出来，请手动填下面两项</string>
+    <string name="lookup_history">最近查询</string>
 </resources>

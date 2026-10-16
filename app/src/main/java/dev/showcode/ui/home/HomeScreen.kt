@@ -169,12 +169,15 @@ fun HomeScreen(
     onSuspectNo: () -> Unit,
     mergeUndoName: String?,
     onUndoMerge: () -> Unit,
+    onOpenLookup: () -> Unit,
 ) {
     /* 检索的三个状态留在这一屏，没有提到 Root：它是「此刻正在找东西」这种临时意图，
        切去现场模式再回来还挂着搜索框，会让人以为屏上少掉的件被 App 藏起来了。 */
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var window by remember { mutableStateOf(SearchWindow.ALL) }
+    /* 打开查快递页。这一格放「从剪贴板里粘单号」的路径——不刷短信库，纯手填。 */
+    var lookupOpen by remember { mutableStateOf(false) }
 
     // 只选了窗（没打字）也算在筛；光打开搜索框但什么都不选，列表保持原样。
     val filtering = searchOpen && (query.isNotBlank() || window != SearchWindow.ALL)
@@ -202,6 +205,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -213,23 +217,39 @@ fun HomeScreen(
                     // 胶囊搬到这里来了：底栏要占的是它那个位置，而这句话不能跟着一起没了。
                     SyncLine(state = state, now = now)
                 }
-                // 一件都没有时不给这颗按钮：那时候搜索框不是路，是一条死路。
-                if (state.groups.isNotEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // 一件都没有时不给这颗按钮：那时候搜索框不是路，是一条死路。
+                    if (state.groups.isNotEmpty()) {
+                        IconButton(
+                            onClick = { searchOpen = !searchOpen },
+                            modifier = Modifier.size(44.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (searchOpen) Icons.Filled.Close else Icons.Filled.Search,
+                                contentDescription = stringResource(
+                                    if (searchOpen) R.string.home_search_close else R.string.home_search,
+                                ),
+                                tint = if (searchOpen) Ink else InkSecondary,
+                            )
+                        }
+                    }
+                    /* 查快递入口：从剪贴板里粘单号，直接识别 + 填充表单 */
                     IconButton(
-                        onClick = { searchOpen = !searchOpen },
+                        onClick = onOpenLookup,
                         modifier = Modifier.size(44.dp),
                     ) {
                         Icon(
-                            imageVector = if (searchOpen) Icons.Filled.Close else Icons.Filled.Search,
-                            contentDescription = stringResource(
-                                if (searchOpen) R.string.home_search_close else R.string.home_search,
-                            ),
-                            tint = if (searchOpen) Ink else InkSecondary,
+                            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_lookup),
+                            contentDescription = stringResource(R.string.lookup_title),
+                            tint = InkSecondary,
                         )
                     }
+                    // 顶栏不再有那颗设置图标：设置现在是底栏三颗键之一，
+                    // 同一屏上留两个入口会让人怀疑它们去的是不是同一个地方。
                 }
-                // 顶栏不再有那颗设置图标：设置现在是底栏三颗键之一，
-                // 同一屏上留两个入口会让人怀疑它们去的是不是同一个地方。
             }
 
             // permission-health-bar：跨屏常驻、不可被滚动隐藏——它挂在 LazyColumn 外面。

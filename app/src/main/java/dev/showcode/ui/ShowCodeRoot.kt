@@ -2,6 +2,7 @@ package dev.showcode.ui
 
 import android.Manifest
 import android.appwidget.AppWidgetManager
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
@@ -25,10 +26,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.Lifecycle
@@ -57,33 +54,15 @@ import dev.showcode.data.DemoData
 import dev.showcode.data.PickupReminder
 import dev.showcode.data.InstalledApp
 import dev.showcode.data.unrecognizedBadgeCount
-import dev.showcode.ui.glass.GlassCompat
-import dev.showcode.ui.glass.GlassRuntimeGuard
-import dev.showcode.ui.glass.GlassTier
-import dev.showcode.ui.glass.rememberHighTextContrast
-import dev.showcode.ui.home.HomeEmpty
-import dev.showcode.ui.home.HomeScreen
-import dev.showcode.ui.home.HomeUiState
-import dev.showcode.ui.inbox.ManualImportScreen
-import dev.showcode.ui.inbox.UnrecognizedScreen
-import dev.showcode.ui.identity.IdentityEditScreen
-import dev.showcode.ui.identity.IdentityListScreen
-import dev.showcode.ui.onsite.IdentityShowScreen
-import dev.showcode.ui.onsite.OnsiteScreen
-import dev.showcode.ui.onsite.TilesScreen
-import dev.showcode.ui.onboarding.OnboardStep
-import dev.showcode.ui.onboarding.OnboardingScreen
-import dev.showcode.ui.rules.RuleEditScreen
-import dev.showcode.ui.rules.RuleListScreen
-import dev.showcode.ui.settings.NotifyAppsScreen
-import dev.showcode.ui.settings.SettingsScreen
-import dev.showcode.ui.theme.MotionTokens
-import dev.showcode.ui.theme.drawEnvironment
-import dev.showcode.widget.PickupWidgetProvider
-import dev.showcode.widget.WidgetNav
+
+/** 检查剪贴板内容 */
+private fun checkClipboard(context: android.content.Context): String {
+    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+    return clipboard.primaryText ?: ""
+}
 
 private enum class Route {
-    HOME, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL,
+    HOME, LOOKUP, ONSITE, TILES, SETTINGS, UNRECOGNIZED, MANUAL_IMPORT, ONBOARDING, POINT_DETAIL,
     MERGE_PREVIEW, RULES, RULE_EDIT, IDENTITY_LIST, IDENTITY_ADD, IDENTITY_SHOW, NOTIFY_APPS,
 }
 
@@ -141,6 +120,9 @@ fun ShowCodeRoot() {
     var lastMerge by remember { mutableStateOf<PointAlias?>(null) }
     var smsAttempted by rememberSaveable { mutableStateOf(false) }
     var widgetAdded by remember { mutableStateOf(false) }
+    /* 查快递页面的剪贴板文本预填。 */
+    var lookupPrefill by rememberSaveable { mutableStateOf("") }
+    var lookupReturn by rememberSaveable { mutableStateOf(Route.HOME) }
 
     // 演示数据只在进入时生成一次，把截止时刻冻结住——之后倒计时才会真的往下走。
     // 「已取」只改这个集合，一个字都不落库，所以退出演示后不残留任何示例内容。
@@ -387,6 +369,10 @@ fun ShowCodeRoot() {
             Route.IDENTITY_SHOW -> route = Route.IDENTITY_LIST
             Route.NOTIFY_APPS -> route = notifyReturn
             Route.MANUAL_IMPORT -> route = manualReturn
+            Route.LOOKUP -> {
+                lookupPrefill = ""
+                route = lookupReturn
+            }
             Route.ONBOARDING -> {
                 val steps = OnboardStep.entries
                 onboardStep = steps[(steps.indexOf(onboardStep) - 1).coerceAtLeast(0)]
@@ -407,6 +393,8 @@ fun ShowCodeRoot() {
         appData.parcels.mapTo(mutableSetOf()) { bodyFingerprint(it.raw) } +
             appData.unrecognized.map { bodyFingerprint(it.body) }
     }
+    /* 最近查询过的快递单号（剪贴板里的），避免重复填。 */
+    val lookupHistory = rememberSaveable { mutableStateListOf<String>() }
 
     val homeState = HomeUiState(
         loaded = appData.loaded,
@@ -542,6 +530,16 @@ fun ShowCodeRoot() {
                         lastMerge?.let { repository.undoMerge(it.aliasKey) }
                         lastMerge = null
                     },
+                    onOpenLookup = {
+                        lookupPrefill = ""
+                        // 检查剪贴板内容
+                        val clipboardText = checkClipboard(context)
+                        if (clipboardText.isNotEmpty()) {
+                            lookupPrefill = clipboardText
+                        }
+                        lookupReturn = Route.HOME
+                        route = Route.LOOKUP
+                    },
                 )
 
                 Route.ONSITE -> {
@@ -641,6 +639,29 @@ fun ShowCodeRoot() {
                     onRequestSms = { requestSmsPermission() },
                     onOpenNotificationSettings = { openNotificationSettings() },
                     onOpenAppDetails = { openAppDetails() },
+                )
+
+                Route.LOOKUP -> dev.showcode.ui.tools.LookupTabScreen(
+                    prefilledText = lookupPrefill,
+                    knownBodies = knownBodies,
+                    history = lookupHistory,
+                    onBack = {
+                        lookupPrefill = ""
+                        route = lookupReturn
+                    },
+                    onSave = { code, pointName, lockerNo, raw ->
+                        val stored = repository.manualAdd(code, pointName, lockerNo, raw)
+                        if (stored) {
+                            // 记入历史记录（去重后加到头部，最多保留 10 条）
+                            lookupHistory.removeAll { it == raw }
+                            lookupHistory.add(0, raw)
+                            if (lookupHistory.size > 10) lookupHistory.removeAt(10)
+                            lookupPrefill = ""
+                            // 成功就回首页
+                            route = lookupReturn
+                        }
+                        stored
+                    },
                 )
 
                 Route.UNRECOGNIZED -> UnrecognizedScreen(
