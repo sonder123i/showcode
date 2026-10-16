@@ -221,7 +221,19 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // 一件都没有时不给这颗按钮：那时候搜索框不是路，是一条死路。
+                    /* 查快递入口：从剪贴板里粘单号，直接识别 + 填充表单。
+                       跟有无取件无关——没件时更该用这个入口录一条。 */
+                    IconButton(
+                        onClick = onOpenLookup,
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        Icon(
+                            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_lookup),
+                            contentDescription = stringResource(R.string.lookup_title),
+                            tint = InkSecondary,
+                        )
+                    }
+                    /* 一件都没有时不给这颗按钮：那时候搜索框不是路，是一条死路。 */
                     if (state.groups.isNotEmpty()) {
                         IconButton(
                             onClick = { searchOpen = !searchOpen },
@@ -235,17 +247,6 @@ fun HomeScreen(
                                 tint = if (searchOpen) Ink else InkSecondary,
                             )
                         }
-                    }
-                    /* 查快递入口：从剪贴板里粘单号，直接识别 + 填充表单 */
-                    IconButton(
-                        onClick = onOpenLookup,
-                        modifier = Modifier.size(44.dp),
-                    ) {
-                        Icon(
-                            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_lookup),
-                            contentDescription = stringResource(R.string.lookup_title),
-                            tint = InkSecondary,
-                        )
                     }
                     // 顶栏不再有那颗设置图标：设置现在是底栏三颗键之一，
                     // 同一屏上留两个入口会让人怀疑它们去的是不是同一个地方。
