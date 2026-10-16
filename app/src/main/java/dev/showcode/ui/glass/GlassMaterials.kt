@@ -87,10 +87,11 @@ object GlassMaterials {
     const val NavPressedScale = 78f / 56f
 
     /**
-     * 按压折射的库基线（库自己的 LiquidBottomTabs：`lens(10dp·p, 14dp·p)`，
-     * 静止 p=0 一个像素都不折射）。教务把这条写成 `NavIndicatorRefractionFloor = 0`：
-     * 静止折射会把底图色斑沿胶囊边缘挤出彩边，被指出过三次。
+     * 按压折射的光学档（教务角色表 `Interactive` 行：折射 12-18dp、色散 on）。
+     * 上一版用的是库基线 `lens(10dp·p, 14dp·p)`——小一号，球里「没什么可揉」。
+     * 静止地板仍是 0（`NavIndicatorRefractionFloor`）：静止折射会把底图色斑沿胶囊
+     * 边缘挤出彩边，被指出过三次。
      */
-    const val NavIndicatorLensHeightDp = 10f
-    const val NavIndicatorLensAmountDp = 14f
+    const val NavIndicatorLensHeightDp = 12f
+    const val NavIndicatorLensAmountDp = 18f
 }

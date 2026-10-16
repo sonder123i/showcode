@@ -6,7 +6,6 @@ import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -40,8 +39,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -53,11 +55,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -272,11 +278,33 @@ fun ShowCodeNavBar(
            东西，顺序与屏幕一致：模糊的页面内容 → 轨道容器色。模糊在这里重做一遍而不是
            replay 轨道层：轨道层**有形状**，裁边会被斜坡放大成一圈灰罩（教务踩过）。
            33+ 走库 lens()，[rememberGlassLensAnchor] 自己会返回 null。 */
-        val lensAnchor = rememberGlassLensAnchor(tag = "navbar") { coords ->
+        /* 隐藏 tint 副本层的两个录制口（教务 layer2 同式）：
+           [tabsBackdrop] 录完整副本（模糊+表面+图标标签），供 33+ 的 combined 采样；
+           [tabsTintBackdrop] 只录 tint 文字（挂在 drawBackdrop **之后**），供 31/32 锚点
+           当 overlay——底图的模糊与表面已由 drawSource 铺好，再叠一份整副本就厚了。
+           球里那团被折射的彩色（图二）就是这一层，缺了它透镜只揉出「空雾」。 */
+        val tabsBackdrop = rememberLayerBackdrop()
+        val tabsTintBackdrop = rememberLayerBackdrop()
+        val indicatorBackdrop = rememberCombinedBackdrop(glassBackdrop, tabsBackdrop)
+        val lensAnchor = rememberGlassLensAnchor(
+            tag = "navbar",
+            overlaySource = { coords ->
+                with(tabsTintBackdrop) { drawBackdrop(outerDensity, coords, null) }
+            },
+        ) { coords ->
             drawBlurred(trackBlurPx) {
                 with(glassBackdrop) { drawBackdrop(outerDensity, coords, null) }
             }
             drawRect(containerColor)
+        }
+        /* overlay 的重拍记账：位置/按压/漂移/任一格图标相位一变就重录 tint 层。
+           教务原式：子 RenderNode 在 draw 末尾才提交，立即快照读到的还是旧帧，
+           所以 post 到下一拍再 invalidateOverlay。 */
+        val recordedOverlayFrame = remember(lensAnchor, NAV_TABS.size) {
+            FloatArray(NAV_TABS.size + 3) { Float.NaN }
+        }
+        val overlayFrameHandler = remember(lensAnchor) {
+            android.os.Handler(android.os.Looper.getMainLooper())
         }
         /* 换格立即重拍 + 350ms 补一张：换页那一下拍到的是页面入场动画的中间帧
            （教务把这条写成了注释里的绿色残影），停稳再补才对。 */
@@ -374,15 +402,20 @@ fun ShowCodeNavBar(
                    （backdrop 库的硬约束），按压胀 78/56、滑行中按速度拉伸。 */
                 val press = drag.pressProgress
                 val indicatorMaterial = interactiveLensSpec(highTextContrast)
+                /* 形态是**球**不是条：宽=高（图二那颗玻璃球）。上一版宽取一格（1/3 ≈ 109dp），
+                   是「宽度=1/tabsCount」公式随 tab 数漂出来的扁条——教务 5 格时宽≈高，
+                   家族长相是那颗球，不是那条公式。 */
+                val ballSize = indicatorHeight.coerceAtMost(trackHeight - barPadding * 2)
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .graphicsLayer {
-                            translationX = drag.value * tabWidthPx
+                            translationX = drag.value * tabWidthPx +
+                                (tabWidthPx - with(density) { ballSize.toPx() }) / 2f
                             clip = false
                         }
-                        .width(tabWidthDp)
-                        .height(indicatorHeight.coerceAtMost(trackHeight - barPadding * 2))
+                        .width(ballSize)
+                        .height(ballSize)
                         /* 31/32 真折射：画在 drawBackdrop **之前**，折射结果就是胶囊的背景。
                            光学参数与 33+ 那条读同一份材质、同一个地板（0，静止不折）、同一条
                            速度→色散曲线；缩放与 layerBlock 必须同一份形变（不一致时按下会看到
@@ -409,10 +442,10 @@ fun ShowCodeNavBar(
                             scale = { _, _ -> indicatorScale(drag) },
                         )
                         .drawBackdrop(
-                            backdrop = glassBackdrop,
+                            backdrop = indicatorBackdrop,
                             shape = { CircleShape },
                             effects = {
-                                /* 33+ 的按下折射（库基线 lens(10dp·p, 14dp·p)，静止 0）。
+                                /* 33+ 的按下折射（教务 Interactive 档 12/18，静止 0）。
                                    31/32 的真折射已由上面的 glassLens 画完，这里不能再叠
                                    （两套边缘着色叠在一起只会互相污染）。 */
                                 if (lensAnchor == null && lensLook && press > 0f) {
@@ -595,6 +628,77 @@ fun ShowCodeNavBar(
                     }
                 }
             }
+
+                /* 2) 隐藏 tint 副本层（教务 layer2）：被选中透镜采样，避免只看到空雾。
+                   整层 colorFilter 染 accent——球里那团被折射的彩色就是它。两份录制：
+                   layerBackdrop(tabsBackdrop) 录整层，drawBackdrop 之后的
+                   layerBackdrop(tabsTintBackdrop) 只录下游 tint 文字。 */
+                Row(
+                    modifier = Modifier
+                        .clearAndSetSemantics {}
+                        .alpha(0f)
+                        .layerBackdrop(tabsBackdrop)
+                        .graphicsLayer { translationX = panelOffset }
+                        .drawBackdrop(
+                            backdrop = glassBackdrop,
+                            shape = { CircleShape },
+                            effects = { blur(trackBlurPx) },
+                            highlight = {
+                                Highlight.Default.copy(alpha = drag.pressProgress * 0.35f)
+                            },
+                            onDrawSurface = { drawRect(containerColor) },
+                        )
+                        .then(
+                            if (lensAnchor != null) {
+                                Modifier.drawWithContent {
+                                    var changed = false
+                                    fun record(index: Int, value: Float) {
+                                        if (recordedOverlayFrame[index] != value) {
+                                            recordedOverlayFrame[index] = value
+                                            changed = true
+                                        }
+                                    }
+                                    record(0, drag.value)
+                                    record(1, drag.pressProgress)
+                                    record(2, panelAnim.value)
+                                    NAV_TABS.indices.forEach { record(it + 3, iconPlayback.phase(it)) }
+                                    drawContent()
+                                    if (changed) {
+                                        overlayFrameHandler.post { lensAnchor.invalidateOverlay() }
+                                    }
+                                }.layerBackdrop(tabsTintBackdrop)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .height(trackHeight)
+                        .fillMaxWidth()
+                        .padding(horizontal = barPadding)
+                        .graphicsLayer(colorFilter = ColorFilter.tint(AccentInk)),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    for (index in NAV_TABS.indices) {
+                        val weight = (1f - abs(drag.value - index)).coerceIn(0f, 1f)
+                        NavBarKey(
+                            label = stringResource(
+                                when (NAV_TABS[index]) {
+                                    NavBarTab.HOME -> R.string.home_title
+                                    NavBarTab.IDENTITY -> R.string.identity_title
+                                    NavBarTab.SETTINGS -> R.string.settings_title
+                                },
+                            ),
+                            weight = weight,
+                            pressProgress = drag.pressProgress * weight,
+                            onClick = null,
+                            symbol = when (index) {
+                                0 -> NavSymbol.PICKUP
+                                1 -> NavSymbol.IDENTITY
+                                else -> NavSymbol.SETTINGS
+                            },
+                            phase = { iconPlayback.phase(index) },
+                        )
+                    }
+                }
         }
         }
         }
@@ -730,7 +834,8 @@ private fun RowScope.NavBarKey(
     label: String,
     weight: Float,
     pressProgress: Float,
-    onClick: () -> Unit,
+    /** null = 隐藏副本层里的那一份：画出来供透镜采样，不接客（教务 onClick=null 同式）。 */
+    onClick: (() -> Unit)?,
     symbol: NavSymbol,
     phase: () -> Float,
 ) {
@@ -743,12 +848,18 @@ private fun RowScope.NavBarKey(
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
-            .selectable(
-                selected = weight > 0.5f,
-                role = Role.Tab,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
+            .then(
+                if (onClick != null) {
+                    Modifier.selectable(
+                        selected = weight > 0.5f,
+                        role = Role.Tab,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
             ),
     ) {
         NavSymbolIcon(
