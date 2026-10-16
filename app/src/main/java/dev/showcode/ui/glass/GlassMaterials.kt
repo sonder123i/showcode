@@ -77,6 +77,20 @@ object GlassMaterials {
     const val NavLegacyIndicatorAlpha = 0.1f
     const val NavLegacyIndicatorPressAlpha = 0.03f
 
-    /** 指示胶囊的投影（教务 Shadow 0.10 + 按压 0.15）。批 3 接按压渐显，批 1 只给静止值。 */
+    /** 指示胶囊的投影（教务 Shadow 0.10 + 按压 0.15）。 */
     const val NavIndicatorShadowAlpha = 0.10f
+
+    /**
+     * 指示胶囊的按压胀度：教务 `SelectionIndicatorPressedScale = 78/56 ≈ 1.39`。
+     * 按压方向是**胀**不是缩——这是家族手感的一半，另一半是滑行中的速度拉伸。
+     */
+    const val NavPressedScale = 78f / 56f
+
+    /**
+     * 按压折射的库基线（库自己的 LiquidBottomTabs：`lens(10dp·p, 14dp·p)`，
+     * 静止 p=0 一个像素都不折射）。教务把这条写成 `NavIndicatorRefractionFloor = 0`：
+     * 静止折射会把底图色斑沿胶囊边缘挤出彩边，被指出过三次。
+     */
+    const val NavIndicatorLensHeightDp = 10f
+    const val NavIndicatorLensAmountDp = 14f
 }
