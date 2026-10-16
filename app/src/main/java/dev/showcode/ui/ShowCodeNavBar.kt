@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,7 +39,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -162,6 +160,14 @@ fun ShowCodeNavBar(
             NavBarTab.SETTINGS -> onSettings()
         }
     }
+    /* 图标动效：每格一只时钟（[NavIconPlayback]）。换格由 remember 的 LaunchedEffect 驱动；
+       点**已选中**那格是重播它的 flourish——教务 `selectTab` 原语义。 */
+    val selectedIndex = NAV_TABS.indexOf(current).coerceAtLeast(0)
+    val iconPlayback = rememberNavIconPlayback(NAV_TABS.size, selectedIndex, reduced = false)
+    val onKeyClick: (NavBarTab) -> Unit = { tab ->
+        if (tab == current) iconPlayback.replay(NAV_TABS.indexOf(tab))
+        else onTab(tab)
+    }
 
     /* 整条块：几何三件套（轨道高 / 纵留白 / 横留白）都来自教务 `NavBarMetrics`，
        底部安全区走 navigationBarsPadding——这是底栏，状态栏的上留白不该混进来。 */
@@ -176,7 +182,8 @@ fun ShowCodeNavBar(
         if (glassBackdrop == null) {
             FallbackNavigationBar(
                 current = current,
-                onTab = onTab,
+                onKeyClick = onKeyClick,
+                iconPlayback = iconPlayback,
             )
             return@Box
         }
@@ -292,22 +299,25 @@ fun ShowCodeNavBar(
                         label = stringResource(R.string.home_title),
                         weight = navKeyWeight(current == NavBarTab.HOME, MotionTokens.IconSelection),
                         labelAlpha = labelAlpha,
-                        onClick = { onTab(NavBarTab.HOME) },
-                        iconRes = R.drawable.ic_nav_pickup,
+                        onClick = { onKeyClick(NavBarTab.HOME) },
+                        symbol = NavSymbol.PICKUP,
+                        phase = { iconPlayback.phase(0) },
                     )
                     NavBarKey(
                         label = stringResource(R.string.identity_title),
                         weight = navKeyWeight(current == NavBarTab.IDENTITY, MotionTokens.IconSelection),
                         labelAlpha = labelAlpha,
-                        onClick = { onTab(NavBarTab.IDENTITY) },
-                        iconRes = R.drawable.ic_nav_identity,
+                        onClick = { onKeyClick(NavBarTab.IDENTITY) },
+                        symbol = NavSymbol.IDENTITY,
+                        phase = { iconPlayback.phase(1) },
                     )
                     NavBarKey(
                         label = stringResource(R.string.settings_title),
                         weight = navKeyWeight(current == NavBarTab.SETTINGS, MotionTokens.IconSelection),
                         labelAlpha = labelAlpha,
-                        onClick = { onTab(NavBarTab.SETTINGS) },
-                        iconRes = R.drawable.ic_nav_settings,
+                        onClick = { onKeyClick(NavBarTab.SETTINGS) },
+                        symbol = NavSymbol.SETTINGS,
+                        phase = { iconPlayback.phase(2) },
                     )
                 }
             }
@@ -345,7 +355,8 @@ private fun RowScope.NavBarKey(
     weight: Float,
     labelAlpha: Float,
     onClick: () -> Unit,
-    iconRes: Int,
+    symbol: NavSymbol,
+    phase: () -> Float,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -380,7 +391,11 @@ private fun RowScope.NavBarKey(
                 onClick = onClick,
             ),
     ) {
-        Box(
+        NavSymbolIcon(
+            symbol = symbol,
+            selection = weight,
+            phase = phase,
+            tint = tint,
             modifier = Modifier
                 .size(NAV_ICON_SIZE)
                 .graphicsLayer {
@@ -389,9 +404,7 @@ private fun RowScope.NavBarKey(
                     scaleY = scale
                     translationY = -2.dp.toPx() * weight + 1.dp.toPx() * pressProgress
                 },
-        ) {
-            Icon(painter = painterResource(iconRes), contentDescription = null, tint = tint)
-        }
+        )
         Spacer(Modifier.height(2.dp))
         Text(
             text = label,
@@ -412,7 +425,8 @@ private fun RowScope.NavBarKey(
 @Composable
 private fun FallbackNavigationBar(
     current: NavBarTab,
-    onTab: (NavBarTab) -> Unit,
+    onKeyClick: (NavBarTab) -> Unit,
+    iconPlayback: NavIconPlayback,
 ) {
     Surface(
         modifier = Modifier
@@ -435,22 +449,25 @@ private fun FallbackNavigationBar(
                 label = stringResource(R.string.home_title),
                 weight = navKeyWeight(current == NavBarTab.HOME, MotionTokens.FallbackWeight),
                 labelAlpha = 1f,
-                onClick = { onTab(NavBarTab.HOME) },
-                iconRes = R.drawable.ic_nav_pickup,
+                onClick = { onKeyClick(NavBarTab.HOME) },
+                symbol = NavSymbol.PICKUP,
+                phase = { iconPlayback.phase(0) },
             )
             NavBarKey(
                 label = stringResource(R.string.identity_title),
                 weight = navKeyWeight(current == NavBarTab.IDENTITY, MotionTokens.FallbackWeight),
                 labelAlpha = 1f,
-                onClick = { onTab(NavBarTab.IDENTITY) },
-                iconRes = R.drawable.ic_nav_identity,
+                onClick = { onKeyClick(NavBarTab.IDENTITY) },
+                symbol = NavSymbol.IDENTITY,
+                phase = { iconPlayback.phase(1) },
             )
             NavBarKey(
                 label = stringResource(R.string.settings_title),
                 weight = navKeyWeight(current == NavBarTab.SETTINGS, MotionTokens.FallbackWeight),
                 labelAlpha = 1f,
-                onClick = { onTab(NavBarTab.SETTINGS) },
-                iconRes = R.drawable.ic_nav_settings,
+                onClick = { onKeyClick(NavBarTab.SETTINGS) },
+                symbol = NavSymbol.SETTINGS,
+                phase = { iconPlayback.phase(2) },
             )
         }
     }

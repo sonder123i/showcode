@@ -97,7 +97,7 @@ object PickupReminder {
         manager.notify(
             REQUEST_CODE,
             NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_nav_identity)
+                .setSmallIcon(R.drawable.ic_stat_notify)
                 .setContentTitle(context.getString(R.string.reminder_title))
                 .setContentText(context.getString(if (first) R.string.reminder_body_first else R.string.reminder_body))
                 .setStyle(NotificationCompat.BigTextStyle().bigText(
