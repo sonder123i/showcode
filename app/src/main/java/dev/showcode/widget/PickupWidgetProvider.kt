@@ -24,7 +24,7 @@ import dev.showcode.core.groupByPoint
 import dev.showcode.core.resolvePointKey
 import dev.showcode.core.urgencyOf
 import dev.showcode.ui.countdownLabel
-import dev.showcode.ui.theme.AccentInt
+import dev.showcode.ui.theme.AccentInkInt
 import dev.showcode.ui.theme.UrgencyAtRiskInt
 import dev.showcode.ui.theme.UrgencyDueSoonInt
 import dev.showcode.ui.theme.UrgencySafeInt
@@ -189,7 +189,7 @@ class PickupWidgetProvider : AppWidgetProvider() {
                         R.id.widget_empty_text,
                         context.getString(R.string.widget_empty_line1) + "\n" + context.getString(R.string.widget_empty_line2),
                     )
-                    views.setTextColor(R.id.widget_empty_cta, AccentInt)
+                    views.setTextColor(R.id.widget_empty_cta, AccentInkInt)
                     views.setOnClickPendingIntent(
                         R.id.widget_empty,
                         pending(context, widgetId, SLOT_EMPTY, WidgetNav.ROUTE_DEMO, null),

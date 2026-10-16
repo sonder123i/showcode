@@ -41,7 +41,7 @@ import dev.showcode.app
 import dev.showcode.core.PickupPointGroup
 import dev.showcode.core.groupByPoint
 import dev.showcode.ui.rememberTickingNow
-import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.AccentTint
 import dev.showcode.ui.theme.Canvas
 import dev.showcode.ui.theme.Hairline
@@ -144,7 +144,7 @@ private fun OptionRow(title: String, hint: String, highlighted: Boolean, onClick
             .background(if (highlighted) AccentTint else Canvas, ShowCodeShapes.Md)
             .border(
                 width = if (highlighted) 2.dp else 1.dp,
-                color = if (highlighted) Accent else Hairline,
+                color = if (highlighted) AccentInk else Hairline,
                 shape = ShowCodeShapes.Md,
             )
             .clickable(onClick = onClick)
@@ -163,7 +163,7 @@ private fun OptionRow(title: String, hint: String, highlighted: Boolean, onClick
                 .background(SurfaceCard, ShowCodeShapes.Sm)
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             style = ShowCodeText.Action,
-            color = Accent,
+            color = AccentInk,
         )
     }
 }

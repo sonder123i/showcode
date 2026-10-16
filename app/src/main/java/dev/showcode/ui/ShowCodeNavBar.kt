@@ -4,12 +4,13 @@ import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -120,9 +122,6 @@ private val NAV_BAR_PADDING_LEGACY = 4.dp
 
 private val NAV_BAR_CARD_GAP = 16.dp
 
-/** 收起态（滚动往下读时）的轨道高。批 5 换单胶囊形态后这个常量退休。 */
-private val NAV_BAR_HEIGHT_MINIMIZED = 46.dp
-
 private val NAV_ICON_SIZE = 24.dp
 
 /** 无玻璃回退档的整条高（教务 `FallbackNavigationBar` 的 Surface）。 */
@@ -151,8 +150,10 @@ fun ShowCodeNavBar(
     onIdentity: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 滚动往下读时收到的请求。收起后只剩图标，标签被裁出视野。 */
+    /** 滚动往下读时收到的请求。收起后只剩当前格的一枚小胶囊，点它展开。 */
     minimized: Boolean = false,
+    /** 点收起胶囊要求展开。教务 `onExpandRequest` 同名同义。 */
+    onExpandRequest: () -> Unit = {},
     tier: GlassTier = GlassTier.OPAQUE,
     /** 玻璃折的那张背景。null、或不是玻璃档，就等于回落到不透明底栏。 */
     backdrop: Backdrop? = null,
@@ -225,19 +226,30 @@ fun ShowCodeNavBar(
             return@Box
         }
 
-        val barHeight by animateDpAsState(
-            targetValue = if (minimized) NAV_BAR_HEIGHT_MINIMIZED else trackHeight,
-            animationSpec = tween(durationMillis = 260),
-            label = "nav-bar-height",
+        /* 滚动收起（教务原式）：整条玻璃横向收拢淡出、单胶囊液态弹出。一个分数驱动两头。 */
+        val minimizeFraction by animateFloatAsState(
+            targetValue = if (minimized) 1f else 0f,
+            animationSpec = MotionTokens.LiquidSettle,
+            label = "nav-minimize-fraction",
         )
 
         /* 拖动时轨道反向微漂（教务 panelOffset：4dp·sign·EaseOut），松手后果冻回位。 */
         val panelAnim = remember { Animatable(0f) }
 
+        if (minimizeFraction < 0.999f) {
+        Box(
+            modifier = Modifier.graphicsLayer {
+                val f = minimizeFraction
+                alpha = (1f - f * 1.6f).coerceIn(0f, 1f)
+                scaleX = 1f - 0.82f * f
+                scaleY = 1f - 0.30f * f
+                transformOrigin = TransformOrigin.Center
+            },
+        ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(barHeight),
+                .height(trackHeight),
             contentAlignment = Alignment.CenterStart,
         ) {
             val density = LocalDensity.current
@@ -261,7 +273,7 @@ fun ShowCodeNavBar(
                         clip = false
                     }
                     .fillMaxWidth()
-                    .height(barHeight)
+                    .height(trackHeight)
                     .clip(CircleShape)
                     .drawBackdrop(
                         backdrop = glassBackdrop,
@@ -324,7 +336,7 @@ fun ShowCodeNavBar(
                             clip = false
                         }
                         .width(tabWidthDp)
-                        .height(indicatorHeight.coerceAtMost(barHeight - barPadding * 2))
+                        .height(indicatorHeight.coerceAtMost(trackHeight - barPadding * 2))
                         .drawBackdrop(
                             backdrop = glassBackdrop,
                             shape = { CircleShape },
@@ -403,10 +415,11 @@ fun ShowCodeNavBar(
                     modifier = Modifier
                         .fillMaxSize()
                         .selectableGroup()
-                        .pointerInput(tabWidthPx) {
+                        .pointerInput(tabWidthPx, minimized) {
                             /* 整条手势：点按选格、拖动跟手换格。down 在 Initial pass 消费，
                                下面各键的 selectable 只剩无障碍语义（触屏走这里的 startX→格）。
                                多指中断、CANCEL 不提交、松手带初速——教务原逻辑逐条搬。 */
+                            if (minimized) return@pointerInput
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
                                 down.consume()
@@ -497,7 +510,7 @@ fun ShowCodeNavBar(
                             ),
                             weight = weight,
                             pressProgress = drag.pressProgress * weight,
-                            onClick = { selectTab(index) },
+                            onClick = { if (!minimized) selectTab(index) },
                             symbol = when (index) {
                                 0 -> NavSymbol.PICKUP
                                 1 -> NavSymbol.IDENTITY
@@ -509,6 +522,97 @@ fun ShowCodeNavBar(
                 }
             }
         }
+        }
+        }
+
+        if (minimizeFraction > 0.001f) {
+            MinimizedNavCapsule(
+                label = stringResource(
+                    when (current) {
+                        NavBarTab.HOME -> R.string.home_title
+                        NavBarTab.IDENTITY -> R.string.identity_title
+                        NavBarTab.SETTINGS -> R.string.settings_title
+                    },
+                ),
+                symbol = when (selectedIndex) {
+                    0 -> NavSymbol.PICKUP
+                    1 -> NavSymbol.IDENTITY
+                    else -> NavSymbol.SETTINGS
+                },
+                iconPhase = { iconPlayback.phase(selectedIndex) },
+                onClick = { if (minimized) onExpandRequest() },
+                lensLook = lensLook,
+                glassBackdrop = glassBackdrop,
+                modifier = Modifier.graphicsLayer {
+                    val f = minimizeFraction
+                    alpha = ((f - 0.35f) / 0.65f).coerceIn(0f, 1f)
+                    val scale = 0.55f + 0.45f * f
+                    scaleX = scale
+                    scaleY = scale
+                },
+            )
+        }
+    }
+}
+
+/**
+ * 收起形态：只剩当前格的一枚小玻璃胶囊（教务 `MinimizedNavCapsule` 同式：48dp 高、
+ * 图标+标签、点按要求展开）。图标还在播——收起态也认得出当前在哪一格。
+ */
+@Composable
+private fun MinimizedNavCapsule(
+    label: String,
+    symbol: NavSymbol,
+    iconPhase: () -> Float,
+    onClick: () -> Unit,
+    lensLook: Boolean,
+    glassBackdrop: Backdrop,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    Row(
+        modifier = modifier
+            .drawBackdrop(
+                backdrop = glassBackdrop,
+                shape = { CircleShape },
+                effects = { blur(with(density) { 8.dp.toPx() }) },
+                highlight = { Highlight.Default.copy(alpha = 0.14f) },
+                shadow = { Shadow(alpha = 0.10f) },
+                onDrawSurface = {
+                    if (lensLook) {
+                        drawRect(Color.White.copy(alpha = GlassMaterials.NavTrackSurfaceAlpha))
+                    } else {
+                        drawRect(
+                            Color(GlassMaterials.NavLegacyTrackSurface)
+                                .copy(alpha = GlassMaterials.NavLegacyTrackSurfaceAlpha),
+                        )
+                    }
+                },
+            )
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .height(48.dp)
+            .padding(horizontal = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        NavSymbolIcon(
+            symbol = symbol,
+            selection = 1f,
+            phase = iconPhase,
+            tint = AccentInk,
+            modifier = Modifier.size(NAV_ICON_SIZE),
+        )
+        Text(
+            text = label,
+            color = Ink,
+            style = ShowCodeText.Micro.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1,
+        )
     }
 }
 
@@ -566,7 +670,7 @@ private fun RowScope.NavBarKey(
             .selectable(
                 selected = weight > 0.5f,
                 role = Role.Tab,
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
             ),

@@ -97,14 +97,53 @@ class NeutralRampTest {
     /**
      * 次级文字必须过 AA。改之前首页最暗的一档手调 alpha 合成成约 2.5:1，
      * 而它承载的是柜号和「+3 件」这类真信息。
+     *
+     * ⚠️ 2026-10-16 起基准是**环境层最暗那一角**，不是纯白：管理模式的页面底已经是那层渐变，
+     * 纯白只剩「M3 组件兜底」这一个身份。旧判据对着纯白算，于是 InkMuted #667085 看着是 4.97:1
+     * 合格，真机上落在渐变最暗角却只有 3.80:1——判据挑错了对手，合格就是假的。
      */
     @Test
     fun `承载信息的墨阶过 AA，装饰档不用于信息`() {
         listOf(Ink, InkSecondary, InkMuted).forEach {
+            assertTrue("墨阶 $it 对环境层最暗角低于 AA", contrast(it, EnvironmentDarkest) >= 4.5)
             assertTrue("墨阶 $it 对白底低于 AA", contrast(it, Canvas) >= 4.5)
         }
         // InkFaint 故意不过 AA：它只给不承载信息的字形（关闭用的 ✕、示例水印）。
         assertTrue("InkFaint 若过了 AA，就该改用它承载信息", contrast(InkFaint, Canvas) < 4.5)
+    }
+
+    /**
+     * 品牌蓝的两档分工：填充档不做字、字档要能压在环境层最暗角上。
+     * 这条断言的存在意义是挡住「顺手把 Accent 用回文字色」——那是这一轮刚结掉的一笔账。
+     *
+     * ⚠️ AccentInk 现在是教务的原值 `#0057D9`（`NavSelectedAccentLight`），它能过 AA
+     * 靠的是环境层暗角 alpha 收到 0.09；谁把那个 alpha 加回去，这条会当场红。
+     */
+    @Test
+    fun `品牌蓝的字档在环境层最暗角过 AA，填充档不许当字用`() {
+        assertTrue("AccentInk 在环境层最暗角低于 AA", contrast(AccentInk, EnvironmentDarkest) >= 4.5)
+        assertTrue(
+            "Accent 竟然能在环境层最暗角当文字用了？那说明它已经深到不该再叫填充档",
+            contrast(Accent, EnvironmentDarkest) < 3.0,
+        )
+    }
+
+    /**
+     * 卡面必须浮在环境层之上——判据的对手是**紧挨卡片的**那片页面，不是环境层的全局最亮。
+     *
+     * 全局最亮在顶部（0.18w, 0.12h 那道白光，L 0.9412），那一带是页眉与状态栏、没有卡片；
+     * 拿它当对手会得出一条与实际观感无关的红线。真正的约束是左右各 3% 宽那条页面边条
+     * （y 取 0.15h~0.85h），那里最亮 #F0F5F9（L 0.9067）。算它的脚本是 `.verify/env-check.py`。
+     *
+     * ⚠️ 若哪天有卡片挪进页眉那一带，这条判据就失效了（那里 ΔL 只剩 0.0148）——所以它同时是
+     * 一条布局约束：**别把卡片放到顶部白光下面**。
+     */
+    @Test
+    fun `卡面比环境层里卡片旁边那片页面亮`() {
+        assertTrue(
+            "卡面陷进页面里了：与卡边最亮处的亮度差不足",
+            luminance(SurfaceCard) - luminance(EnvironmentCardEdgeLightest) >= 0.03,
+        )
     }
 
     /** 语义浅底必须是同族色合成到白上的结果，不许随手取一个灰。 */

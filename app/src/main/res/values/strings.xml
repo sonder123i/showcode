@@ -415,4 +415,8 @@
     <string name="settings_reminder">每天提醒我对一眼</string>
     <string name="settings_reminder_hint">只在你手动录过件之后才开始提醒（那说明有平台根本不推送）。拒了通知权限它就不响，改成进 App 时提示你。</string>
     <string name="settings_reminder_needs_permission">要通知权限：没给的话这条提醒不会响。</string>
+    <string name="settings_appearance_section">外观</string>
+    <string name="settings_glass">底栏玻璃效果</string>
+    <string name="settings_glass_hint">底栏背后那条列表会被雾化。关掉就是今天的不透明灰底——更省电，也更实。</string>
+    <string name="settings_glass_needs_os">这台设备的系统版本太低：模糊要 Android 12 及以上，现在只能用不透明底栏。</string>
 </resources>

@@ -49,13 +49,13 @@ import dev.showcode.core.UrgencyThresholds
 import dev.showcode.core.urgencyOf
 import dev.showcode.data.Prefs
 import androidx.compose.material3.Switch
-import dev.showcode.ui.NAV_BAR_CLEARANCE
+import dev.showcode.ui.navBarClearance
 import dev.showcode.ui.inbox.ScreenTopBar
-import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
-import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.environmentBackground
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
@@ -99,6 +99,11 @@ fun SettingsScreen(
     onRequestSms: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenAppDetails: () -> Unit,
+    /** 底栏玻璃效果的开关。 */
+    glassBarOn: Boolean,
+    /** 这台设备的平台能不能出模糊（API 31+）。不能就当场说清楚，别让那颗开关看起来是坏的。 */
+    glassBarAvailable: Boolean,
+    onGlassBarOn: (Boolean) -> Unit,
 ) {
     var familyLabelDraft by remember { mutableStateOf(familyLabel) }
     val dueSoon = parcels.filter { !it.picked && urgencyOf(it, now, thresholds) == Urgency.DUE_SOON }
@@ -106,14 +111,14 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         ScreenTopBar(title = stringResource(R.string.settings_title))
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = NAV_BAR_CLEARANCE),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = navBarClearance()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item { SectionTitle(stringResource(R.string.settings_threshold_section)) }
@@ -303,6 +308,43 @@ fun SettingsScreen(
                     onOpenAppDetails = onOpenAppDetails,
                 )
             }
+
+            item { SectionTitle(stringResource(R.string.settings_appearance_section)) }
+            /* 开关一直显示，和上面那条提醒同一个理由：想关掉它的人必须找得到。
+               但「开着却没有玻璃」要当场说明白——那不是开关坏了，是这台设备、
+               或者上一次崩溃留下的结论（GlassRuntimeGuard）。 */
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Hairline, ShowCodeShapes.Md)
+                        .padding(16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.settings_glass),
+                            modifier = Modifier.weight(1f),
+                            style = ShowCodeText.Body,
+                            color = Ink,
+                        )
+                        Switch(checked = glassBarOn, onCheckedChange = onGlassBarOn)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_glass_hint),
+                        style = ShowCodeText.Caption,
+                        color = InkMuted,
+                    )
+                    if (!glassBarAvailable) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.settings_glass_needs_os),
+                            style = ShowCodeText.Caption,
+                            color = InkMuted,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -366,7 +408,7 @@ private fun ThresholdCard(
                 .clickable(onClick = onRestoreDefaults)
                 .padding(vertical = 4.dp),
             style = ShowCodeText.Action,
-            color = Accent,
+            color = AccentInk,
         )
     }
 }
@@ -491,7 +533,7 @@ private fun HealthRow(
                         .clickable(onClick = onFix)
                         .padding(vertical = 4.dp),
                     style = ShowCodeText.Action,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
         }

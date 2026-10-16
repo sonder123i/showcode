@@ -38,6 +38,9 @@ object MotionTokens {
     /** 轨道/面板漂移回位：`liquidJellyRebound(0.66, 320)`。 */
     val LiquidJellyRebound: FiniteAnimationSpec<Float> = spring(dampingRatio = 0.66f, stiffness = 320f)
 
+    /** 液态控件落位：`liquidSettle(0.80, 420)`——收起形态的整栏收拢/单胶囊弹出共用。 */
+    val LiquidSettle: FiniteAnimationSpec<Float> = spring(dampingRatio = 0.80f, stiffness = 420f)
+
     /**
      * 换屏的位移、缩放与错峰，逐条取自教务 `MotionProfile`：
      * `PageTransitionSpec(enterDistance 8, exitDistance 12, exitScale 0.985)`、

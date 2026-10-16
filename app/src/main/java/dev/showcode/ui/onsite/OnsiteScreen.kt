@@ -56,7 +56,7 @@ import dev.showcode.ui.deadlineText
 import dev.showcode.ui.lockerLabelOf
 import dev.showcode.ui.relativeTimeText
 import dev.showcode.ui.rememberTickingNow
-import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.OnsiteInk
 import dev.showcode.ui.theme.OnsiteSurface
 import dev.showcode.ui.theme.SurfaceInsetStrong
@@ -286,7 +286,7 @@ private fun OnsiteTopBar(pointName: String, isDemo: Boolean, onBack: () -> Unit,
                         .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
         }
@@ -463,13 +463,13 @@ private fun PositionRow(index: Int, total: Int, showTilesEntry: Boolean, onOpenT
                     text = stringResource(R.string.onsite_tiles_entry),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Accent,
+                    color = AccentInk,
                 )
                 Icon(
                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = Accent,
+                    tint = AccentInk,
                 )
             }
         }

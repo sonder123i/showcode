@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.annotation.DrawableRes
@@ -53,10 +55,12 @@ import dev.showcode.ui.theme.Canvas
 import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.InkSecondary
+import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.OnsiteSurface
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
+import dev.showcode.ui.theme.environmentBackground
 
 /**
  * story-6 的三个表面：疑似重复轻提示、合并预览确认、取件点详情（含合并历史与拆开）。
@@ -113,6 +117,9 @@ fun MergePreviewScreen(
     onCancel: () -> Unit,
 ) {
     Scaffold(
+        modifier = Modifier.fillMaxSize().environmentBackground(),
+        containerColor = Color.Transparent,
+        contentColor = Ink,
         topBar = { ScreenTopBar(title = stringResource(R.string.merge_preview_title), onBack = onCancel) },
     ) { padding ->
         Column(
@@ -325,6 +332,9 @@ fun PointDetailScreen(
 ) {
     val name = group?.name ?: history.firstOrNull()?.targetName.orEmpty()
     Scaffold(
+        modifier = Modifier.fillMaxSize().environmentBackground(),
+        containerColor = Color.Transparent,
+        contentColor = Ink,
         topBar = { ScreenTopBar(title = name, onBack = onBack) },
     ) { padding ->
         Column(

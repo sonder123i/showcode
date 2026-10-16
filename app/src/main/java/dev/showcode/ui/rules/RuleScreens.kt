@@ -42,12 +42,13 @@ import dev.showcode.core.parse.ParseRules
 import dev.showcode.core.parse.RuleCheck
 import dev.showcode.core.parse.RuleReject
 import dev.showcode.ui.inbox.ScreenTopBar
-import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.environmentBackground
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
@@ -78,7 +79,7 @@ fun RuleListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars),
     ) {
         ScreenTopBar(title = stringResource(R.string.rules_title), onBack = onBack)
@@ -117,11 +118,11 @@ fun RuleListScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(SurfaceCard, ShowCodeShapes.Md)
-                        .border(1.dp, Accent, ShowCodeShapes.Md)
+                        .border(1.dp, AccentInk, ShowCodeShapes.Md)
                         .clickable(onClick = onAdd)
                         .padding(16.dp),
                     style = ShowCodeText.Item,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
         }
@@ -247,7 +248,7 @@ fun RuleEditScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars),
     ) {
         ScreenTopBar(title = stringResource(R.string.rules_edit_title), onBack = onBack)
@@ -305,7 +306,7 @@ fun RuleEditScreen(
                     text = stringResource(R.string.rules_generate),
                     modifier = Modifier
                         .background(SurfaceCard, ShowCodeShapes.Md)
-                        .border(1.dp, Accent, ShowCodeShapes.Md)
+                        .border(1.dp, AccentInk, ShowCodeShapes.Md)
                         .clickable {
                             val generated = ParseRules.literalRule(raw, code.trim(), pointName)
                             if (generated == null) {
@@ -317,7 +318,7 @@ fun RuleEditScreen(
                         }
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     style = ShowCodeText.Action,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
             item {

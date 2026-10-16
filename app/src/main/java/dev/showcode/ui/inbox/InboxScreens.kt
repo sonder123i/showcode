@@ -57,7 +57,7 @@ import dev.showcode.core.parse.UnrecognizedReason
 import dev.showcode.data.UnrecognizedMessage
 import dev.showcode.ui.readText
 import dev.showcode.ui.relativeTimeText
-import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.AccentTint
 import dev.showcode.ui.theme.Canvas
 import dev.showcode.ui.theme.Hairline
@@ -65,6 +65,7 @@ import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.environmentBackground
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
@@ -96,7 +97,7 @@ fun UnrecognizedScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         ScreenTopBar(title = stringResource(R.string.unrecognized_title), onBack = onBack)
@@ -221,7 +222,7 @@ fun UnrecognizedScreen(
                                 modifier = Modifier.clickable { onUnmuteSender(key) }
                                     .padding(horizontal = 6.dp, vertical = 4.dp),
                                 style = ShowCodeText.Action,
-                                color = Accent,
+                                color = AccentInk,
                             )
                         }
                     }
@@ -249,7 +250,7 @@ private fun SectionHeader(title: String, expanded: Boolean, onClick: () -> Unit)
         Text(
             text = stringResource(if (expanded) R.string.unrecognized_collapse else R.string.unrecognized_expand),
             style = ShowCodeText.Action,
-            color = Accent,
+            color = AccentInk,
         )
     }
 }
@@ -306,14 +307,14 @@ private fun UnrecognizedRow(
                 text = stringResource(R.string.unrecognized_extract),
                 modifier = Modifier.clickable(onClick = onExtract),
                 style = ShowCodeText.Action,
-                color = Accent,
+                color = AccentInk,
             )
             // 手动提取救的是这一件，写规则救的是**这一类**。两个都是能走通的路，所以同色。
             Text(
                 text = stringResource(R.string.unrecognized_write_rule),
                 modifier = Modifier.clickable(onClick = onWriteRule),
                 style = ShowCodeText.Action,
-                color = Accent,
+                color = AccentInk,
             )
             Text(
                 text = stringResource(R.string.unrecognized_ignore),
@@ -377,7 +378,7 @@ fun ManualImportScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         ScreenTopBar(title = stringResource(R.string.manual_import_title), onBack = onBack)
@@ -412,7 +413,7 @@ fun ManualImportScreen(
                         }
                     },
                     style = ShowCodeText.Item,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
             item {
@@ -453,7 +454,7 @@ fun ManualImportScreen(
                         }
                     },
                     style = ShowCodeText.Item,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
             if (extras.isNotEmpty()) {
@@ -525,7 +526,7 @@ fun ManualImportScreen(
                                     )
                                     .border(
                                         1.dp,
-                                        if (pointName == name) Accent else Hairline,
+                                        if (pointName == name) AccentInk else Hairline,
                                         ShowCodeShapes.Sm,
                                     )
                                     .clickable { pointName = name }

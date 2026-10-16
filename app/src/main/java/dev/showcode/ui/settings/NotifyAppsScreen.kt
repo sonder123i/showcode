@@ -37,6 +37,7 @@ import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.environmentBackground
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
@@ -65,7 +66,7 @@ fun NotifyAppsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars),
     ) {
         ScreenTopBar(title = stringResource(R.string.notify_title), onBack = onBack)

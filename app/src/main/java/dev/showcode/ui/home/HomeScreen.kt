@@ -66,11 +66,11 @@ import dev.showcode.core.urgencyOf
 import dev.showcode.data.SyncResult
 import dev.showcode.ui.closingLabel
 import dev.showcode.ui.URGENCY_DUE_SOON_ICON
-import dev.showcode.ui.NAV_BAR_CLEARANCE
+import dev.showcode.ui.navBarClearance
 import dev.showcode.ui.pointIconOf
 import dev.showcode.ui.pointKindLabel
 import dev.showcode.ui.relativeTimeText
-import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.AccentTint
 import dev.showcode.ui.theme.BorderDueSoon
 import dev.showcode.ui.theme.Hairline
@@ -79,6 +79,7 @@ import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.InkWatermark
 import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.environmentBackground
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.withTabular
@@ -191,7 +192,7 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         Column(
@@ -262,7 +263,7 @@ fun HomeScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = NAV_BAR_CLEARANCE),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = navBarClearance()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (!state.loaded) return@LazyColumn
@@ -888,7 +889,7 @@ private fun RecentlyPickedSection(parcels: List<Parcel>, onRestore: (Parcel) -> 
                         .clickable { onRestore(parcel) }
                         .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
                     style = ShowCodeText.Action,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
         }
@@ -918,7 +919,7 @@ private fun UnrecognizedLinkRow(count: Int, onOpen: () -> Unit) {
         Text(
             text = stringResource(R.string.home_unrecognized_action),
             style = ShowCodeText.Action,
-            color = Accent,
+            color = AccentInk,
         )
     }
 }
@@ -949,7 +950,7 @@ private fun WidgetHintBanner(onPin: () -> Unit, onDismiss: () -> Unit) {
                 .clickable(onClick = onPin)
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             style = ShowCodeText.Action,
-            color = Accent,
+            color = AccentInk,
         )
         Text(
             text = "✕",
@@ -975,7 +976,7 @@ private fun EnableIngestCard(title: String, body: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(14.dp)
     ) {
-        Text(text = title, style = ShowCodeText.Item, color = Accent)
+        Text(text = title, style = ShowCodeText.Item, color = AccentInk)
         Spacer(Modifier.height(4.dp))
         Text(text = body, style = ShowCodeText.Caption, color = InkMuted)
     }

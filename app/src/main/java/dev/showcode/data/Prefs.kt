@@ -86,6 +86,23 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_REMINDER_ASKED, false)
         set(value) = sp.edit().putBoolean(KEY_REMINDER_ASKED, value).apply()
 
+    /**
+     * 底栏要不要玻璃。默认开——但「开」离「真的有玻璃」还差一件：平台能力（API 31+，blur 要
+     * RenderEffect）。见 `ui/glass/GlassCompat` 那条梯子。
+     */
+    var glassBarOn: Boolean
+        get() = sp.getBoolean(KEY_GLASS_BAR_ON, true)
+        set(value) = sp.edit().putBoolean(KEY_GLASS_BAR_ON, value).apply()
+
+    /**
+     * 本次（或上一次）进程是否真的上过玻璃。给 `GlassRuntimeGuard` 当判据用：
+     * 只有「上一个进程失败」**且**「那时开着玻璃」才算一次与玻璃有关的失败。
+     * 冷启动时由 guard 擦掉，正常退回后台**不擦**——家族也是这么做的。
+     */
+    var glassSessionUsed: Boolean
+        get() = sp.getBoolean(KEY_GLASS_SESSION_USED, false)
+        set(value) = sp.edit().putBoolean(KEY_GLASS_SESSION_USED, value).apply()
+
     private fun keyBinding(widgetId: Int) = "widget_bind_$widgetId"
     private fun keyBindingName(widgetId: Int) = "widget_bind_name_$widgetId"
 
@@ -106,6 +123,8 @@ class Prefs(context: Context) {
         private const val KEY_REMINDER_ON = "pickup_reminder_on"
         private const val KEY_REMINDED_DAY = "pickup_reminded_day"
         private const val KEY_REMINDER_ASKED = "pickup_reminder_asked"
+        private const val KEY_GLASS_BAR_ON = "glass_bar_on"
+        private const val KEY_GLASS_SESSION_USED = "glass_session_used"
 
         const val DEFAULT_LOCKER_HOURS = 6
         const val DEFAULT_STATION_MINUTES = 90

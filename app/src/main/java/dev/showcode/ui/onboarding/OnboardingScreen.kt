@@ -36,13 +36,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.showcode.R
 import dev.showcode.core.HealthReport
-import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.AccentTint
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.environmentBackground
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
@@ -80,7 +81,7 @@ fun OnboardingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         when (step) {
@@ -198,7 +199,7 @@ private fun StepBar(step: OnboardStep, onSkip: () -> Unit) {
                 text = stringResource(R.string.ob_skip),
                 modifier = Modifier.clickable(onClick = onSkip),
                 style = ShowCodeText.Caption,
-                color = Accent,
+                color = AccentInk,
             )
         }
         Spacer(Modifier.height(6.dp))
@@ -268,7 +269,7 @@ private fun CompareCard(title: String, desc: String, highlighted: Boolean, modif
         modifier = modifier
             .border(
                 width = if (highlighted) 2.dp else 1.dp,
-                color = if (highlighted) Accent else Hairline,
+                color = if (highlighted) AccentInk else Hairline,
                 shape = ShowCodeShapes.Md,
             )
             .background(if (highlighted) AccentTint else SurfaceCard, ShowCodeShapes.Md)
@@ -364,7 +365,7 @@ private fun NumberedStep(number: Int, text: String) {
         Box(
             modifier = Modifier
                 .size(26.dp)
-                .background(Accent, ShowCodeShapes.Md),
+                .background(AccentInk, ShowCodeShapes.Md),
             contentAlignment = Alignment.Center,
         ) {
             Text(text = number.toString(), style = ShowCodeText.Action, color = OnsiteSurface)

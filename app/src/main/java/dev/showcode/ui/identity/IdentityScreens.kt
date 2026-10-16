@@ -48,19 +48,21 @@ import dev.showcode.core.IdentityCodes
 import dev.showcode.core.IdentityReject
 import dev.showcode.core.LaunchOutcome
 import dev.showcode.ui.LaunchOutcomeLine
-import dev.showcode.ui.NAV_BAR_CLEARANCE
+import dev.showcode.ui.navBarClearance
 import dev.showcode.core.qr.MAX_VERSION
 import dev.showcode.core.qr.Qr
 import dev.showcode.data.InstalledApp
 import dev.showcode.ui.readText
 import dev.showcode.ui.inbox.ScreenTopBar
 import dev.showcode.ui.theme.Accent
+import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.Canvas
 import dev.showcode.ui.theme.Hairline
 import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
 import dev.showcode.ui.theme.InkSecondary
 import dev.showcode.ui.theme.OnsiteSurface
+import dev.showcode.ui.theme.environmentBackground
 import dev.showcode.ui.theme.ShowCodeShapes
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
@@ -93,13 +95,13 @@ fun IdentityListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars),
     ) {
         ScreenTopBar(title = stringResource(R.string.identity_title))
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = NAV_BAR_CLEARANCE),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = navBarClearance()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             /* 预置的那几家：点一下直接打开它，不落库、不进出示屏。
@@ -137,7 +139,7 @@ fun IdentityListScreen(
                                 Text(
                                     text = stringResource(R.string.identity_entry_open),
                                     style = ShowCodeText.Action,
-                                    color = Accent,
+                                    color = AccentInk,
                                 )
                             }
                         }
@@ -192,11 +194,11 @@ fun IdentityListScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(SurfaceCard, ShowCodeShapes.Md)
-                        .border(1.dp, Accent, ShowCodeShapes.Md)
+                        .border(1.dp, AccentInk, ShowCodeShapes.Md)
                         .clickable(onClick = onAdd)
                         .padding(16.dp),
                     style = ShowCodeText.Item,
-                    color = Accent,
+                    color = AccentInk,
                 )
             }
         }
@@ -275,7 +277,7 @@ private fun IdentityRow(
                 ),
                 modifier = Modifier.clickable(onClick = onShow),
                 style = ShowCodeText.Action,
-                color = Accent,
+                color = AccentInk,
             )
             // 「会不会变」是码的属性，不是入口的属性。给入口这一颗，点下去就是把
             // dynamic 写成 1，而那张屏上没有码可作废——提醒会变成一句没来由的谎。
@@ -351,7 +353,7 @@ fun IdentityEditScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(OnsiteSurface)
+            .environmentBackground()
             .windowInsetsPadding(WindowInsets.systemBars),
     ) {
         ScreenTopBar(title = stringResource(R.string.identity_edit_title), onBack = onBack)
@@ -446,7 +448,7 @@ fun IdentityEditScreen(
                             }
                             .padding(vertical = 6.dp),
                         style = ShowCodeText.Action,
-                        color = Accent,
+                        color = AccentInk,
                     )
                 }
             }
@@ -529,7 +531,7 @@ fun IdentityEditScreen(
                                 .clickable { picking = true }
                                 .padding(vertical = 4.dp),
                             style = ShowCodeText.Action,
-                            color = Accent,
+                            color = AccentInk,
                         )
                         if (app != null) {
                             Text(

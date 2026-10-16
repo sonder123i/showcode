@@ -63,6 +63,10 @@ private val ShowCodeColors = lightColorScheme(
  * 强制浅色，不跟随系统深色模式。
  * 理由不是审美：现场模式要在直射阳光下做到 21:1，深色模式会把它翻成白字黑底，
  * 而强光下深色底的反光会让取件码读不出来——那是这个产品唯一不能妥协的一屏。
+ *
+ * ⚠️ 2026-10-16 起：**页面底不再是 [Canvas]**。管理模式的页面底是 [environmentBackground] 那层
+ * 渐变，各屏自己铺；[background]/[surface] 保留纯白是当 M3 组件的兜底（新建的 Scaffold、
+ * Dialog 之类），而纯白是所有墨阶都过 AA 的那一端——兜底用最安全的那一端，不是最像的那一端。
  */
 @Composable
 fun ShowCodeTheme(content: @Composable () -> Unit) {
