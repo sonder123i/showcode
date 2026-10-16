@@ -37,6 +37,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,9 +65,20 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import dev.showcode.R
+import dev.showcode.ui.glass.GlassAccessibilityMode
 import dev.showcode.ui.glass.GlassCompat
+import dev.showcode.ui.glass.GlassLensFreshness
+import dev.showcode.ui.glass.GlassLensTransform
 import dev.showcode.ui.glass.GlassMaterials
 import dev.showcode.ui.glass.GlassTier
+import dev.showcode.ui.glass.drawBlurred
+import dev.showcode.ui.glass.glassLens
+import dev.showcode.ui.glass.glassLensAnchor
+import dev.showcode.ui.glass.glassLensOpticsFrom
+import dev.showcode.ui.glass.interactiveLensSpec
+import dev.showcode.ui.glass.isGlassLensApplicable
+import dev.showcode.ui.glass.motionIntensityFromVelocity
+import dev.showcode.ui.glass.rememberGlassLensAnchor
 import dev.showcode.ui.theme.AccentInk
 import dev.showcode.ui.theme.Ink
 import dev.showcode.ui.theme.InkMuted
@@ -75,6 +87,8 @@ import dev.showcode.ui.theme.MotionTokens
 import dev.showcode.ui.theme.ShowCodeText
 import dev.showcode.ui.theme.SurfaceCard
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.abs
 import kotlin.math.sign
 
@@ -158,6 +172,8 @@ fun ShowCodeNavBar(
     /** 玻璃折的那张背景。null、或不是玻璃档，就等于回落到不透明底栏。 */
     backdrop: Backdrop? = null,
     highTextContrast: Boolean = false,
+    /** 31/32 折射底图的新鲜度信号（滚动后要重拍，否则折射里是启动那一刻的画面）。 */
+    lensFreshness: GlassLensFreshness? = null,
 ) {
     val metrics = rememberScreenMetrics()
     val lensLook = GlassCompat.lensLook(tier, Build.VERSION.SDK_INT)
@@ -236,6 +252,50 @@ fun ShowCodeNavBar(
         /* 拖动时轨道反向微漂（教务 panelOffset：4dp·sign·EaseOut），松手后果冻回位。 */
         val panelAnim = remember { Animatable(0f) }
 
+        /* 轨道表面与模糊半径：31/32 的离屏折射锚点要在底图里复刻这两样，
+           所以提到最前面，锚点与轨道层读同一份（教务「差一档模糊就对不上」）。 */
+        val containerColor = if (lensLook) {
+            Color.White.copy(alpha = GlassMaterials.NavTrackSurfaceAlpha)
+        } else {
+            Color(GlassMaterials.NavLegacyTrackSurface)
+                .copy(alpha = GlassMaterials.NavLegacyTrackSurfaceAlpha)
+        }
+        val trackBlurDp = if (lensLook) {
+            GlassMaterials.navigation(highTextContrast).blurDp
+        } else {
+            GlassMaterials.NavLegacyTrackBlurDp
+        }
+        val outerDensity = LocalDensity.current
+        val trackBlurPx = with(outerDensity) { trackBlurDp.dp.toPx() }
+
+        /* 31/32 离屏折射的取样锚点（教务 glassLens 管线）。底图必须复刻胶囊**实际压着的**
+           东西，顺序与屏幕一致：模糊的页面内容 → 轨道容器色。模糊在这里重做一遍而不是
+           replay 轨道层：轨道层**有形状**，裁边会被斜坡放大成一圈灰罩（教务踩过）。
+           33+ 走库 lens()，[rememberGlassLensAnchor] 自己会返回 null。 */
+        val lensAnchor = rememberGlassLensAnchor(tag = "navbar") { coords ->
+            drawBlurred(trackBlurPx) {
+                with(glassBackdrop) { drawBackdrop(outerDensity, coords, null) }
+            }
+            drawRect(containerColor)
+        }
+        /* 换格立即重拍 + 350ms 补一张：换页那一下拍到的是页面入场动画的中间帧
+           （教务把这条写成了注释里的绿色残影），停稳再补才对。 */
+        LaunchedEffect(lensAnchor, selectedIndex) {
+            if (lensAnchor == null) return@LaunchedEffect
+            lensAnchor.invalidate()
+            delay(350L)
+            lensAnchor.invalidate()
+        }
+        /* 滚动改变页面内容那一层：限频重拍 + 停下后补一次（GlassLensFreshness 自带限频）。 */
+        LaunchedEffect(lensAnchor, lensFreshness) {
+            if (lensAnchor == null || lensFreshness == null) return@LaunchedEffect
+            snapshotFlow { lensFreshness.version }.collectLatest {
+                lensAnchor.invalidateBackground()
+                delay(140L)
+                lensAnchor.invalidateBackground()
+            }
+        }
+
         if (minimizeFraction < 0.999f) {
         Box(
             modifier = Modifier.graphicsLayer {
@@ -249,7 +309,8 @@ fun ShowCodeNavBar(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(trackHeight),
+                .height(trackHeight)
+                .glassLensAnchor(lensAnchor),
             contentAlignment = Alignment.CenterStart,
         ) {
             val density = LocalDensity.current
@@ -278,14 +339,7 @@ fun ShowCodeNavBar(
                     .drawBackdrop(
                         backdrop = glassBackdrop,
                         shape = { CircleShape },
-                        effects = {
-                            val blurDp = if (lensLook) {
-                                GlassMaterials.navigation(highTextContrast).blurDp
-                            } else {
-                                GlassMaterials.NavLegacyTrackBlurDp
-                            }
-                            blur(with(density) { blurDp.dp.toPx() })
-                        },
+                        effects = { blur(trackBlurPx) },
                         highlight = {
                             if (lensLook) {
                                 Highlight.Default.copy(alpha = GlassMaterials.NavTrackHighlightAlpha)
@@ -311,16 +365,7 @@ fun ShowCodeNavBar(
                             scaleX = scale
                             scaleY = scale
                         },
-                        onDrawSurface = {
-                            if (lensLook) {
-                                drawRect(Color.White.copy(alpha = GlassMaterials.NavTrackSurfaceAlpha))
-                            } else {
-                                drawRect(
-                                    Color(GlassMaterials.NavLegacyTrackSurface)
-                                        .copy(alpha = GlassMaterials.NavLegacyTrackSurfaceAlpha),
-                                )
-                            }
-                        },
+                        onDrawSurface = { drawRect(containerColor) },
                     )
                     .padding(horizontal = barPadding),
                 contentAlignment = Alignment.CenterStart,
@@ -328,6 +373,7 @@ fun ShowCodeNavBar(
                 /* 选中胶囊：位移挂在位置状态机上（一格 = tabWidthPx），缩放只进 layerBlock
                    （backdrop 库的硬约束），按压胀 78/56、滑行中按速度拉伸。 */
                 val press = drag.pressProgress
+                val indicatorMaterial = interactiveLensSpec(highTextContrast)
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
@@ -337,13 +383,39 @@ fun ShowCodeNavBar(
                         }
                         .width(tabWidthDp)
                         .height(indicatorHeight.coerceAtMost(trackHeight - barPadding * 2))
+                        /* 31/32 真折射：画在 drawBackdrop **之前**，折射结果就是胶囊的背景。
+                           光学参数与 33+ 那条读同一份材质、同一个地板（0，静止不折）、同一条
+                           速度→色散曲线；缩放与 layerBlock 必须同一份形变（不一致时按下会看到
+                           一圈白环浮在玻璃外面——教务截图确认过的坑）。 */
+                        .glassLens(
+                            anchor = lensAnchor,
+                            optics = { w, h ->
+                                val minDim = minOf(w, h)
+                                glassLensOpticsFrom(
+                                    material = indicatorMaterial,
+                                    density = outerDensity,
+                                    cornerRadiusPx = minDim / 2f,
+                                    minDimensionPx = minDim,
+                                    interactionProgress = drag.pressProgress,
+                                    motionIntensity = motionIntensityFromVelocity(
+                                        velocityX = drag.velocity * tabWidthPx,
+                                        fullEffectVelocity = indicatorMaterial.optics.velocityForFullEffect,
+                                    ),
+                                    pressScalesRefraction = true,
+                                    refractionFloor = 0f,
+                                    chromaticAberrationAtRest = false,
+                                )
+                            },
+                            scale = { _, _ -> indicatorScale(drag) },
+                        )
                         .drawBackdrop(
                             backdrop = glassBackdrop,
                             shape = { CircleShape },
                             effects = {
                                 /* 33+ 的按下折射（库基线 lens(10dp·p, 14dp·p)，静止 0）。
-                                   31/32 的真折射在批 6 接离屏 GL；这里先按无折射档走。 */
-                                if (lensLook && press > 0f) {
+                                   31/32 的真折射已由上面的 glassLens 画完，这里不能再叠
+                                   （两套边缘着色叠在一起只会互相污染）。 */
+                                if (lensAnchor == null && lensLook && press > 0f) {
                                     lens(
                                         refractionHeight = with(density) {
                                             GlassMaterials.NavIndicatorLensHeightDp.dp.toPx()
@@ -384,10 +456,12 @@ fun ShowCodeNavBar(
                                 InnerShadow(radius = 4.dp * press, alpha = press * 0.5f)
                             },
                             layerBlock = {
-                                val (sx, sy) = indicatorScale(drag)
-                                scaleX = sx
-                                scaleY = sy
+                                val t = indicatorScale(drag)
+                                scaleX = t.scaleX
+                                scaleY = t.scaleY
                             },
+                            /* 31/32 上背景已由 glassLens 以折射方式画过，不能再画一遍。 */
+                            onDrawBackdrop = { drawBackground -> if (lensAnchor == null) drawBackground() },
                             onDrawSurface = {
                                 if (lensLook) {
                                     /* 有折射：低透明中性 tint（白），静止即玻璃；按下更透露出折射。 */
@@ -619,14 +693,16 @@ private fun MinimizedNavCapsule(
 /**
  * 指示胶囊的按压 + 速度形变（教务 `indicatorScale` 同式，参数一字未改）。
  * 速度形变系数 /6：`sx` 拉长、`sy` 压扁——滑得越快胶囊越「被甩长」。
+ * 平移为 0：胶囊的 translationX 挂在**外层** graphicsLayer 上，glassLens 在它内部，
+ * 已经跟着一起走了（教务 GlassLensTransform 注释同因）。
  */
-private fun indicatorScale(anim: DampedDragAnimation): Pair<Float, Float> {
+private fun indicatorScale(anim: DampedDragAnimation): GlassLensTransform {
     var sx = anim.scaleX
     var sy = anim.scaleY
     val velocity = anim.velocity / 6f
     sx /= 1f - (velocity * 0.75f).coerceIn(-0.22f, 0.22f)
     sy *= 1f - (velocity * 0.25f).coerceIn(-0.22f, 0.22f)
-    return sx to sy
+    return GlassLensTransform(scaleX = sx, scaleY = sy)
 }
 
 @Composable

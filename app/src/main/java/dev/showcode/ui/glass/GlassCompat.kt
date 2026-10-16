@@ -47,14 +47,16 @@ object GlassCompat {
     }
 
     /**
-     * 这台设备出不出**折射外观**。33+ 的 lens 由 backdrop 库出；批 6 把教务的离屏 GL
-     * 接上后，31/32 也算进来（教务的判据 `hasLensLook = hasRealLens || useOffscreenLens`）。
+     * 这台设备出不出**折射外观**。33+ 的折射由 backdrop 库的 `lens()` 出；
+     * 31/32 由搬进来的教务离屏 GL 管线（`GlassLens*`）出——教务的判据
+     * `hasLensLook = hasRealLens || useOffscreenLens`，这里同式。
      *
      * 它决定的是一组几何与材质：轨道高 72/62 vs 64/58、胶囊白 0.34 vs Black×0.1、
      * 轨道有没有高光/投影。教务的注释把因果写得很直白：「有真折射就给得开」。
      */
     fun lensLook(tier: GlassTier, sdkInt: Int): Boolean =
-        tier == GlassTier.BACKDROP && sdkInt >= Build.VERSION_CODES.TIRAMISU
+        tier == GlassTier.BACKDROP &&
+            (sdkInt >= Build.VERSION_CODES.TIRAMISU || isGlassLensApplicable())
 }
 
 private const val HIGH_TEXT_CONTRAST_KEY = "high_text_contrast_enabled"

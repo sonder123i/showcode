@@ -33,6 +33,7 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "0.2.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -64,6 +65,8 @@ android {
 
     buildFeatures {
         compose = true
+        // 折射引擎（GlassLens*）的调试日志挂在 BuildConfig.DEBUG 上
+        buildConfig = true
     }
 
     compileOptions {
@@ -78,7 +81,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     /* 底栏那层玻璃。取件码只用到 backdrop，不引 shapes：shapes 是给 lens() 的圆角变体用的，
-       而本仓库不做折射（见 ui/glass/GlassMaterials 顶部）。 */
+       本仓库的折射形状只有 CircleShape（CornerBasedShape 系），见 ui/glass/GlassLensCompat。 */
     implementation("io.github.kyant0:backdrop:2.0.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
@@ -86,6 +89,10 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    /* 折射引擎的 GL 冒烟探针（androidTest）：EGL/着色器在这台设备上起不起来。 */
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 
     testImplementation("junit:junit:4.13.2")
 }

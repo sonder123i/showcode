@@ -456,6 +456,8 @@ fun ShowCodeRoot() {
        一个都不用改。换屏就展开：新屏从收起态开始会让人以为底栏坏了。 */
     var barMinimized by remember { mutableStateOf(false) }
     val navScrollIntent = remember { NavScrollIntent() }
+    /* 31/32 折射底图的新鲜度：滚动之后底图必须重拍，否则折射里是启动那一刻的画面。 */
+    val lensFreshness = remember { dev.showcode.ui.glass.GlassLensFreshness() }
     val scrollDensity = LocalDensity.current
     LaunchedEffect(route) {
         barMinimized = false
@@ -487,6 +489,8 @@ fun ShowCodeRoot() {
                                         ?.let { barMinimized = it }
                                 }
                             }
+                            // 惯性滑行（source == SideEffect）也要算：手指离开后页面还在动
+                            if (consumed.y != 0f) lensFreshness.onScroll()
                             return Offset.Zero
                         }
                     }
@@ -838,6 +842,7 @@ fun ShowCodeRoot() {
                 tier = glassTier,
                 backdrop = glassBackdrop,
                 highTextContrast = highTextContrast,
+                lensFreshness = lensFreshness,
             )
         }
     }
